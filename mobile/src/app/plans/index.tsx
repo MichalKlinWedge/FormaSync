@@ -1,0 +1,121 @@
+import { router } from 'expo-router';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { Icon } from '@/components/icon';
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+import { BottomTabInset, Spacing } from '@/constants/theme';
+import { emptyDraft } from '@/features/plans/draft';
+import { usePlanDraftStore } from '@/features/plans/draft-store';
+import { usePlanList } from '@/features/plans/use-plans';
+import { useTheme } from '@/hooks/use-theme';
+
+type PlanSummary = ReturnType<typeof usePlanList>['own'][number];
+
+export default function PlansScreen() {
+  const theme = useTheme();
+  const { own, templates } = usePlanList();
+  const startDraft = usePlanDraftStore((s) => s.start);
+
+  const createPlan = () => {
+    startDraft(emptyDraft());
+    router.push('/plans/edit');
+  };
+
+  return (
+    <ThemedView style={styles.container}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <ScrollView contentContainerStyle={styles.content}>
+          <View style={styles.header}>
+            <ThemedText type="subtitle">Plany</ThemedText>
+            <Pressable accessibilityLabel="Nowy plan" onPress={createPlan} hitSlop={8}>
+              <Icon name="add" size={28} color={theme.accent} />
+            </Pressable>
+          </View>
+
+          <Section title="Moje plany">
+            {own.length === 0 ? (
+              <ThemedView type="backgroundElement" style={styles.card}>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Nie masz jeszcze własnych planów. Utwórz plan od zera przyciskiem + albo skopiuj jeden z
+                  szablonów poniżej.
+                </ThemedText>
+              </ThemedView>
+            ) : (
+              own.map((plan) => <PlanCard key={plan.id} plan={plan} />)
+            )}
+          </Section>
+
+          <Section title="Szablony">
+            {templates.map((plan) => (
+              <PlanCard key={plan.id} plan={plan} />
+            ))}
+          </Section>
+        </ScrollView>
+      </SafeAreaView>
+    </ThemedView>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <View style={styles.section}>
+      <ThemedText type="smallBold" themeColor="textSecondary">
+        {title.toUpperCase()}
+      </ThemedText>
+      {children}
+    </View>
+  );
+}
+
+function PlanCard({ plan }: { plan: PlanSummary }) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      onPress={() => router.push({ pathname: '/plans/[id]', params: { id: plan.id } })}
+      style={({ pressed }) => [styles.card, { backgroundColor: theme.backgroundElement, opacity: pressed ? 0.7 : 1 }]}>
+      <View style={styles.cardText}>
+        <ThemedText type="smallBold">{plan.title}</ThemedText>
+        {plan.description && (
+          <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
+            {plan.description}
+          </ThemedText>
+        )}
+        <ThemedText type="small" themeColor="textSecondary">
+          {exerciseCountLabel(plan.exerciseCount)}
+        </ThemedText>
+      </View>
+      <Icon name="chevron_right" size={20} color={theme.textSecondary} />
+    </Pressable>
+  );
+}
+
+/** Polska odmiana: 1 ćwiczenie, 2–4 ćwiczenia, 5+ ćwiczeń (12–14 ćwiczeń). */
+function exerciseCountLabel(n: number) {
+  const lastTwo = n % 100;
+  const last = n % 10;
+  if (n === 1) return '1 ćwiczenie';
+  if (last >= 2 && last <= 4 && (lastTwo < 12 || lastTwo > 14)) return `${n} ćwiczenia`;
+  return `${n} ćwiczeń`;
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  safeArea: { flex: 1 },
+  content: {
+    padding: Spacing.four,
+    gap: Spacing.four,
+    paddingBottom: BottomTabInset + Spacing.four,
+  },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  section: { gap: Spacing.two },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    borderRadius: 16,
+    padding: Spacing.three,
+  },
+  cardText: { flex: 1, gap: Spacing.half },
+});
