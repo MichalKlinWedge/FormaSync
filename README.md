@@ -9,7 +9,7 @@ System wspomagania treningu siłowego z integracją Garmin.
 ## Status
 
 - [x] Etap 1 — fundament techniczny (projekt Expo, baza SQLite + migracje, seed, zakładki, EAS)
-- [ ] Etap 2 — katalog ćwiczeń
+- [x] Etap 2 — katalog ćwiczeń (wyszukiwarka, filtry, szczegóły, własne ćwiczenia ze zdjęciem)
 - [ ] Etap 3 — kreator planów i szablony
 - [ ] Etap 4 — trening na żywo
 - [ ] Etap 5 — historia i korekta

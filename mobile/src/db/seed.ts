@@ -1,5 +1,4 @@
 import { eq } from 'drizzle-orm';
-import type { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
 
 import * as schema from './schema';
 import {
@@ -9,11 +8,7 @@ import {
   seedExercises,
   seedTemplates,
 } from './seed-data';
-
-// Synchroniczna baza Drizzle/SQLite (expo-sqlite w aplikacji, better-sqlite3 w testach).
-// Sterownik expo-sqlite jest synchroniczny — w transakcji używamy .all()/.get()/.run(),
-// bo `await` na zapytaniu wykonałby je dopiero po COMMIT.
-export type SyncDb = BaseSQLiteDatabase<'sync', unknown, typeof schema>;
+import type { SyncDb } from './types';
 
 const SEED_VERSION_KEY = 'seed_version';
 

@@ -2,23 +2,12 @@
  * @jest-environment node
  */
 import { describe, expect, it } from '@jest/globals';
-import Database from 'better-sqlite3';
 import { count, eq } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import path from 'path';
 
 import * as schema from '../schema';
 import { seedDatabase } from '../seed';
 import { seedExercises, seedTemplates } from '../seed-data';
-
-function createDb() {
-  const sqlite = new Database(':memory:');
-  sqlite.pragma('foreign_keys = ON');
-  const db = drizzle(sqlite, { schema });
-  migrate(db, { migrationsFolder: path.join(__dirname, '../../../drizzle') });
-  return db;
-}
+import { createTestDb as createDb } from '../test-utils';
 
 describe('seedDatabase', () => {
   it('wgrywa katalog ćwiczeń i szablony', () => {
