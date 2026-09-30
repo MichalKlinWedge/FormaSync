@@ -10,6 +10,8 @@ import { formatDuration, formatTarget } from '@/features/plans/draft';
 import { usePlanDraftStore } from '@/features/plans/draft-store';
 import { deletePlan, draftFromPlan, loadPlanDraft } from '@/features/plans/repository';
 import { usePlanDetails } from '@/features/plans/use-plans';
+import { ensureNotificationPermission } from '@/features/workout/notifications';
+import { ActiveSessionExistsError, startSession } from '@/features/workout/repository';
 
 export default function PlanDetailsScreen() {
   const id = Number(useLocalSearchParams<{ id: string }>().id);
@@ -26,6 +28,18 @@ export default function PlanDetailsScreen() {
   const copy = () => {
     startDraft(draftFromPlan(db, plan.id));
     router.push('/plans/edit');
+  };
+
+  const start = () => {
+    try {
+      startSession(db, { kind: 'plan', planId: plan.id });
+      void ensureNotificationPermission();
+      router.push('/workout/active');
+    } catch (e) {
+      if (e instanceof ActiveSessionExistsError) {
+        Alert.alert('Trening już trwa', 'Najpierw zakończ lub przerwij bieżący trening.');
+      } else throw e;
+    }
   };
 
   const confirmDelete = () =>
@@ -67,11 +81,12 @@ export default function PlanDetailsScreen() {
         </View>
 
         <View style={styles.actions}>
+          <Button label="Rozpocznij trening" icon="play_arrow" onPress={start} />
           {plan.isTemplate ? (
-            <Button label="Kopiuj do moich planów" icon="content_copy" onPress={copy} />
+            <Button label="Kopiuj do moich planów" icon="content_copy" variant="secondary" onPress={copy} />
           ) : (
             <>
-              <Button label="Edytuj" icon="edit" onPress={edit} />
+              <Button label="Edytuj" icon="edit" variant="secondary" onPress={edit} />
               <Button label="Duplikuj" icon="content_copy" variant="secondary" onPress={copy} />
               <Button label="Usuń" icon="delete" variant="danger" onPress={confirmDelete} />
             </>

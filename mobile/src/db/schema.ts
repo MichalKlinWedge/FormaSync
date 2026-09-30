@@ -141,6 +141,31 @@ export const workoutSessions = sqliteTable(
   (t) => [index('workout_sessions_start_idx').on(t.startTime)],
 );
 
+/**
+ * Migawka planu z chwili rozpoczęcia sesji. Dzięki niej późniejsza edycja planu nie zmienia
+ * historii, a trening „pusty” (bez planu) ma tę samą strukturę co trening z planu.
+ */
+export const sessionExercises = sqliteTable(
+  'session_exercises',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    sessionId: integer('session_id')
+      .notNull()
+      .references(() => workoutSessions.id, { onDelete: 'cascade' }),
+    exerciseId: integer('exercise_id')
+      .notNull()
+      .references(() => exercises.id),
+    orderIndex: integer('order_index').notNull(),
+    targetSets: integer('target_sets').notNull(),
+    targetReps: integer('target_reps'),
+    targetWeight: real('target_weight'),
+    targetDurationSeconds: integer('target_duration_seconds'),
+    restDurationSeconds: integer('rest_duration_seconds').notNull().default(90),
+    notes: text('notes'),
+  },
+  (t) => [index('session_exercises_session_idx').on(t.sessionId)],
+);
+
 export const loggedSets = sqliteTable(
   'logged_sets',
   {
@@ -148,6 +173,10 @@ export const loggedSets = sqliteTable(
     sessionId: integer('session_id')
       .notNull()
       .references(() => workoutSessions.id, { onDelete: 'cascade' }),
+    sessionExerciseId: integer('session_exercise_id')
+      .notNull()
+      .references(() => sessionExercises.id, { onDelete: 'cascade' }),
+    // Zduplikowane z session_exercises dla wygody analityki i sprawdzania użycia ćwiczenia.
     exerciseId: integer('exercise_id')
       .notNull()
       .references(() => exercises.id),
