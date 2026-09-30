@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { db } from '@/db/client';
 import { loggedSets, workoutSessions } from '@/db/schema';
 
-import { groupByMonth } from './format';
+import { groupByMonth } from '@/lib/date';
 import { type HistoryEntry, listHistory } from './repository';
 
 /**

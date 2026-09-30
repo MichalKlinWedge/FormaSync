@@ -10,7 +10,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
-import { formatSessionDate } from '@/features/history/format';
+
 import {
   deleteSession,
   loadSessionMeta,
@@ -22,6 +22,7 @@ import { type ActiveExercise, type ActiveSet, countSets, formatClock, sessionTon
 import { addSet, completeSet, removeSet, type SetValues, updateSet } from '@/features/workout/repository';
 import { useSession } from '@/features/workout/use-session';
 import { useTheme } from '@/hooks/use-theme';
+import { formatDateTime } from '@/lib/date';
 
 const RPE_VALUES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
@@ -78,7 +79,7 @@ export default function HistoryDetailsScreen() {
           <View>
             <ThemedText type="subtitle">{session.title}</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              {formatSessionDate(session.startTime)}
+              {formatDateTime(session.startTime)}
             </ThemedText>
           </View>
 

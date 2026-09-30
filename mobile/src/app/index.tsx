@@ -8,6 +8,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
+import { useScheduledRange } from '@/features/calendar/use-calendar';
 import { usePlanList } from '@/features/plans/use-plans';
 import { elapsedSeconds, formatClock } from '@/features/workout/logic';
 import { ensureNotificationPermission } from '@/features/workout/notifications';
@@ -15,12 +16,15 @@ import { ActiveSessionExistsError, startSession, type StartSessionOptions } from
 import { useActiveSessionBanner } from '@/features/workout/use-session';
 import { useNow } from '@/hooks/use-now';
 import { useTheme } from '@/hooks/use-theme';
+import { formatDayWithWeekday, todayKey } from '@/lib/date';
 
 export default function TodayScreen() {
   const theme = useTheme();
   const now = useNow(1000);
+  const today = todayKey();
   const active = useActiveSessionBanner();
   const { own, templates } = usePlanList();
+  const todayEntries = useScheduledRange(today, today).filter((entry) => !entry.isCompleted);
 
   const begin = (options: StartSessionOptions) => {
     try {
@@ -40,13 +44,18 @@ export default function TodayScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView contentContainerStyle={styles.content}>
-          <ThemedText type="subtitle">FormaSync</ThemedText>
+          <View>
+            <ThemedText type="subtitle">FormaSync</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {formatDayWithWeekday(today)}
+            </ThemedText>
+          </View>
 
           {active ? (
             <Pressable
               onPress={() => router.push('/workout/active')}
               style={({ pressed }) => [styles.banner, { backgroundColor: theme.accent, opacity: pressed ? 0.8 : 1 }]}>
-              <View style={styles.bannerText}>
+              <View style={styles.rowText}>
                 <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
                   Trening trwa · {active.title ?? active.planTitle ?? 'Trening'}
                 </ThemedText>
@@ -57,34 +66,61 @@ export default function TodayScreen() {
               <Icon name="chevron_right" size={26} color={theme.onAccent} />
             </Pressable>
           ) : (
-            <View style={styles.section}>
-              <ThemedText type="smallBold" themeColor="textSecondary">
-                ROZPOCZNIJ TRENING
-              </ThemedText>
-              {quickStart.slice(0, 5).map((plan) => (
-                <Pressable
-                  key={plan.id}
-                  onPress={() => begin({ kind: 'plan', planId: plan.id })}
-                  style={({ pressed }) => [
-                    styles.planRow,
-                    { backgroundColor: theme.backgroundElement, opacity: pressed ? 0.7 : 1 },
-                  ]}>
-                  <View style={styles.bannerText}>
-                    <ThemedText type="smallBold">{plan.title}</ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {plan.isTemplate ? 'szablon' : 'mój plan'}
-                    </ThemedText>
-                  </View>
-                  <Icon name="play_arrow" size={24} color={theme.accent} />
-                </Pressable>
-              ))}
-              <Button
-                label="Trening bez planu"
-                icon="add"
-                variant="secondary"
-                onPress={() => begin({ kind: 'empty' })}
-              />
-            </View>
+            <>
+              {todayEntries.length > 0 && (
+                <View style={styles.section}>
+                  <ThemedText type="smallBold" themeColor="textSecondary">
+                    W PLANIE NA DZIŚ
+                  </ThemedText>
+                  {todayEntries.map((entry) => (
+                    <Pressable
+                      key={entry.id}
+                      onPress={() => begin({ kind: 'scheduled', scheduledId: entry.id })}
+                      style={({ pressed }) => [
+                        styles.row,
+                        { backgroundColor: theme.backgroundSelected, opacity: pressed ? 0.7 : 1 },
+                      ]}>
+                      <View style={styles.rowText}>
+                        <ThemedText type="smallBold">{entry.planTitle}</ThemedText>
+                        <ThemedText type="small" themeColor="textSecondary">
+                          {entry.scheduledTime ?? 'cały dzień'}
+                        </ThemedText>
+                      </View>
+                      <Icon name="play_arrow" size={24} color={theme.accent} />
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+
+              <View style={styles.section}>
+                <ThemedText type="smallBold" themeColor="textSecondary">
+                  {todayEntries.length > 0 ? 'ALBO ZACZNIJ INNY' : 'ROZPOCZNIJ TRENING'}
+                </ThemedText>
+                {quickStart.slice(0, 5).map((plan) => (
+                  <Pressable
+                    key={plan.id}
+                    onPress={() => begin({ kind: 'plan', planId: plan.id })}
+                    style={({ pressed }) => [
+                      styles.row,
+                      { backgroundColor: theme.backgroundElement, opacity: pressed ? 0.7 : 1 },
+                    ]}>
+                    <View style={styles.rowText}>
+                      <ThemedText type="smallBold">{plan.title}</ThemedText>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {plan.isTemplate ? 'szablon' : 'mój plan'}
+                      </ThemedText>
+                    </View>
+                    <Icon name="play_arrow" size={24} color={theme.accent} />
+                  </Pressable>
+                ))}
+                <Button
+                  label="Trening bez planu"
+                  icon="add"
+                  variant="secondary"
+                  onPress={() => begin({ kind: 'empty' })}
+                />
+              </View>
+            </>
           )}
         </ScrollView>
       </SafeAreaView>
@@ -103,14 +139,14 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: Spacing.three,
   },
-  bannerText: { flex: 1 },
   clock: { fontSize: 36, lineHeight: 42 },
   section: { gap: Spacing.two },
-  planRow: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
     borderRadius: 14,
     padding: Spacing.three,
   },
+  rowText: { flex: 1 },
 });

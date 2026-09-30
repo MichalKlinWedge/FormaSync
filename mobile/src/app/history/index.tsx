@@ -6,11 +6,12 @@ import { Icon } from '@/components/icon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Spacing } from '@/constants/theme';
-import { formatSessionDate } from '@/features/history/format';
+
 import type { HistoryEntry } from '@/features/history/repository';
 import { useHistory } from '@/features/history/use-history';
 import { formatClock } from '@/features/workout/logic';
 import { useTheme } from '@/hooks/use-theme';
+import { formatDateTime } from '@/lib/date';
 
 export default function HistoryScreen() {
   const groups = useHistory();
@@ -69,7 +70,7 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
           {entry.status === 'ABANDONED' ? ' · przerwany' : ''}
         </ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
-          {formatSessionDate(entry.startTime)}
+          {formatDateTime(entry.startTime)}
         </ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
           {details}
