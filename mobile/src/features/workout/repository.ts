@@ -49,12 +49,17 @@ export function startSession(db: SyncDb, options: StartSessionOptions, now = now
   if (options.kind === 'scheduled' && !scheduled) throw new Error('Zaplanowany trening nie istnieje');
 
   const planId = options.kind === 'plan' ? options.planId : (scheduled?.planId ?? null);
+  const planTitle =
+    planId === null
+      ? null
+      : (db.select().from(schema.workoutPlans).where(eq(schema.workoutPlans.id, planId)).get()?.title ?? null);
 
   return db.transaction((tx) => {
     const sessionId = tx
       .insert(schema.workoutSessions)
       .values({
         planId,
+        title: planTitle,
         scheduledId: scheduled?.id ?? null,
         status: 'IN_PROGRESS',
         startTime: now,
@@ -152,7 +157,7 @@ export function loadSession(db: SyncDb, sessionId: number): ActiveSession | null
   return {
     id: session.session.id,
     startTime: session.session.startTime,
-    title: session.planTitle ?? 'Trening',
+    title: session.session.title ?? session.planTitle ?? 'Trening',
     planId: session.session.planId,
     scheduledId: session.session.scheduledId,
     exercises: exerciseRows.map(({ se, exercise }) => ({

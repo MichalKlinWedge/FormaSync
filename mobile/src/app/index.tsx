@@ -48,7 +48,7 @@ export default function TodayScreen() {
               style={({ pressed }) => [styles.banner, { backgroundColor: theme.accent, opacity: pressed ? 0.8 : 1 }]}>
               <View style={styles.bannerText}>
                 <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
-                  Trening trwa · {active.planTitle ?? 'Trening'}
+                  Trening trwa · {active.title ?? active.planTitle ?? 'Trening'}
                 </ThemedText>
                 <ThemedText type="title" style={[styles.clock, { color: theme.onAccent }]}>
                   {formatClock(elapsedSeconds(active.startTime, now))}

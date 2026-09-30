@@ -131,6 +131,8 @@ export const workoutSessions = sqliteTable(
     scheduledId: integer('scheduled_id').references(() => scheduledWorkouts.id, { onDelete: 'set null' }),
     // Sesja może powstać bez harmonogramu (z planu lub „pusty trening”).
     planId: integer('plan_id').references(() => workoutPlans.id, { onDelete: 'set null' }),
+    // Nazwa z chwili startu — historia zachowuje ją także po usunięciu planu.
+    title: text('title'),
     status: text('status', { enum: sessionStatuses }).notNull().default('IN_PROGRESS'),
     startTime: text('start_time').notNull(),
     endTime: text('end_time'),

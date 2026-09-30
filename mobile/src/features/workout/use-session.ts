@@ -25,6 +25,7 @@ export function useActiveSessionBanner() {
       .select({
         id: workoutSessions.id,
         startTime: workoutSessions.startTime,
+        title: workoutSessions.title,
         planTitle: workoutPlans.title,
       })
       .from(workoutSessions)

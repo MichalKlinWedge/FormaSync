@@ -12,7 +12,7 @@ System wspomagania treningu siłowego z integracją Garmin.
 - [x] Etap 2 — katalog ćwiczeń (wyszukiwarka, filtry, szczegóły, własne ćwiczenia ze zdjęciem)
 - [x] Etap 3 — kreator planów i szablony (tworzenie, edycja, kolejność, kopiowanie szablonów)
 - [x] Etap 4 — trening na żywo (rejestracja serii, stoper, timer przerwy, wznawianie sesji)
-- [ ] Etap 5 — historia i korekta
+- [x] Etap 5 — historia i korekta (dziennik, edycja serii po fakcie, aktualizacja planu)
 - [ ] Etap 6 — harmonogram i powiadomienia
 - [ ] Etap 7 — backend serverless + e-mail
 - [ ] Etap 8 — Garmin: biometria

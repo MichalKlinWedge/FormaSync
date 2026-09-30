@@ -1,19 +1,20 @@
-import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
+import { CompactNumberInput } from '@/components/compact-number-input';
 import { Icon } from '@/components/icon';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
-import { parseNumber } from '@/features/plans/draft';
 import { useTheme } from '@/hooks/use-theme';
 
 import type { ActiveExercise, ActiveSet } from './logic';
+
+type SetValues = { repsCompleted?: number | null; weightKg?: number | null; durationSeconds?: number | null };
 
 type SetRowProps = {
   exercise: ActiveExercise;
   set: ActiveSet;
   isCurrent: boolean;
-  onEdit: (values: { repsCompleted?: number | null; weightKg?: number | null; durationSeconds?: number | null }) => void;
+  onEdit: (values: SetValues) => void;
   onEditEnd: () => void;
   onToggle: () => void;
   onRemove: () => void;
@@ -36,21 +37,21 @@ export function SetRow({ exercise, set, isCurrent, onEdit, onEditEnd, onToggle, 
       </ThemedText>
 
       {timed ? (
-        <CompactInput
+        <CompactNumberInput
           value={set.durationSeconds}
           suffix="s"
           onChange={(v) => onEdit({ durationSeconds: v })}
           onEnd={onEditEnd}
         />
       ) : (
-        <CompactInput
+        <CompactNumberInput
           value={set.repsCompleted}
           suffix="powt."
           onChange={(v) => onEdit({ repsCompleted: v })}
           onEnd={onEditEnd}
         />
       )}
-      <CompactInput
+      <CompactNumberInput
         value={set.weightKg}
         suffix="kg"
         decimal
@@ -77,44 +78,6 @@ export function SetRow({ exercise, set, isCurrent, onEdit, onEditEnd, onToggle, 
   );
 }
 
-type CompactInputProps = {
-  value: number | null;
-  suffix: string;
-  decimal?: boolean;
-  placeholder?: string;
-  onChange: (value: number | null) => void;
-  onEnd: () => void;
-};
-
-function CompactInput({ value, suffix, decimal, placeholder, onChange, onEnd }: CompactInputProps) {
-  const theme = useTheme();
-  const [text, setText] = useState(value === null ? '' : String(value).replace('.', ','));
-
-  return (
-    <View style={styles.input}>
-      <TextInput
-        value={text}
-        onChangeText={(t) => {
-          const cleaned = decimal ? t.replace(/[^0-9.,]/g, '') : t.replace(/[^0-9]/g, '');
-          setText(cleaned);
-          const parsed = parseNumber(cleaned);
-          onChange(parsed === null ? null : decimal ? parsed : Math.trunc(parsed));
-        }}
-        onEndEditing={onEnd}
-        onBlur={onEnd}
-        keyboardType={decimal ? 'decimal-pad' : 'number-pad'}
-        placeholder={placeholder}
-        placeholderTextColor={theme.textSecondary}
-        selectTextOnFocus
-        style={[styles.field, { color: theme.text, borderColor: theme.border }]}
-      />
-      <ThemedText type="small" themeColor="textSecondary">
-        {suffix}
-      </ThemedText>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
@@ -125,14 +88,4 @@ const styles = StyleSheet.create({
   },
   rowDone: { opacity: 0.55 },
   number: { width: 18, textAlign: 'center' },
-  input: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
-  field: {
-    flex: 1,
-    borderRadius: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.one,
-    fontSize: 16,
-    textAlign: 'center',
-  },
 });
