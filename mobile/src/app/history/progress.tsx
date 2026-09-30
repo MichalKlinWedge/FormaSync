@@ -1,6 +1,8 @@
+import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
+import { Button } from '@/components/button';
 import { BarChart } from '@/components/charts/bar-chart';
 import { LineChart } from '@/components/charts/line-chart';
 import { Chip } from '@/components/chip';
@@ -154,6 +156,12 @@ export default function ProgressScreen() {
         )}
 
         <Section title="Rekordy osobiste">
+          <Button
+            label="Kalkulator 1RM"
+            icon="calculate"
+            variant="secondary"
+            onPress={() => router.push('/history/one-rep-max')}
+          />
           {records.slice(0, 10).map((record) => (
             <View key={record.exerciseId} style={styles.tableRow}>
               <ThemedText type="small" style={styles.recordName} numberOfLines={1}>

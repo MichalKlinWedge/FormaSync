@@ -18,5 +18,5 @@ System wspomagania treningu siłowego z integracją Garmin.
 - [ ] Etap 8 — Garmin: biometria
 - [ ] Etap 9 — Garmin: wysyłanie planów
 - [x] Etap 10 — analityka (tonaż, progresja, 1RM, rekordy, pomiary ciała)
-- [ ] Etap 11 — RPE i auto-progresja
+- [x] Etap 11 — RPE i auto-progresja (ocena serii, kalkulator 1RM, sugestie ciężaru)
 - [ ] Etap 12 — stabilizacja i wydanie

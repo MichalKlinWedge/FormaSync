@@ -6,6 +6,7 @@ import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
 import { CompactNumberInput } from '@/components/compact-number-input';
 import { Icon } from '@/components/icon';
+import { RpeField } from '@/components/rpe-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -182,36 +183,47 @@ function HistorySetRow({
 }) {
   const theme = useTheme();
   return (
-    <View style={styles.setRow}>
-      <ThemedText type="smallBold" themeColor="textSecondary" style={styles.setNumber}>
-        {set.setNumber}
-      </ThemedText>
-      {exercise.trackingType === 'TIME' ? (
+    <View>
+      <View style={styles.setRow}>
+        <ThemedText type="smallBold" themeColor="textSecondary" style={styles.setNumber}>
+          {set.setNumber}
+        </ThemedText>
+        {exercise.trackingType === 'TIME' ? (
+          <CompactNumberInput
+            value={set.durationSeconds}
+            suffix="s"
+            onChange={(v) => onEdit({ durationSeconds: v })}
+            onEnd={onEditEnd}
+          />
+        ) : (
+          <CompactNumberInput
+            value={set.repsCompleted}
+            suffix="powt."
+            onChange={(v) => onEdit({ repsCompleted: v })}
+            onEnd={onEditEnd}
+          />
+        )}
         <CompactNumberInput
-          value={set.durationSeconds}
-          suffix="s"
-          onChange={(v) => onEdit({ durationSeconds: v })}
+          value={set.weightKg}
+          suffix="kg"
+          decimal
+          placeholder="–"
+          onChange={(v) => onEdit({ weightKg: v })}
           onEnd={onEditEnd}
         />
-      ) : (
-        <CompactNumberInput
-          value={set.repsCompleted}
-          suffix="powt."
-          onChange={(v) => onEdit({ repsCompleted: v })}
-          onEnd={onEditEnd}
+        <Pressable accessibilityLabel="Usuń serię" onPress={onRemove} hitSlop={6}>
+          <Icon name="close" size={18} color={theme.textSecondary} />
+        </Pressable>
+      </View>
+      <View style={styles.setRpe}>
+        <RpeField
+          value={set.rpe}
+          onChange={(rpe) => {
+            onEdit({ rpe });
+            onEditEnd();
+          }}
         />
-      )}
-      <CompactNumberInput
-        value={set.weightKg}
-        suffix="kg"
-        decimal
-        placeholder="–"
-        onChange={(v) => onEdit({ weightKg: v })}
-        onEnd={onEditEnd}
-      />
-      <Pressable accessibilityLabel="Usuń serię" onPress={onRemove} hitSlop={6}>
-        <Icon name="close" size={18} color={theme.textSecondary} />
-      </Pressable>
+      </View>
     </View>
   );
 }
@@ -235,6 +247,7 @@ const styles = StyleSheet.create({
   card: { borderRadius: 16, padding: Spacing.three, gap: Spacing.one },
   setRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.one },
   setNumber: { width: 18, textAlign: 'center' },
+  setRpe: { paddingBottom: Spacing.one },
   addSet: {
     flexDirection: 'row',
     alignItems: 'center',

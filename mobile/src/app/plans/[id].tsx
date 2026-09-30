@@ -10,6 +10,7 @@ import { formatDuration, formatTarget } from '@/features/plans/draft';
 import { usePlanDraftStore } from '@/features/plans/draft-store';
 import { deletePlan, draftFromPlan, loadPlanDraft } from '@/features/plans/repository';
 import { usePlanDetails } from '@/features/plans/use-plans';
+import { proposeProgression } from '@/features/progress/progression';
 import { ensureNotificationPermission } from '@/features/workout/notifications';
 import { ActiveSessionExistsError, startSession } from '@/features/workout/repository';
 
@@ -28,6 +29,19 @@ export default function PlanDetailsScreen() {
   const copy = () => {
     startDraft(draftFromPlan(db, plan.id));
     router.push('/plans/edit');
+  };
+
+  const openProgression = () => {
+    const proposal = proposeProgression(db, plan.id);
+    if (!proposal) {
+      Alert.alert('Brak danych', 'Sugestie pojawią się po pierwszym ukończonym treningu z tego planu.');
+      return;
+    }
+    if (proposal.suggestions.length === 0) {
+      Alert.alert('Brak sugestii', 'Reguły działają dla ćwiczeń z ciężarem i celem powtórzeń.');
+      return;
+    }
+    router.push({ pathname: '/plans/progression', params: { id: plan.id } });
   };
 
   const start = () => {
@@ -86,6 +100,12 @@ export default function PlanDetailsScreen() {
             <Button label="Kopiuj do moich planów" icon="content_copy" variant="secondary" onPress={copy} />
           ) : (
             <>
+              <Button
+                label="Sugestie progresji"
+                icon="trending_up"
+                variant="secondary"
+                onPress={openProgression}
+              />
               <Button label="Edytuj" icon="edit" variant="secondary" onPress={edit} />
               <Button label="Duplikuj" icon="content_copy" variant="secondary" onPress={copy} />
               <Button label="Usuń" icon="delete" variant="danger" onPress={confirmDelete} />
