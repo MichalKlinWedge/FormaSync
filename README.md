@@ -17,6 +17,6 @@ System wspomagania treningu siłowego z integracją Garmin.
 - [ ] Etap 7 — backend serverless + e-mail
 - [ ] Etap 8 — Garmin: biometria
 - [ ] Etap 9 — Garmin: wysyłanie planów
-- [ ] Etap 10 — analityka
+- [x] Etap 10 — analityka (tonaż, progresja, 1RM, rekordy, pomiary ciała)
 - [ ] Etap 11 — RPE i auto-progresja
 - [ ] Etap 12 — stabilizacja i wydanie

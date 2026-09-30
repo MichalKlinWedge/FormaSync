@@ -14,6 +14,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { formatDateTime } from '@/lib/date';
 
 export default function HistoryScreen() {
+  const theme = useTheme();
   const groups = useHistory();
 
   return (
@@ -21,6 +22,27 @@ export default function HistoryScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView contentContainerStyle={styles.content}>
           <ThemedText type="subtitle">Historia</ThemedText>
+
+          <View style={styles.actions}>
+            <Pressable
+              onPress={() => router.push('/history/progress')}
+              style={({ pressed }) => [
+                styles.action,
+                { backgroundColor: theme.backgroundElement, opacity: pressed ? 0.7 : 1 },
+              ]}>
+              <Icon name="show_chart" size={22} color={theme.accent} />
+              <ThemedText type="smallBold">Statystyki</ThemedText>
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/history/body')}
+              style={({ pressed }) => [
+                styles.action,
+                { backgroundColor: theme.backgroundElement, opacity: pressed ? 0.7 : 1 },
+              ]}>
+              <Icon name="monitor_weight" size={22} color={theme.accent} />
+              <ThemedText type="smallBold">Pomiary ciała</ThemedText>
+            </Pressable>
+          </View>
 
           {groups.length === 0 ? (
             <ThemedView type="backgroundElement" style={styles.empty}>
@@ -95,4 +117,12 @@ const styles = StyleSheet.create({
   },
   rowText: { flex: 1, gap: Spacing.half },
   empty: { borderRadius: 16, padding: Spacing.three },
+  actions: { flexDirection: 'row', gap: Spacing.two },
+  action: {
+    flex: 1,
+    alignItems: 'center',
+    gap: Spacing.one,
+    borderRadius: 14,
+    paddingVertical: Spacing.three,
+  },
 });

@@ -18,6 +18,9 @@ export const Colors = {
     onAccent: '#ffffff',
     success: '#30A46C',
     border: '#D9D9E0',
+    // Paleta wykresów sprawdzona pod kątem daltonizmu (niebieski/pomarańczowy).
+    chart1: '#2a78d6',
+    chart2: '#eb6834',
   },
   dark: {
     text: '#ffffff',
@@ -29,6 +32,8 @@ export const Colors = {
     onAccent: '#000000',
     success: '#3DD68C',
     border: '#3A3F42',
+    chart1: '#3987e5',
+    chart2: '#d95926',
   },
 } as const;
 

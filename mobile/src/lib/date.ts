@@ -73,6 +73,11 @@ export function weekdayIndex(key: string): number {
   return (fromDateKey(key).getDay() + 6) % 7;
 }
 
+/** Poniedziałek tygodnia, w którym leży podana data. */
+export function startOfWeek(key: string): string {
+  return addDays(key, -weekdayIndex(key));
+}
+
 /** Siatka miesiąca: pełne tygodnie od poniedziałku, z dniami sąsiednich miesięcy. */
 export function monthGrid(year: number, month: number): string[][] {
   const first = new Date(year, month, 1);
