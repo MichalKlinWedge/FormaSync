@@ -18,6 +18,7 @@ import {
   proposePlanUpdate,
   updateSessionMeta,
 } from '@/features/history/repository';
+import { SessionHealth } from '@/features/health/session-health';
 import { formatTarget } from '@/features/plans/draft';
 import { type ActiveExercise, type ActiveSet, countSets, formatClock, sessionTonnage } from '@/features/workout/logic';
 import { addSet, completeSet, removeSet, type SetValues, updateSet } from '@/features/workout/repository';
@@ -123,6 +124,8 @@ export default function HistoryDetailsScreen() {
               </Pressable>
             </ThemedView>
           ))}
+
+          <SessionHealth sessionId={id} startTime={session.startTime} />
 
           <View style={styles.field}>
             <ThemedText type="smallBold" themeColor="textSecondary">

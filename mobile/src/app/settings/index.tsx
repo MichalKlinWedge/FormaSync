@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -17,6 +18,7 @@ import {
 } from '@/features/backup/backup';
 
 import { syncWorkoutReminders } from '@/features/calendar/reminders';
+import { HealthSection } from '@/features/health/health-section';
 import { findActiveSessionId } from '@/features/workout/repository';
 import { ExportCanceled, readPickedTextFile, saveToPickedDirectory } from '@/lib/file-export';
 import { formatNumber } from '@/lib/number';
@@ -118,6 +120,8 @@ export default function SettingsScreen() {
           )}
         </View>
 
+        <HealthSection />
+
         <View style={styles.section}>
           <ThemedText type="smallBold" themeColor="textSecondary">
             O APLIKACJI
@@ -126,6 +130,12 @@ export default function SettingsScreen() {
             FormaSync 1.0.0 — dziennik treningu siłowego. Aplikacja działa bez internetu, a dane nie
             opuszczają telefonu.
           </ThemedText>
+          <Button
+            label="Prywatność"
+            icon="policy"
+            variant="secondary"
+            onPress={() => router.push('/settings/privacy')}
+          />
         </View>
       </ScrollView>
     </ThemedView>
