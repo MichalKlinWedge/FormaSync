@@ -44,11 +44,19 @@ export default function TodayScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView contentContainerStyle={styles.content}>
-          <View>
-            <ThemedText type="subtitle">FormaSync</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              {formatDayWithWeekday(today)}
-            </ThemedText>
+          <View style={styles.header}>
+            <View style={styles.rowText}>
+              <ThemedText type="subtitle">FormaSync</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {formatDayWithWeekday(today)}
+              </ThemedText>
+            </View>
+            <Pressable
+              accessibilityLabel="Ustawienia"
+              onPress={() => router.push('/settings')}
+              hitSlop={8}>
+              <Icon name="settings" size={26} color={theme.textSecondary} />
+            </Pressable>
           </View>
 
           {active ? (
@@ -140,6 +148,7 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
   },
   clock: { fontSize: 36, lineHeight: 42 },
+  header: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.three },
   section: { gap: Spacing.two },
   row: {
     flexDirection: 'row',

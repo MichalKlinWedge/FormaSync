@@ -18,6 +18,7 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="workout" />
+          <Stack.Screen name="settings" />
         </Stack>
       </DatabaseProvider>
     </ThemeProvider>
