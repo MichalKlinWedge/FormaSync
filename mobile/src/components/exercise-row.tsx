@@ -7,7 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import type { ExerciseListItem } from '@/features/exercises/filter';
-import { difficultyLabels } from '@/features/exercises/labels';
+import { difficultyShortLabels } from '@/features/exercises/labels';
 import { useTheme } from '@/hooks/use-theme';
 
 type ExerciseRowProps = {
@@ -22,7 +22,7 @@ export function ExerciseRow({ item, onPress, accessory }: ExerciseRowProps) {
   const subtitle = [
     item.categoryName,
     item.equipmentName,
-    item.difficultyLevel && difficultyLabels[item.difficultyLevel],
+    item.difficultyLevel && difficultyShortLabels[item.difficultyLevel],
     item.isCustom && 'własne',
   ]
     .filter(Boolean)
