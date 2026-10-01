@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 
-import { formatKg, formatNumber, formatTonnage } from '../number';
+import { formatKg, formatNumber, formatTonnage, plural, pluralWith } from '../number';
 
 const nbsp = ' ';
 
@@ -29,5 +29,28 @@ describe('formatTonnage', () => {
     expect(formatTonnage(850)).toBe('850');
     expect(formatTonnage(12400)).toBe(`12,4${nbsp}t`);
     expect(formatTonnage(0)).toBe('0');
+  });
+});
+
+describe('plural', () => {
+  it.each([
+    [0, 'serii'],
+    [1, 'seria'],
+    [2, 'serie'],
+    [4, 'serie'],
+    [5, 'serii'],
+    [12, 'serii'],
+    [14, 'serii'],
+    [22, 'serie'],
+    [25, 'serii'],
+    // Po polsku formę pojedynczą bierze wyłącznie liczba 1: mówimy „101 serii”.
+    [101, 'serii'],
+    [102, 'serie'],
+  ])('%i → %s', (count, expected) => {
+    expect(plural(count, 'seria', 'serie', 'serii')).toBe(expected);
+  });
+
+  it('skleja liczbę z rzeczownikiem', () => {
+    expect(pluralWith(3, 'seria', 'serie', 'serii')).toBe(`3${nbsp}serie`);
   });
 });

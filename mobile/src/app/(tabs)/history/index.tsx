@@ -12,6 +12,7 @@ import { useHistory } from '@/features/history/use-history';
 import { formatClock } from '@/features/workout/logic';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDateTime } from '@/lib/date';
+import { pluralWith } from '@/lib/number';
 
 export default function HistoryScreen() {
   const theme = useTheme();
@@ -72,7 +73,7 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
   const theme = useTheme();
   const details = [
     entry.durationSeconds !== null ? formatClock(entry.durationSeconds) : null,
-    `${entry.completedSets} serii`,
+    pluralWith(entry.completedSets, 'seria', 'serie', 'serii'),
     entry.tonnage > 0 ? `${Math.round(entry.tonnage)} kg` : null,
     entry.rpeRating !== null ? `RPE ${entry.rpeRating}` : null,
   ]

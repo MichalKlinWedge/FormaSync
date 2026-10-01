@@ -21,3 +21,19 @@ export function formatTonnage(value: number): string {
   if (value >= 1000) return `${formatNumber(value / 1000, 1)}${NBSP}t`;
   return formatNumber(value);
 }
+
+/**
+ * Polska odmiana rzeczownika po liczbie: 1 seria, 2 serie, 5 serii, 12 serii, 22 serie.
+ */
+export function plural(count: number, one: string, few: string, many: string): string {
+  const abs = Math.abs(count);
+  const lastTwo = abs % 100;
+  const last = abs % 10;
+  if (abs === 1) return one;
+  if (last >= 2 && last <= 4 && (lastTwo < 12 || lastTwo > 14)) return few;
+  return many;
+}
+
+/** Liczba razem z odmienionym rzeczownikiem, np. „5 serii”. */
+export const pluralWith = (count: number, one: string, few: string, many: string): string =>
+  `${formatNumber(count)} ${plural(count, one, few, many)}`;

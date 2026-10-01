@@ -9,6 +9,7 @@ import { BottomTabInset, Spacing } from '@/constants/theme';
 import { emptyDraft } from '@/features/plans/draft';
 import { usePlanDraftStore } from '@/features/plans/draft-store';
 import { usePlanList } from '@/features/plans/use-plans';
+import { pluralWith } from '@/lib/number';
 import { useTheme } from '@/hooks/use-theme';
 
 type PlanSummary = ReturnType<typeof usePlanList>['own'][number];
@@ -83,21 +84,12 @@ function PlanCard({ plan }: { plan: PlanSummary }) {
           </ThemedText>
         )}
         <ThemedText type="small" themeColor="textSecondary">
-          {exerciseCountLabel(plan.exerciseCount)}
+          {pluralWith(plan.exerciseCount, 'ćwiczenie', 'ćwiczenia', 'ćwiczeń')}
         </ThemedText>
       </View>
       <Icon name="chevron_right" size={20} color={theme.textSecondary} />
     </Pressable>
   );
-}
-
-/** Polska odmiana: 1 ćwiczenie, 2–4 ćwiczenia, 5+ ćwiczeń (12–14 ćwiczeń). */
-function exerciseCountLabel(n: number) {
-  const lastTwo = n % 100;
-  const last = n % 10;
-  if (n === 1) return '1 ćwiczenie';
-  if (last >= 2 && last <= 4 && (lastTwo < 12 || lastTwo > 14)) return `${n} ćwiczenia`;
-  return `${n} ćwiczeń`;
 }
 
 const styles = StyleSheet.create({
