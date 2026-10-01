@@ -14,9 +14,9 @@ System wspomagania treningu siłowego z integracją Garmin.
 - [x] Etap 4 — trening na żywo (rejestracja serii, stoper, timer przerwy, wznawianie sesji)
 - [x] Etap 5 — historia i korekta (dziennik, edycja serii po fakcie, aktualizacja planu)
 - [x] Etap 6 — harmonogram i powiadomienia (kalendarz, cykle, przypomnienia push)
-- [ ] Etap 7 — backend serverless + e-mail
+- [—] Etap 7 — backend serverless + e-mail (pominięty: bez webhooków Garmin zbędny, przypomnienia push wystarczają)
 - [ ] Etap 8 — Garmin: biometria
-- [ ] Etap 9 — Garmin: wysyłanie planów
+- [x] Etap 9 — eksport planu do pliku .FIT (Garmin Training API niedostępne — program wstrzymany, wymaga firmy i opłaty)
 - [x] Etap 10 — analityka (tonaż, progresja, 1RM, rekordy, pomiary ciała)
 - [x] Etap 11 — RPE i auto-progresja (ocena serii, kalkulator 1RM, sugestie ciężaru)
 - [ ] Etap 12 — stabilizacja i wydanie (kopia zapasowa gotowa; zostają testy, polityka prywatności, wydanie)

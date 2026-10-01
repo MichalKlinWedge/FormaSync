@@ -15,9 +15,10 @@ import {
   restoreBackup,
   serializeBackup,
 } from '@/features/backup/backup';
-import { BackupCanceled, readBackupFile, writeBackupFile } from '@/features/backup/files';
+
 import { syncWorkoutReminders } from '@/features/calendar/reminders';
 import { findActiveSessionId } from '@/features/workout/repository';
+import { ExportCanceled, readPickedTextFile, saveToPickedDirectory } from '@/lib/file-export';
 import { formatNumber } from '@/lib/number';
 
 export default function SettingsScreen() {
@@ -28,10 +29,10 @@ export default function SettingsScreen() {
     try {
       const backup = createBackup(db);
       const stats = backupStats(backup);
-      const name = await writeBackupFile(serializeBackup(backup), backupFileName());
+      const name = await saveToPickedDirectory(serializeBackup(backup), backupFileName(), 'application/json');
       Alert.alert('Kopia zapisana', `${name}\nZapisano ${formatNumber(stats.rows)} wierszy danych.`);
     } catch (e) {
-      if (!(e instanceof BackupCanceled)) {
+      if (!(e instanceof ExportCanceled)) {
         Alert.alert('Nie udało się zapisać', describeError(e));
       }
     } finally {
@@ -46,7 +47,7 @@ export default function SettingsScreen() {
     }
     setBusy('import');
     try {
-      const backup = parseBackup(await readBackupFile());
+      const backup = parseBackup(await readPickedTextFile(['application/json', 'text/plain', '*/*']));
       const stats = backupStats(backup);
       setBusy(null);
       Alert.alert(
@@ -73,7 +74,7 @@ export default function SettingsScreen() {
       );
     } catch (e) {
       setBusy(null);
-      if (e instanceof BackupCanceled) return;
+      if (e instanceof ExportCanceled) return;
       Alert.alert(
         e instanceof BackupFormatError ? 'Nieprawidłowy plik' : 'Nie udało się wczytać',
         describeError(e),

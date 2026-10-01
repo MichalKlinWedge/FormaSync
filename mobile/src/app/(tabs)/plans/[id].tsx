@@ -10,7 +10,10 @@ import { formatDuration, formatTarget } from '@/features/plans/draft';
 import { usePlanDraftStore } from '@/features/plans/draft-store';
 import { deletePlan, draftFromPlan, loadPlanDraft } from '@/features/plans/repository';
 import { usePlanDetails } from '@/features/plans/use-plans';
+import { buildWorkoutFit, FitExportError, fitFileName } from '@/features/garmin/fit-workout';
+import { loadPlanForFit } from '@/features/garmin/repository';
 import { proposeProgression } from '@/features/progress/progression';
+import { ExportCanceled, saveToPickedDirectory } from '@/lib/file-export';
 import { ensureNotificationPermission } from '@/features/workout/notifications';
 import { ActiveSessionExistsError, startSession } from '@/features/workout/repository';
 
@@ -42,6 +45,24 @@ export default function PlanDetailsScreen() {
       return;
     }
     router.push({ pathname: '/plans/progression', params: { id: plan.id } });
+  };
+
+  const exportToFit = async () => {
+    const data = loadPlanForFit(db, plan.id);
+    if (!data) return;
+    try {
+      const bytes = buildWorkoutFit(data.title, data.exercises);
+      const name = await saveToPickedDirectory(bytes, fitFileName(data.title), 'application/octet-stream');
+      Alert.alert(
+        'Plik zapisany',
+        `${name}
+
+Zaimportuj go w Garmin Connect: Trening → Treningi → Importuj. Stamtąd trafi na zegarek.`,
+      );
+    } catch (e) {
+      if (e instanceof ExportCanceled) return;
+      Alert.alert('Nie udało się zapisać', e instanceof FitExportError ? e.message : 'Nieznany błąd.');
+    }
   };
 
   const start = () => {
@@ -96,6 +117,12 @@ export default function PlanDetailsScreen() {
 
         <View style={styles.actions}>
           <Button label="Rozpocznij trening" icon="play_arrow" onPress={start} />
+          <Button
+            label="Eksportuj na zegarek (.FIT)"
+            icon="watch"
+            variant="secondary"
+            onPress={() => void exportToFit()}
+          />
           {plan.isTemplate ? (
             <Button label="Kopiuj do moich planów" icon="content_copy" variant="secondary" onPress={copy} />
           ) : (

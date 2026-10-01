@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "dependencies": {
     "@expo/ui": "~57.0.21",
+    "@garmin/fitsdk": "^21.217.0",
     "drizzle-orm": "^0.45.3",
     "eslint-config-expo": "~57.0.2",
     "expo": "~57.0.26",
@@ -62,12 +63,5 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate"
   },
-  "private": true,
-  "jest": {
-    "preset": "jest-expo",
-    "moduleNameMapper": {
-      "^@/assets/(.*)$": "<rootDir>/assets/$1",
-      "^@/(.*)$": "<rootDir>/src/$1"
-    }
-  }
+  "private": true
 }
