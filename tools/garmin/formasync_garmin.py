@@ -268,6 +268,52 @@ def cmd_inspect(args: argparse.Namespace) -> None:
         print(f"{item.get('workoutId')}  {sport:20}  {item.get('workoutName')}")
 
 
+def find_existing(api: Garmin, title: str) -> list[int]:
+    """
+    Identyfikatory treningów o tej samej nazwie, od najnowszego. Kolejność ma znaczenie:
+    nadpisujemy najnowszy, bo to jego zwykle dotyczą wpisy w kalendarzu i kopia na zegarku.
+    """
+    matches = [
+        int(item["workoutId"])
+        for item in api.get_workouts(0, 100)
+        if (item.get("workoutName") or "").strip().lower() == title.strip().lower()
+    ]
+    return sorted(matches, reverse=True)
+
+
+def send_plan(api: Garmin, plan: Plan, as_new: bool) -> int:
+    """
+    Wysyła plan i zwraca workoutId. Trening o tej samej nazwie domyślnie nadpisujemy w miejscu,
+    a nie dokładamy obok: zachowany identyfikator nie unieważnia wpisów w kalendarzu Garmina,
+    a biblioteka nie zarasta kopiami przy każdym kolejnym wysłaniu.
+    """
+    payload = build_workout(plan).to_dict()
+    existing = [] if as_new else find_existing(api, plan.title)
+
+    if not existing:
+        workout_id = int(api.upload_workout(payload)["workoutId"])
+        print(f"Wysłano: {plan.title} → workoutId {workout_id}")
+        return workout_id
+
+    workout_id = existing[0]
+    api.update_workout(workout_id, payload)
+    print(f"Nadpisano: {plan.title} → workoutId {workout_id}")
+    if len(existing) > 1:
+        extra = ", ".join(str(other) for other in existing[1:])
+        print(f"   uwaga: w bibliotece są jeszcze kopie o tej nazwie: {extra}")
+        print("   usuniesz je poleceniem: delete --id <workoutId>")
+    return workout_id
+
+
+def cmd_delete(args: argparse.Namespace) -> None:
+    api = connect(args.tokenstore)
+    for workout_id in args.id:
+        saved = api.get_workout_by_id(workout_id)
+        name = saved.get("workoutName", "?")
+        api.delete_workout(workout_id)
+        print(f"Usunięto: {name} ({workout_id})")
+
+
 def cmd_upload(args: argparse.Namespace) -> None:
     plans = load_backup(Path(args.backup))
     if args.plan:
@@ -292,9 +338,7 @@ def cmd_upload(args: argparse.Namespace) -> None:
 
     api = connect(args.tokenstore)
     for plan in plans:
-        result = api.upload_workout(build_workout(plan).to_dict())
-        workout_id = result.get("workoutId")
-        print(f"Wysłano: {plan.title} → workoutId {workout_id}")
+        workout_id = send_plan(api, plan, args.new)
 
         if args.schedule:
             for date_str in plan.scheduled_dates:
@@ -349,7 +393,16 @@ def main() -> None:
     upload_cmd.add_argument("--send", action="store_true", help="faktycznie wyślij (domyślnie tylko podgląd)")
     upload_cmd.add_argument("--schedule", action="store_true", help="wpisz też terminy do kalendarza Garmin")
     upload_cmd.add_argument("--push", action="store_true", help="wypchnij trening na zegarek od razu")
+    upload_cmd.add_argument(
+        "--new",
+        action="store_true",
+        help="utwórz nowy trening zamiast nadpisać istniejący o tej samej nazwie",
+    )
     upload_cmd.set_defaults(func=cmd_upload)
+
+    delete_cmd = with_tokenstore(sub.add_parser("delete", help="usuń trening z biblioteki Garmin"))
+    delete_cmd.add_argument("--id", action="append", required=True, help="workoutId (można podać wielokrotnie)")
+    delete_cmd.set_defaults(func=cmd_delete)
 
     args = parser.parse_args()
     if getattr(args, "tokenstore_override", None):

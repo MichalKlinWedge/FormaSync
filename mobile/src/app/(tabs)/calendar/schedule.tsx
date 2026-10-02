@@ -32,7 +32,10 @@ export default function ScheduleScreen() {
   const plans = [...own, ...templates];
 
   const [startDate, setStartDate] = useState(params.date ?? todayKey());
-  const [planId, setPlanId] = useState<number | null>(plans[0]?.id ?? null);
+  // Plany dochodzą z zapytania na żywo, więc przy pierwszym rysowaniu lista jest pusta.
+  // Wybór trzymamy jako „nic nie kliknięto” i dopiero wyliczamy z niego pierwszy plan.
+  const [pickedPlanId, setPickedPlanId] = useState<number | null>(null);
+  const planId = pickedPlanId ?? plans[0]?.id ?? null;
   const [repeat, setRepeat] = useState(false);
   const [weekdays, setWeekdays] = useState<number[]>([]);
   const [weeks, setWeeks] = useState(4);
@@ -90,7 +93,7 @@ export default function ScheduleScreen() {
                 key={plan.id}
                 label={plan.title}
                 selected={planId === plan.id}
-                onPress={() => setPlanId(plan.id)}
+                onPress={() => setPickedPlanId(plan.id)}
               />
             ))}
           </View>

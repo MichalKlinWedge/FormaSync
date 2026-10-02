@@ -41,7 +41,15 @@ python formasync_garmin.py upload --backup formasync-2026-10-02.json --send --sc
 
 # Tylko wybrany plan, od razu wypchnięty na zegarek
 python formasync_garmin.py upload --backup kopia.json --plan "Mój plan" --send --push
+
+# Usunięcie treningu z biblioteki
+python formasync_garmin.py delete --id 1716637940
 ```
+
+Trening o tej samej nazwie jest **nadpisywany w miejscu**, a nie dokładany obok. Zachowany
+identyfikator nie unieważnia wpisów w kalendarzu Garmina, a biblioteka nie zarasta kopiami przy
+każdym kolejnym wysłaniu. Gdy świadomie chcesz drugi trening o tej nazwie, dodaj `--new`.
+Jeśli kopie już są, narzędzie wypisze ich identyfikatory — usuwa się je poleceniem `delete`.
 
 Bez `--send` narzędzie wypisuje tylko, co by zrobiło. Szablony wbudowane są pomijane — wysyłane są wyłącznie Twoje własne plany.
 
