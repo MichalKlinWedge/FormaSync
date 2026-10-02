@@ -77,4 +77,6 @@ Struktury nie składamy ręcznie — buduje ją `garminconnect.workout`, która 
 
 Ćwiczenia bez przypisanej kategorii trafiają na zegarek jako nieokreślone — narzędzie wypisuje je ostrzeżeniem przed wysyłką.
 
-Po wysłaniu każdy trening jest odczytywany z powrotem i sprawdzana jest liczba kroków. Odpowiedź serwera potwierdza przyjęcie danych, a nie to, że zapisał je zgodnie z oczekiwaniem.
+Po wysłaniu każdy trening jest odczytywany z powrotem, a narzędzie wypisuje, co Garmin faktycznie zapisał: liczbę grup, liczbę kroków w środku oraz dla każdej grupy liczbę powtórzeń, kategorię i ciężar. Odpowiedź serwera potwierdza przyjęcie danych, a nie to, że zapisał je zgodnie z oczekiwaniem.
+
+Sprawdzone na prawdziwym koncie 2 października 2026: trening siłowy utworzony poprawnie, struktura odczytana z powrotem bez zniekształceń.

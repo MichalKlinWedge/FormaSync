@@ -306,8 +306,19 @@ def cmd_upload(args: argparse.Namespace) -> None:
 
         # Odpowiedź 201 mówi tylko, że serwer przyjął dane — sprawdzamy, co faktycznie zapisał.
         saved = api.get_workout_by_id(workout_id)
-        segments = saved.get("workoutSegments") or [{}]
-        print(f"   weryfikacja: kroków {len(segments[0].get('workoutSteps', []))}")
+        groups = (saved.get("workoutSegments") or [{}])[0].get("workoutSteps", [])
+        inner = sum(len(g.get("workoutSteps", []) or []) for g in groups)
+        print(f"   weryfikacja: grup {len(groups)}, kroków w środku {inner}")
+        for group in groups:
+            work = (group.get("workoutSteps") or [{}])[0]
+            weight = work.get("weightValue")
+            print(
+                f"      ×{group.get('numberOfIterations')} "
+                f"{work.get('category') or 'bez kategorii'} "
+                f"{work.get('endCondition', {}).get('conditionTypeKey')}="
+                f"{int(work.get('endConditionValue') or 0)}"
+                + (f", {weight / 1000:g} kg" if weight else "")
+            )
 
 
 def main() -> None:
@@ -320,14 +331,19 @@ def main() -> None:
     parser.add_argument("--tokenstore", default=DEFAULT_TOKENSTORE, help="katalog z tokenami Garmin")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    inspect_cmd = sub.add_parser("inspect", help="podejrzyj treningi na koncie Garmin")
+    def with_tokenstore(cmd: argparse.ArgumentParser) -> argparse.ArgumentParser:
+        """Ta sama opcja działa przed i po nazwie polecenia — kolejność łatwo pomylić."""
+        cmd.add_argument("--tokenstore", dest="tokenstore_override", default=None)
+        return cmd
+
+    inspect_cmd = with_tokenstore(sub.add_parser("inspect", help="podejrzyj treningi na koncie Garmin"))
     inspect_cmd.add_argument("--limit", type=int, default=20)
     inspect_cmd.add_argument("--id", help="pokaż pełną strukturę jednego treningu")
     inspect_cmd.add_argument("--out", help="zapisz strukturę do pliku")
     inspect_cmd.add_argument("--chars", type=int, default=4000, help="ile znaków wypisać")
     inspect_cmd.set_defaults(func=cmd_inspect)
 
-    upload_cmd = sub.add_parser("upload", help="wyślij plany z kopii zapasowej")
+    upload_cmd = with_tokenstore(sub.add_parser("upload", help="wyślij plany z kopii zapasowej"))
     upload_cmd.add_argument("--backup", required=True, help="plik kopii zapasowej z aplikacji")
     upload_cmd.add_argument("--plan", action="append", help="nazwa planu (można podać wielokrotnie)")
     upload_cmd.add_argument("--send", action="store_true", help="faktycznie wyślij (domyślnie tylko podgląd)")
@@ -336,6 +352,8 @@ def main() -> None:
     upload_cmd.set_defaults(func=cmd_upload)
 
     args = parser.parse_args()
+    if getattr(args, "tokenstore_override", None):
+        args.tokenstore = args.tokenstore_override
     args.func(args)
 
 
