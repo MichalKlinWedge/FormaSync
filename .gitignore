@@ -1,1 +1,8 @@
 .claude/settings.local.json
+
+# Tokeny i dane osobiste — nigdy do repozytorium
+.garminconnect/
+.garmin_tokens
+tools/garmin/*.json
+!tools/garmin/example-backup.json
+__pycache__/

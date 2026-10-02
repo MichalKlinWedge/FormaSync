@@ -1,0 +1,3 @@
+# Nieoficjalny klient Garmin Connect. Pydantic jest potrzebny do budowania treningów.
+garminconnect>=0.3.10
+pydantic>=2

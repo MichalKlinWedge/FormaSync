@@ -3,6 +3,7 @@
 System wspomagania treningu siłowego z integracją Garmin.
 
 - `mobile/` — aplikacja Android (React Native + Expo), szczegóły w [mobile/README.md](mobile/README.md)
+- `tools/garmin/` — wysyłka planów do Garmin Connect z komputera, szczegóły w [tools/garmin/README.md](tools/garmin/README.md)
 - `PLAN_ETAPOWY.md` — plan realizacji projektu
 - Specyfikacja: `Specyfikacja Projektowa Aplikacji Treningowej z Integracją Garmin.pdf`, `techniczna.docx`
 
@@ -16,7 +17,7 @@ System wspomagania treningu siłowego z integracją Garmin.
 - [x] Etap 6 — harmonogram i powiadomienia (kalendarz, cykle, przypomnienia push)
 - [—] Etap 7 — backend serverless + e-mail (pominięty: bez webhooków Garmin zbędny, przypomnienia push wystarczają)
 - [x] Etap 8 — biometria przez Android Health Connect (tętno, sen, HRV, ciśnienie, kalorie)
-- [x] Etap 9 — eksport planu do pliku .FIT (Garmin Training API niedostępne — program wstrzymany, wymaga firmy i opłaty)
+- [x] Etap 9 — plany na zegarek: eksport .FIT z aplikacji oraz wysyłka z kalendarzem przez narzędzie na komputerze
 - [x] Etap 10 — analityka (tonaż, progresja, 1RM, rekordy, pomiary ciała)
 - [x] Etap 11 — RPE i auto-progresja (ocena serii, kalkulator 1RM, sugestie ciężaru)
 - [ ] Etap 12 — stabilizacja i wydanie (kopia zapasowa i polityka prywatności gotowe; zostają testy na urządzeniu i wydanie)

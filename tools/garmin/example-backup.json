@@ -1,0 +1,97 @@
+{
+  "app": "FormaSync",
+  "version": 1,
+  "exportedAt": "2026-10-02T08:00:00Z",
+  "tables": {
+    "exercises": [
+      {
+        "id": 1,
+        "name": "Przysiad ze sztangą",
+        "garmin_category": "SQUAT",
+        "tracking_type": "REPS"
+      },
+      {
+        "id": 2,
+        "name": "Plank (deska)",
+        "garmin_category": "PLANK",
+        "tracking_type": "TIME"
+      },
+      {
+        "id": 3,
+        "name": "Dziwne ćwiczenie",
+        "garmin_category": null,
+        "tracking_type": "REPS"
+      }
+    ],
+    "workout_plans": [
+      {
+        "id": 10,
+        "title": "Mój plan",
+        "is_template": false
+      },
+      {
+        "id": 11,
+        "title": "FBW",
+        "is_template": true
+      }
+    ],
+    "plan_exercises": [
+      {
+        "id": 1,
+        "plan_id": 10,
+        "exercise_id": 1,
+        "order_index": 0,
+        "target_sets": 3,
+        "target_reps": 5,
+        "target_weight": 100.0,
+        "target_duration_seconds": null,
+        "rest_duration_seconds": 120
+      },
+      {
+        "id": 2,
+        "plan_id": 10,
+        "exercise_id": 2,
+        "order_index": 1,
+        "target_sets": 2,
+        "target_reps": null,
+        "target_weight": null,
+        "target_duration_seconds": 45,
+        "rest_duration_seconds": 60
+      },
+      {
+        "id": 3,
+        "plan_id": 10,
+        "exercise_id": 3,
+        "order_index": 2,
+        "target_sets": 2,
+        "target_reps": 8,
+        "target_weight": null,
+        "target_duration_seconds": null,
+        "rest_duration_seconds": 90
+      },
+      {
+        "id": 9,
+        "plan_id": 11,
+        "exercise_id": 1,
+        "order_index": 0,
+        "target_sets": 3,
+        "target_reps": 8,
+        "target_weight": null,
+        "target_duration_seconds": null,
+        "rest_duration_seconds": 90
+      }
+    ],
+    "scheduled_workouts": [
+      {
+        "id": 1,
+        "plan_id": 10,
+        "scheduled_date": "2026-10-05"
+      },
+      {
+        "id": 2,
+        "plan_id": 10,
+        "scheduled_date": "2026-10-07"
+      }
+    ]
+  }
+}
