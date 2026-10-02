@@ -8,6 +8,7 @@ export default function HistoryLayout() {
       <Stack.Screen name="progress" options={{ title: 'Statystyki' }} />
       <Stack.Screen name="one-rep-max" options={{ title: 'Kalkulator 1RM' }} />
       <Stack.Screen name="body" options={{ title: 'Pomiary ciała' }} />
+      <Stack.Screen name="import" options={{ title: 'Treningi z zegarka' }} />
       <Stack.Screen name="update-plan" options={{ presentation: 'modal', title: 'Aktualizacja planu' }} />
     </Stack>
   );

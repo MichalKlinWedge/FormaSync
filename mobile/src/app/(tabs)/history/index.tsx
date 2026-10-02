@@ -43,6 +43,15 @@ export default function HistoryScreen() {
               <Icon name="monitor_weight" size={22} color={theme.accent} />
               <ThemedText type="smallBold">Pomiary ciała</ThemedText>
             </Pressable>
+            <Pressable
+              onPress={() => router.push('/history/import')}
+              style={({ pressed }) => [
+                styles.action,
+                { backgroundColor: theme.backgroundElement, opacity: pressed ? 0.7 : 1 },
+              ]}>
+              <Icon name="watch" size={22} color={theme.accent} />
+              <ThemedText type="smallBold">Z zegarka</ThemedText>
+            </Pressable>
           </View>
 
           {groups.length === 0 ? (

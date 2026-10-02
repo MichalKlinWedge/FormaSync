@@ -113,3 +113,72 @@ export function loadSessionHealth(db: SyncDb, sessionId: number, dayKey: string)
     .get();
   return { activity: activity ?? null, daily: daily ?? null };
 }
+
+/** Identyfikatory rekordów Health Connect, które już trafiły do historii. */
+export function importedActivityIds(db: SyncDb): Set<string> {
+  const rows = db
+    .select({ id: schema.garminActivityMetrics.garminActivityId })
+    .from(schema.garminActivityMetrics)
+    .all();
+  return new Set(rows.map((row) => row.id).filter((id): id is string => id !== null));
+}
+
+/**
+ * Okna czasowe treningów zapisanych w aplikacji. Sesja trwająca nie ma jeszcze końca —
+ * przyjmujemy wtedy jej początek, żeby nie uznać za pokrywającą się całej doby.
+ */
+export function sessionWindows(db: SyncDb, fromIso: string): { startTime: string; endTime: string }[] {
+  return db
+    .select({
+      startTime: schema.workoutSessions.startTime,
+      endTime: schema.workoutSessions.endTime,
+    })
+    .from(schema.workoutSessions)
+    .where(gte(schema.workoutSessions.startTime, fromIso))
+    .all()
+    .map(({ startTime, endTime }) => ({ startTime, endTime: endTime ?? startTime }));
+}
+
+export type ImportedActivity = {
+  recordId: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  durationSeconds: number;
+  avgHeartRate: number | null;
+  maxHeartRate: number | null;
+  caloriesBurned: number | null;
+};
+
+/**
+ * Zapisuje aktywność z zegarka jako zakończoną sesję. Sesja nie ma serii ani planu —
+ * Health Connect ich nie udostępnia — więc w historii pokaże się sam czas i biometria.
+ */
+export function createSessionFromActivity(db: SyncDb, activity: ImportedActivity): number {
+  return db.transaction((tx) => {
+    const session = tx
+      .insert(schema.workoutSessions)
+      .values({
+        title: activity.title,
+        status: 'COMPLETED',
+        startTime: activity.startTime,
+        endTime: activity.endTime,
+        totalDurationSeconds: activity.durationSeconds,
+      })
+      .returning({ id: schema.workoutSessions.id })
+      .get();
+
+    tx.insert(schema.garminActivityMetrics)
+      .values({
+        sessionId: session.id,
+        garminActivityId: activity.recordId,
+        avgHeartRate: activity.avgHeartRate,
+        maxHeartRate: activity.maxHeartRate,
+        caloriesBurned: activity.caloriesBurned,
+        rawGarminJson: null,
+      })
+      .run();
+
+    return session.id;
+  });
+}

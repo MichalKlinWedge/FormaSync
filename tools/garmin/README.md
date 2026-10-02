@@ -54,6 +54,13 @@ python formasync_garmin.py inspect --id 1676757230 # pełna struktura jednego
 
 Przydatne, gdy coś na zegarku wygląda inaczej, niż powinno.
 
+## Jak nagrać trening, żeby wróciły serie
+
+Na zegarku uruchom trening z listy **Treningi** albo z kalendarza — nie zwykłą aktywność. Serie,
+powtórzenia i ciężar zegarek liczy wyłącznie w aktywności siłowej prowadzonej po krokach
+wczytanego treningu. Aktywność uruchomiona ręcznie (np. „Cardio”) zapisze sam czas i tętno:
+`get_activity_exercise_sets` zwróci wtedy `null`.
+
 ## Sprawdzenie bez konta Garmin
 
 W katalogu leży `example-backup.json` z przykładowymi danymi. Podgląd na nim nie wymaga logowania ani sieci:

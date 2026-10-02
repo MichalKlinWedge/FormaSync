@@ -34,6 +34,8 @@ export const HEALTH_PERMISSIONS: Permission[] = [
   { accessType: 'read', recordType: 'SleepSession' },
   { accessType: 'read', recordType: 'BloodPressure' },
   { accessType: 'read', recordType: 'ActiveCaloriesBurned' },
+  // Treningi nagrane na zegarku — do wczytania do historii (Historia → Z zegarka).
+  { accessType: 'read', recordType: 'ExerciseSession' },
 ];
 
 export type HealthAvailability = 'AVAILABLE' | 'NEEDS_UPDATE' | 'UNAVAILABLE';
