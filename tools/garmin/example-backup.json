@@ -1,96 +1,96 @@
 {
   "app": "FormaSync",
   "version": 1,
-  "exportedAt": "2026-10-02T08:00:00Z",
+  "exportedAt": "2026-10-02T08:00:00.000Z",
   "tables": {
     "exercises": [
       {
         "id": 1,
         "name": "Przysiad ze sztangą",
-        "garmin_category": "SQUAT",
-        "tracking_type": "REPS"
+        "garminCategory": "SQUAT",
+        "trackingType": "REPS"
       },
       {
         "id": 2,
         "name": "Plank (deska)",
-        "garmin_category": "PLANK",
-        "tracking_type": "TIME"
+        "garminCategory": "PLANK",
+        "trackingType": "TIME"
       },
       {
         "id": 3,
         "name": "Dziwne ćwiczenie",
-        "garmin_category": null,
-        "tracking_type": "REPS"
+        "garminCategory": null,
+        "trackingType": "REPS"
       }
     ],
     "workout_plans": [
       {
         "id": 10,
         "title": "Mój plan",
-        "is_template": false
+        "isTemplate": false
       },
       {
         "id": 11,
         "title": "FBW",
-        "is_template": true
+        "isTemplate": true
       }
     ],
     "plan_exercises": [
       {
         "id": 1,
-        "plan_id": 10,
-        "exercise_id": 1,
-        "order_index": 0,
-        "target_sets": 3,
-        "target_reps": 5,
-        "target_weight": 100.0,
-        "target_duration_seconds": null,
-        "rest_duration_seconds": 120
+        "planId": 10,
+        "exerciseId": 1,
+        "orderIndex": 0,
+        "targetSets": 3,
+        "targetReps": 5,
+        "targetWeight": 100.0,
+        "targetDurationSeconds": null,
+        "restDurationSeconds": 120
       },
       {
         "id": 2,
-        "plan_id": 10,
-        "exercise_id": 2,
-        "order_index": 1,
-        "target_sets": 2,
-        "target_reps": null,
-        "target_weight": null,
-        "target_duration_seconds": 45,
-        "rest_duration_seconds": 60
+        "planId": 10,
+        "exerciseId": 2,
+        "orderIndex": 1,
+        "targetSets": 2,
+        "targetReps": null,
+        "targetWeight": null,
+        "targetDurationSeconds": 45,
+        "restDurationSeconds": 60
       },
       {
         "id": 3,
-        "plan_id": 10,
-        "exercise_id": 3,
-        "order_index": 2,
-        "target_sets": 2,
-        "target_reps": 8,
-        "target_weight": null,
-        "target_duration_seconds": null,
-        "rest_duration_seconds": 90
+        "planId": 10,
+        "exerciseId": 3,
+        "orderIndex": 2,
+        "targetSets": 2,
+        "targetReps": 8,
+        "targetWeight": null,
+        "targetDurationSeconds": null,
+        "restDurationSeconds": 90
       },
       {
         "id": 9,
-        "plan_id": 11,
-        "exercise_id": 1,
-        "order_index": 0,
-        "target_sets": 3,
-        "target_reps": 8,
-        "target_weight": null,
-        "target_duration_seconds": null,
-        "rest_duration_seconds": 90
+        "planId": 11,
+        "exerciseId": 1,
+        "orderIndex": 0,
+        "targetSets": 3,
+        "targetReps": 8,
+        "targetWeight": null,
+        "targetDurationSeconds": null,
+        "restDurationSeconds": 90
       }
     ],
     "scheduled_workouts": [
       {
         "id": 1,
-        "plan_id": 10,
-        "scheduled_date": "2026-10-05"
+        "planId": 10,
+        "scheduledDate": "2026-10-05"
       },
       {
         "id": 2,
-        "plan_id": 10,
-        "scheduled_date": "2026-10-07"
+        "planId": 10,
+        "scheduledDate": "2026-10-07"
       }
     ]
   }

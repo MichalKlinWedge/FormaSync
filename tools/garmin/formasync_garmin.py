@@ -68,6 +68,19 @@ class Plan:
     scheduled_dates: list[str]
 
 
+def field(row: dict[str, Any], *names: str, default: Any = None) -> Any:
+    """Odczyt pola niezależnie od zapisu nazw.
+
+    Kopia zapasowa zapisuje nazwy w zapisie camelCase (`planId`), bo takie nazwy nadaje
+    warstwa dostępu do bazy w aplikacji. Przyjmujemy też zapis z podkreśleniami, żeby
+    starsze pliki nie przestały działać.
+    """
+    for name in names:
+        if name in row:
+            return row[name]
+    return default
+
+
 def load_backup(path: Path) -> list[Plan]:
     data = json.loads(path.read_text(encoding="utf-8"))
     if data.get("app") != "FormaSync":
@@ -77,18 +90,18 @@ def load_backup(path: Path) -> list[Plan]:
     exercises = {row["id"]: row for row in tables.get("exercises", [])}
     by_plan: dict[int, list[dict[str, Any]]] = defaultdict(list)
     for row in tables.get("plan_exercises", []):
-        by_plan[row["plan_id"]].append(row)
+        by_plan[field(row, "planId", "plan_id")].append(row)
 
     schedule: dict[int, list[str]] = defaultdict(list)
     for row in tables.get("scheduled_workouts", []):
-        schedule[row["plan_id"]].append(row["scheduled_date"])
+        schedule[field(row, "planId", "plan_id")].append(field(row, "scheduledDate", "scheduled_date"))
 
     plans: list[Plan] = []
     for plan_row in tables.get("workout_plans", []):
         # Szablony wbudowane pomijamy — do Garmina trafiają tylko własne plany.
-        if plan_row.get("is_template"):
+        if field(plan_row, "isTemplate", "is_template"):
             continue
-        items = sorted(by_plan.get(plan_row["id"], []), key=lambda r: r["order_index"])
+        items = sorted(by_plan.get(plan_row["id"], []), key=lambda r: field(r, "orderIndex", "order_index", default=0))
         if not items:
             continue
         plans.append(
@@ -103,16 +116,16 @@ def load_backup(path: Path) -> list[Plan]:
 
 
 def _to_exercise(item: dict[str, Any], exercises: dict[int, dict[str, Any]]) -> PlanExercise:
-    exercise = exercises.get(item["exercise_id"], {})
+    exercise = exercises.get(field(item, "exerciseId", "exercise_id"), {})
     return PlanExercise(
         name=exercise.get("name", "Ćwiczenie"),
-        category=exercise.get("garmin_category"),
-        tracking=exercise.get("tracking_type", "REPS"),
-        sets=item["target_sets"],
-        reps=item.get("target_reps"),
-        weight_kg=item.get("target_weight"),
-        duration_seconds=item.get("target_duration_seconds"),
-        rest_seconds=item.get("rest_duration_seconds") or 0,
+        category=field(exercise, "garminCategory", "garmin_category"),
+        tracking=field(exercise, "trackingType", "tracking_type", default="REPS"),
+        sets=field(item, "targetSets", "target_sets", default=1),
+        reps=field(item, "targetReps", "target_reps"),
+        weight_kg=field(item, "targetWeight", "target_weight"),
+        duration_seconds=field(item, "targetDurationSeconds", "target_duration_seconds"),
+        rest_seconds=field(item, "restDurationSeconds", "rest_duration_seconds", default=0) or 0,
     )
 
 
