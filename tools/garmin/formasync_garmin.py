@@ -41,7 +41,10 @@ except ImportError as exc:  # pragma: no cover - zależy od środowiska użytkow
     sys.exit(f"Brak zależności: {exc}. Zainstaluj: pip install -r requirements.txt")
 
 SPORT_STRENGTH = {"sportTypeId": 5, "sportTypeKey": "strength_training"}
-DEFAULT_TOKENSTORE = os.getenv("GARMINTOKENS", "~/.garminconnect")
+# Kolejność jak w innych projektach korzystających z tych samych tokenów.
+DEFAULT_TOKENSTORE = (
+    os.getenv("GARMIN_TOKEN_STORE") or os.getenv("GARMINTOKENS") or "~/.garminconnect"
+)
 
 
 # --- Odczyt kopii zapasowej ---------------------------------------------------
@@ -226,8 +229,22 @@ def describe(plan: Plan) -> str:
 
 
 def connect(tokenstore: str) -> Garmin:
+    path = Path(tokenstore).expanduser()
     api = Garmin()
-    needs_mfa, _ = api.login(str(Path(tokenstore).expanduser()))
+    try:
+        needs_mfa, _ = api.login(str(path))
+    except Exception as exc:  # noqa: BLE001 — chcemy czytelnej podpowiedzi zamiast śladu stosu
+        if "password" in str(exc).lower():
+            sys.exit(
+                "\n".join(
+                    [
+                        f"Nie znalazłem działających tokenów w: {path}",
+                        "Wskaż właściwy katalog przez --tokenstore albo zmienną GARMIN_TOKEN_STORE.",
+                        "Jeśli tokenów nie masz, zaloguj się raz skryptem, który je zapisuje.",
+                    ]
+                )
+            )
+        sys.exit(f"Logowanie nie powiodło się: {exc}")
     if needs_mfa:
         sys.exit("Konto wymaga kodu dwuskładnikowego. Zaloguj się raz ręcznie, by odświeżyć tokeny.")
     return api

@@ -16,7 +16,14 @@ Aplikacja ma osobną, niezależną drogę: **eksport planu do pliku `.FIT`**, kt
 pip install -r requirements.txt
 ```
 
-Narzędzie korzysta z zapisanych tokenów Garmina — nie pyta o hasło. Domyślnie szuka ich w `~/.garminconnect`; inną ścieżkę wskazuje `--tokenstore`, działa też zmienna środowiskowa `GARMINTOKENS`. Jeśli tokenów nie masz, zaloguj się raz dowolnym skryptem korzystającym z `garminconnect`.
+Narzędzie korzysta z zapisanych tokenów Garmina — nie pyta o hasło. Szuka ich kolejno w:
+
+1. ścieżce podanej przez `--tokenstore`,
+2. zmiennej `GARMIN_TOKEN_STORE`,
+3. zmiennej `GARMINTOKENS`,
+4. `~/.garminconnect`.
+
+Jeśli masz już tokeny z innego projektu, wskaż ich katalog, na przykład `--tokenstore D:\AI\Running\.garmin_tokens`. Jeśli ich nie masz, zaloguj się raz dowolnym skryptem korzystającym z `garminconnect` — zapisze je sam.
 
 ## Użycie
 
