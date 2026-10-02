@@ -14,7 +14,11 @@ import type { TrackingType } from '@/db/schema';
  *
  * To obejście braku dostępu do Garmin Training API: program deweloperski Garmina jest
  * wstrzymany, wymaga podmiotu prawnego i opłaty, więc planu nie da się wysłać przez API.
- * Plik FIT importuje się ręcznie w Garmin Connect, skąd trafia na zegarek.
+ *
+ * Uwaga co do drogi dostarczenia: Garmin Connect przyjmuje przez import wyłącznie pliki
+ * aktywności, nie treningów — potwierdzone przez obsługę Garmina. Plik kopiuje się więc
+ * wprost na zegarek (folder NewFiles) przez kabel. Wysyłkę do biblioteki i kalendarza
+ * Garmin Connect realizuje osobne narzędzie na komputerze, w tools/garmin.
  */
 
 export type FitExercise = {

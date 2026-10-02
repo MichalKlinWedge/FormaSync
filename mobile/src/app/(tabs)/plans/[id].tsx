@@ -57,7 +57,9 @@ export default function PlanDetailsScreen() {
         'Plik zapisany',
         `${name}
 
-Zaimportuj go w Garmin Connect: Trening → Treningi → Importuj. Stamtąd trafi na zegarek.`,
+Podłącz zegarek kablem i skopiuj plik do folderu NewFiles — trening pojawi się na zegarku. ` +
+          'Garmin Connect nie przyjmuje plików treningowych przez import, więc do wysyłki razem z kalendarzem ' +
+          'służy narzędzie na komputerze (tools/garmin).',
       );
     } catch (e) {
       if (e instanceof ExportCanceled) return;
