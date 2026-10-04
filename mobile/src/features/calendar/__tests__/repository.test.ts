@@ -14,6 +14,7 @@ import {
   deleteScheduled,
   listPendingReminders,
   listScheduled,
+  loadScheduled,
   reminderDate,
   scheduleStatus,
   scheduleWorkouts,
@@ -93,6 +94,19 @@ describe('scheduleWorkouts', () => {
       status: 'PLANNED',
       sessionId: null,
     });
+  });
+
+  it('wczytuje pojedynczy termin na potrzeby ekranu szczegółów', () => {
+    const { db, planId } = setup();
+    scheduleWorkouts(db, {
+      planId,
+      dates: ['2026-10-02'],
+      scheduledTime: '18:00',
+      reminderOffsetMinutes: null,
+    });
+    const [entry] = listScheduled(db, '2026-10-01', '2026-10-31', '2026-10-01');
+    expect(loadScheduled(db, entry.id, '2026-10-01')).toEqual(entry);
+    expect(loadScheduled(db, 9999, '2026-10-01')).toBeNull();
   });
 
   it('wskazuje trening przeprowadzony z terminu, żeby dało się wejść w jego szczegóły', () => {

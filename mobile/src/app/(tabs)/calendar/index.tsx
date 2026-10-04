@@ -180,11 +180,7 @@ function ScheduledRow({ entry, color }: { entry: ScheduledEntry; color: string }
       },
     ]);
 
-  /** Wykonany termin prowadzi do zapisu w historii, niewykonany — do planu z listą ćwiczeń. */
-  const openDetails = () =>
-    entry.sessionId !== null
-      ? router.push({ pathname: '/history/[id]', params: { id: entry.sessionId } })
-      : router.push({ pathname: '/plans/[id]', params: { id: entry.planId } });
+  const openDetails = () => router.push({ pathname: '/calendar/details', params: { id: entry.id } });
 
   return (
     <ThemedView type="backgroundElement" style={styles.entry}>

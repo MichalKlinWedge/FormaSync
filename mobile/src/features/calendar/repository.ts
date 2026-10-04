@@ -70,6 +70,28 @@ export function listScheduled(db: SyncDb, fromKey: string, toKey: string, today 
     .map((row) => ({ ...row, status: scheduleStatus(row, today) }));
 }
 
+/** Jeden termin po identyfikatorze — do ekranu szczegółów. */
+export function loadScheduled(db: SyncDb, id: number, today = todayKey()): ScheduledEntry | null {
+  const row = db
+    .select({
+      id: schema.scheduledWorkouts.id,
+      planId: schema.scheduledWorkouts.planId,
+      planTitle: schema.workoutPlans.title,
+      scheduledDate: schema.scheduledWorkouts.scheduledDate,
+      scheduledTime: schema.scheduledWorkouts.scheduledTime,
+      reminderOffsetMinutes: schema.scheduledWorkouts.reminderOffsetMinutes,
+      isCompleted: schema.scheduledWorkouts.isCompleted,
+      sessionId: sql<number | null>`max(${schema.workoutSessions.id})`,
+    })
+    .from(schema.scheduledWorkouts)
+    .innerJoin(schema.workoutPlans, eq(schema.scheduledWorkouts.planId, schema.workoutPlans.id))
+    .leftJoin(schema.workoutSessions, eq(schema.workoutSessions.scheduledId, schema.scheduledWorkouts.id))
+    .where(eq(schema.scheduledWorkouts.id, id))
+    .groupBy(schema.scheduledWorkouts.id)
+    .get();
+  return row ? { ...row, status: scheduleStatus(row, today) } : null;
+}
+
 export type ScheduleInput = {
   planId: number;
   dates: string[];

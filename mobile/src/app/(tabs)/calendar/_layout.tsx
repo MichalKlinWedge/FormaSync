@@ -5,6 +5,7 @@ export default function CalendarLayout() {
     <Stack screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="schedule" options={{ presentation: 'modal', title: 'Zaplanuj trening' }} />
+      <Stack.Screen name="details" options={{ title: '' }} />
     </Stack>
   );
 }
