@@ -7,15 +7,12 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
 import { loadScheduled, type ScheduleStatus } from '@/features/calendar/repository';
+import { SessionDetails } from '@/features/history/session-details';
 import { formatTarget } from '@/features/plans/draft';
 import { usePlanDetails } from '@/features/plans/use-plans';
-import { loadSessionMeta } from '@/features/history/repository';
-import { countSets, formatClock, sessionTonnage } from '@/features/workout/logic';
 import { ensureNotificationPermission } from '@/features/workout/notifications';
 import { ActiveSessionExistsError, startSession } from '@/features/workout/repository';
-import { useSession } from '@/features/workout/use-session';
 import { formatDayWithWeekday } from '@/lib/date';
-import { formatKg, pluralWith } from '@/lib/number';
 
 const STATUS_LABELS: Record<ScheduleStatus, string> = {
   COMPLETED: 'wykonany',
@@ -24,16 +21,29 @@ const STATUS_LABELS: Record<ScheduleStatus, string> = {
 };
 
 /**
- * Szczegóły terminu z kalendarza: co zawiera plan i — jeśli trening już się odbył — jak wyszedł.
+ * Szczegóły terminu z kalendarza. Gdy trening się odbył, pokazujemy dokładnie ten sam ekran
+ * co w historii — ten sam trening nie może wyglądać inaczej zależnie od drogi dojścia.
  * Ekran należy do stosu kalendarza, żeby cofanie wracało do kalendarza, a nie do innej zakładki.
  */
 export default function ScheduledDetailsScreen() {
   const id = Number(useLocalSearchParams<{ id: string }>().id);
   const entry = loadScheduled(db, id);
-  const { items } = usePlanDetails(entry?.planId ?? 0);
-  const { session } = useSession(entry?.sessionId ?? 0);
 
   if (!entry) return <ThemedView style={styles.flex} />;
+  if (entry.sessionId !== null) {
+    return (
+      <SessionDetails
+        id={entry.sessionId}
+        updatePlanRoute={{ pathname: '/calendar/update-plan', params: { id: entry.sessionId } }}
+      />
+    );
+  }
+  return <PlannedDetails entry={entry} />;
+}
+
+/** Termin bez przeprowadzonego treningu: skład planu i start. */
+function PlannedDetails({ entry }: { entry: NonNullable<ReturnType<typeof loadScheduled>> }) {
+  const { items } = usePlanDetails(entry.planId);
 
   const begin = () => {
     try {
@@ -47,9 +57,6 @@ export default function ScheduledDetailsScreen() {
     }
   };
 
-  const done = session !== null ? countSets(session.exercises).completed : 0;
-  const duration = session !== null ? loadSessionMeta(db, session.id)?.totalDurationSeconds ?? null : null;
-
   return (
     <ThemedView style={styles.flex}>
       <Stack.Screen options={{ title: entry.planTitle }} />
@@ -61,31 +68,6 @@ export default function ScheduledDetailsScreen() {
             {STATUS_LABELS[entry.status]}
           </ThemedText>
         </View>
-
-        {session !== null && (
-          <View style={styles.group}>
-            <ThemedText type="smallBold" themeColor="textSecondary">
-              WYKONANIE
-            </ThemedText>
-            <ThemedView type="backgroundElement" style={styles.card}>
-              <ThemedText type="small" themeColor="textSecondary">
-                {[
-                  duration !== null ? formatClock(duration) : null,
-                  pluralWith(done, 'seria', 'serie', 'serii'),
-                  formatKg(sessionTonnage(session.exercises)),
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </ThemedText>
-              <Button
-                label="Otwórz w historii"
-                icon="history"
-                variant="secondary"
-                onPress={() => router.push({ pathname: '/history/[id]', params: { id: session.id } })}
-              />
-            </ThemedView>
-          </View>
-        )}
 
         <View style={styles.group}>
           <ThemedText type="smallBold" themeColor="textSecondary">
@@ -109,7 +91,7 @@ export default function ScheduledDetailsScreen() {
           )}
         </View>
 
-        {!entry.isCompleted && <Button label="Rozpocznij trening" icon="play_arrow" onPress={begin} />}
+        <Button label="Rozpocznij trening" icon="play_arrow" onPress={begin} />
       </ScrollView>
     </ThemedView>
   );
