@@ -109,6 +109,21 @@ describe('scheduleWorkouts', () => {
     expect(loadScheduled(db, 9999, '2026-10-01')).toBeNull();
   });
 
+  it('wczytuje pojedynczy termin razem z przeprowadzonym treningiem', () => {
+    const { db, planId } = setup();
+    scheduleWorkouts(db, {
+      planId,
+      dates: ['2026-10-02'],
+      scheduledTime: '18:00',
+      reminderOffsetMinutes: null,
+    });
+    const [entry] = listScheduled(db, '2026-10-01', '2026-10-31', '2026-10-01');
+    const sessionId = startSession(db, { kind: 'scheduled', scheduledId: entry.id });
+    finishSession(db, sessionId);
+
+    expect(loadScheduled(db, entry.id, '2026-10-01')).toMatchObject({ sessionId, status: 'COMPLETED' });
+  });
+
   it('wskazuje trening przeprowadzony z terminu, żeby dało się wejść w jego szczegóły', () => {
     const { db, planId } = setup();
     scheduleWorkouts(db, {
