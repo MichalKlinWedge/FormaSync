@@ -18,6 +18,9 @@ import {
   weeklyTonnage,
 } from '@/features/progress/analytics';
 import { useCompletedSets } from '@/features/progress/use-progress';
+import { EnduranceStats } from '@/features/endurance/stats-view';
+import { isEndurance } from '@/features/sports/sport';
+import { useActiveSport } from '@/features/sports/sport-store';
 import { useTheme } from '@/hooks/use-theme';
 import { addDays, fromDateKey, todayKey } from '@/lib/date';
 import { formatKg, formatNumber, formatTonnage } from '@/lib/number';
@@ -27,6 +30,7 @@ const CATEGORY_WINDOW_DAYS = 28;
 
 export default function ProgressScreen() {
   const theme = useTheme();
+  const sport = useActiveSport();
   const sets = useCompletedSets();
   const today = todayKey();
 
@@ -47,6 +51,9 @@ export default function ProgressScreen() {
   );
 
   const maxCategory = categories[0]?.tonnage ?? 0;
+
+  // Tonaż i rekordy ciężaru nie opisują biegu — wytrzymałość ma własne liczby.
+  if (isEndurance(sport)) return <EnduranceStats sport={sport} />;
 
   if (sets.length === 0) {
     return (

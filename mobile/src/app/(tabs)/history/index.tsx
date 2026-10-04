@@ -8,7 +8,9 @@ import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 
 import type { HistoryEntry } from '@/features/history/repository';
+import { formatDistance, formatPace, paceFrom } from '@/features/endurance/format';
 import { useHistory } from '@/features/history/use-history';
+import { isEndurance } from '@/features/sports/sport';
 import { SportSwitcher } from '@/features/sports/sport-switcher';
 import { useActiveSport } from '@/features/sports/sport-store';
 import { formatClock } from '@/features/workout/logic';
@@ -85,10 +87,19 @@ export default function HistoryScreen() {
 
 function HistoryRow({ entry }: { entry: HistoryEntry }) {
   const theme = useTheme();
+  // Bieg opisuje dystans i tempo, siłę — serie i tonaż. Te same pola nic by nie powiedziały.
+  const pace = isEndurance(entry.sport) ? paceFrom(entry.distanceMeters, entry.movingSeconds) : null;
   const details = [
     entry.durationSeconds !== null ? formatClock(entry.durationSeconds) : null,
-    pluralWith(entry.completedSets, 'seria', 'serie', 'serii'),
-    entry.tonnage > 0 ? `${Math.round(entry.tonnage)} kg` : null,
+    ...(isEndurance(entry.sport)
+      ? [
+          entry.distanceMeters > 0 ? formatDistance(entry.distanceMeters) : null,
+          pace !== null ? formatPace(pace) : null,
+        ]
+      : [
+          pluralWith(entry.completedSets, 'seria', 'serie', 'serii'),
+          entry.tonnage > 0 ? `${Math.round(entry.tonnage)} kg` : null,
+        ]),
     entry.rpeRating !== null ? `RPE ${entry.rpeRating}` : null,
   ]
     .filter(Boolean)

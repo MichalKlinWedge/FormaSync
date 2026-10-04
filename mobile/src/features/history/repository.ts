@@ -14,11 +14,14 @@ export type HistoryEntry = {
   userNotes: string | null;
   completedSets: number;
   tonnage: number;
+  /** Dla dyscyplin wytrzymałościowych: suma zapisanych odcinków. */
+  distanceMeters: number;
+  movingSeconds: number;
 };
 
 /** Zakończone i przerwane treningi, od najnowszego; bez podanego sportu — wszystkie. */
 export function listHistory(db: SyncDb, sport?: schema.Sport): HistoryEntry[] {
-  return db
+  const rows = db
     .select({
       id: schema.workoutSessions.id,
       startTime: schema.workoutSessions.startTime,
@@ -48,8 +51,29 @@ export function listHistory(db: SyncDb, sport?: schema.Sport): HistoryEntry[] {
     )
     .groupBy(schema.workoutSessions.id)
     .orderBy(desc(schema.workoutSessions.startTime))
-    .all()
-    .map(({ planTitle, title, ...rest }) => ({ ...rest, title: title ?? planTitle ?? 'Trening' }));
+    .all();
+
+  // Odcinki liczymy osobnym zapytaniem: złączone z seriami zwielokrotniłyby sobie nawzajem wiersze.
+  const segments = new Map(
+    db
+      .select({
+        sessionId: schema.loggedSegments.sessionId,
+        distanceMeters: sql<number>`coalesce(sum(coalesce(${schema.loggedSegments.distanceMeters}, 0)), 0)`,
+        movingSeconds: sql<number>`coalesce(sum(coalesce(${schema.loggedSegments.durationSeconds}, 0)), 0)`,
+      })
+      .from(schema.loggedSegments)
+      .where(isNotNull(schema.loggedSegments.completedAt))
+      .groupBy(schema.loggedSegments.sessionId)
+      .all()
+      .map((row) => [row.sessionId, row] as const),
+  );
+
+  return rows.map(({ planTitle, title, ...rest }) => ({
+    ...rest,
+    title: title ?? planTitle ?? 'Trening',
+    distanceMeters: segments.get(rest.id)?.distanceMeters ?? 0,
+    movingSeconds: segments.get(rest.id)?.movingSeconds ?? 0,
+  }));
 }
 
 export type SessionMeta = {

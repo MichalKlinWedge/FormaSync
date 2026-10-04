@@ -12,10 +12,19 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
 
+import { EnduranceSessionDetails } from '@/features/endurance/session-details';
 import { SessionHealth } from '@/features/health/session-health';
+import { isEndurance } from '@/features/sports/sport';
 import { formatTarget } from '@/features/plans/draft';
 import { type ActiveExercise, type ActiveSet, countSets, formatClock, sessionTonnage } from '@/features/workout/logic';
-import { addSet, completeSet, removeSet, type SetValues, updateSet } from '@/features/workout/repository';
+import {
+  activeSessionSport,
+  addSet,
+  completeSet,
+  removeSet,
+  type SetValues,
+  updateSet,
+} from '@/features/workout/repository';
 import { useSession } from '@/features/workout/use-session';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDateTime } from '@/lib/date';
@@ -40,6 +49,7 @@ export function SessionDetails({ id, updatePlanRoute, footer }: SessionDetailsPr
   const theme = useTheme();
   const { session, reload } = useSession(id);
   const [meta] = useState(() => loadSessionMeta(db, id));
+  const [sessionSport] = useState(() => activeSessionSport(db, id) ?? 'STRENGTH');
   const [notes, setNotes] = useState(meta?.userNotes ?? '');
   const [rpe, setRpe] = useState<number | null>(meta?.rpeRating ?? null);
 
@@ -47,6 +57,8 @@ export function SessionDetails({ id, updatePlanRoute, footer }: SessionDetailsPr
   useFocusEffect(useCallback(() => reload(), [reload]));
 
   if (!session || !meta) return <ThemedView style={styles.flex} />;
+  // Bieg ma odcinki zamiast serii — ten sam ekran nic by o nim nie powiedział.
+  if (isEndurance(sessionSport)) return <EnduranceSessionDetails id={id} footer={footer} />;
 
   const { completed } = countSets(session.exercises);
   const tonnage = sessionTonnage(session.exercises);
