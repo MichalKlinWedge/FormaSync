@@ -1,5 +1,5 @@
 import { type Href, router, Stack, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { type ReactNode, useCallback, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/button';
@@ -26,6 +26,8 @@ const RPE_VALUES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 type SessionDetailsProps = {
   id: number;
+  /** Dodatkowe działania ekranu, który osadza ten widok — np. odpięcie od terminu. */
+  footer?: ReactNode;
   /**
    * Dokąd prowadzi aktualizacja planu. Ekran żyje w dwóch stosach — historii i kalendarza —
    * a zakładki są natywne, więc skok do cudzego stosu rozbiłby cofanie.
@@ -34,7 +36,7 @@ type SessionDetailsProps = {
 };
 
 /** Pełne szczegóły przeprowadzonego treningu: serie, dane zdrowotne, RPE i notatka. */
-export function SessionDetails({ id, updatePlanRoute }: SessionDetailsProps) {
+export function SessionDetails({ id, updatePlanRoute, footer }: SessionDetailsProps) {
   const theme = useTheme();
   const { session, reload } = useSession(id);
   const [meta] = useState(() => loadSessionMeta(db, id));
@@ -169,6 +171,7 @@ export function SessionDetails({ id, updatePlanRoute }: SessionDetailsProps) {
           </View>
 
           <Button label="Zaktualizuj plan" icon="edit" onPress={openPlanUpdate} />
+          {footer}
           <Button label="Usuń trening" icon="delete" variant="danger" onPress={confirmDelete} />
         </ScrollView>
       </ThemedView>

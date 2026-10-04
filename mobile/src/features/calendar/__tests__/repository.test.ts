@@ -7,14 +7,18 @@ import { eq } from 'drizzle-orm';
 import * as schema from '@/db/schema';
 import { createTestDb } from '@/db/test-utils';
 import { savePlan } from '@/features/plans/repository';
+import { listHistory } from '@/features/history/repository';
 import { completeSet, finishSession, loadSession, startSession } from '@/features/workout/repository';
 import { generateRecurringDates } from '@/lib/date';
 
 import {
   deleteScheduled,
   listPendingReminders,
+  attachSession,
+  detachSession,
   listScheduled,
   loadScheduled,
+  sessionsToAttach,
   reminderDate,
   scheduleStatus,
   scheduleWorkouts,
@@ -224,5 +228,91 @@ describe('listPendingReminders', () => {
     expect(next).toHaveLength(1);
     expect(next[0].remindAt.getHours()).toBe(7);
     expect(next[0].remindAt.getMinutes()).toBe(15);
+  });
+});
+
+describe('przypisywanie treningu do terminu', () => {
+  /** Zakończony trening bez terminu — taki, który da się przypisać. */
+  const addSession = (db: ReturnType<typeof createTestDb>, title: string, startTime: string) =>
+    db
+      .insert(schema.workoutSessions)
+      .values({ title, status: 'COMPLETED', startTime, endTime: startTime })
+      .returning({ id: schema.workoutSessions.id })
+      .get().id;
+
+  function withTerm() {
+    const { db, planId } = setup();
+    scheduleWorkouts(db, {
+      planId,
+      dates: ['2026-10-02'],
+      scheduledTime: '18:00',
+      reminderOffsetMinutes: null,
+    });
+    const [term] = listScheduled(db, '2026-10-01', '2026-10-31', '2026-10-01');
+    return { db, term };
+  }
+
+  it('proponuje treningi z okolic daty terminu, od najbliższego', () => {
+    const { db, term } = withTerm();
+    addSession(db, 'Daleki', '2026-10-04T10:00:00.000Z');
+    addSession(db, 'Bliski', '2026-10-02T10:00:00.000Z');
+    expect(sessionsToAttach(db, term.scheduledDate).map((s) => s.title)).toEqual(['Bliski', 'Daleki']);
+  });
+
+  it('pomija treningi spoza okna i już przypisane do innego terminu', () => {
+    const { db, term } = withTerm();
+    addSession(db, 'Za stary', '2026-09-01T10:00:00.000Z');
+    const zajety = addSession(db, 'Zajęty', '2026-10-02T10:00:00.000Z');
+    attachSession(db, term.id, zajety);
+    expect(sessionsToAttach(db, term.scheduledDate)).toEqual([]);
+  });
+
+  it('przypisanie ukończonego treningu oznacza termin jako wykonany', () => {
+    const { db, term } = withTerm();
+    const sessionId = addSession(db, 'Nogi', '2026-10-02T10:00:00.000Z');
+
+    attachSession(db, term.id, sessionId);
+
+    expect(loadScheduled(db, term.id, '2026-10-05')).toMatchObject({
+      sessionId,
+      isCompleted: true,
+      status: 'COMPLETED',
+    });
+  });
+
+  it('przerwany trening przypisujemy, ale terminu nie uznajemy za wykonany', () => {
+    const { db, term } = withTerm();
+    const sessionId = db
+      .insert(schema.workoutSessions)
+      .values({
+        title: 'Przerwany',
+        status: 'ABANDONED',
+        startTime: '2026-10-02T10:00:00.000Z',
+        endTime: '2026-10-02T10:05:00.000Z',
+      })
+      .returning({ id: schema.workoutSessions.id })
+      .get().id;
+
+    attachSession(db, term.id, sessionId);
+
+    expect(loadScheduled(db, term.id, '2026-10-05')).toMatchObject({
+      sessionId,
+      isCompleted: false,
+      status: 'MISSED',
+    });
+  });
+
+  it('odpięcie zostawia trening w historii i cofa termin do niewykonanych', () => {
+    const { db, term } = withTerm();
+    const sessionId = addSession(db, 'Nogi', '2026-10-02T10:00:00.000Z');
+    attachSession(db, term.id, sessionId);
+
+    detachSession(db, sessionId);
+
+    expect(loadScheduled(db, term.id, '2026-10-05')).toMatchObject({
+      sessionId: null,
+      isCompleted: false,
+    });
+    expect(listHistory(db).map((entry) => entry.id)).toContain(sessionId);
   });
 });

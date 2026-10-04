@@ -1,24 +1,34 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
+import { Chip } from '@/components/chip';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
-import { loadScheduled, type ScheduleStatus } from '@/features/calendar/repository';
+import {
+  attachSession,
+  detachSession,
+  loadScheduled,
+  type ScheduleStatus,
+  sessionsToAttach,
+} from '@/features/calendar/repository';
 import { SessionDetails } from '@/features/history/session-details';
 import { formatTarget } from '@/features/plans/draft';
 import { usePlanDetails } from '@/features/plans/use-plans';
 import { ensureNotificationPermission } from '@/features/workout/notifications';
 import { ActiveSessionExistsError, startSession } from '@/features/workout/repository';
-import { formatDayWithWeekday } from '@/lib/date';
+import { formatDateTime, formatDayWithWeekday } from '@/lib/date';
 
 const STATUS_LABELS: Record<ScheduleStatus, string> = {
   COMPLETED: 'wykonany',
   PLANNED: 'zaplanowany',
   MISSED: 'pominięty',
 };
+
+type Entry = NonNullable<ReturnType<typeof loadScheduled>>;
 
 /**
  * Szczegóły terminu z kalendarza. Gdy trening się odbył, pokazujemy dokładnie ten sam ekran
@@ -27,23 +37,54 @@ const STATUS_LABELS: Record<ScheduleStatus, string> = {
  */
 export default function ScheduledDetailsScreen() {
   const id = Number(useLocalSearchParams<{ id: string }>().id);
+  // Przypięcie i odpięcie zmieniają to, co ekran pokazuje, więc czytamy termin na nowo.
+  const [reads, setReads] = useState(0);
   const entry = loadScheduled(db, id);
+  void reads;
+  const reload = () => setReads((value) => value + 1);
 
   if (!entry) return <ThemedView style={styles.flex} />;
+
   if (entry.sessionId !== null) {
+    const sessionId = entry.sessionId;
+    const confirmDetach = () =>
+      Alert.alert(
+        'Odpiąć trening od terminu?',
+        'Trening zostanie w historii, a termin wróci do niewykonanych.',
+        [
+          { text: 'Anuluj', style: 'cancel' },
+          {
+            text: 'Odepnij',
+            style: 'destructive',
+            onPress: () => {
+              detachSession(db, sessionId);
+              reload();
+            },
+          },
+        ],
+      );
+
     return (
       <SessionDetails
-        id={entry.sessionId}
-        updatePlanRoute={{ pathname: '/calendar/update-plan', params: { id: entry.sessionId } }}
+        id={sessionId}
+        updatePlanRoute={{ pathname: '/calendar/update-plan', params: { id: sessionId } }}
+        footer={
+          <Button label="Odepnij od terminu" icon="link_off" variant="secondary" onPress={confirmDetach} />
+        }
       />
     );
   }
-  return <PlannedDetails entry={entry} />;
+
+  return <PlannedDetails entry={entry} onAttached={reload} />;
 }
 
-/** Termin bez przeprowadzonego treningu: skład planu i start. */
-function PlannedDetails({ entry }: { entry: NonNullable<ReturnType<typeof loadScheduled>> }) {
+/** Termin bez przeprowadzonego treningu: skład planu, start i przypisanie treningu po fakcie. */
+function PlannedDetails({ entry, onAttached }: { entry: Entry; onAttached: () => void }) {
   const { items } = usePlanDetails(entry.planId);
+  // Kandydatów czytamy dopiero przy rozwinięciu — większość terminów ich nie potrzebuje.
+  const [candidates, setCandidates] = useState<{ id: number; title: string; startTime: string }[] | null>(
+    null,
+  );
 
   const begin = () => {
     try {
@@ -55,6 +96,11 @@ function PlannedDetails({ entry }: { entry: NonNullable<ReturnType<typeof loadSc
         Alert.alert('Trening już trwa', 'Najpierw zakończ lub przerwij bieżący trening.');
       } else throw e;
     }
+  };
+
+  const attach = (sessionId: number) => {
+    attachSession(db, entry.id, sessionId);
+    onAttached();
   };
 
   return (
@@ -92,6 +138,39 @@ function PlannedDetails({ entry }: { entry: NonNullable<ReturnType<typeof loadSc
         </View>
 
         <Button label="Rozpocznij trening" icon="play_arrow" onPress={begin} />
+
+        <View style={styles.group}>
+          <ThemedText type="smallBold" themeColor="textSecondary">
+            TRENING JUŻ SIĘ ODBYŁ?
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Jeśli przeprowadziłeś ten trening poza kalendarzem, przypisz go do terminu — termin
+            pokaże wtedy jego przebieg i zmieni się na wykonany.
+          </ThemedText>
+          {candidates === null ? (
+            <Button
+              label="Przypisz wykonany trening"
+              icon="link"
+              variant="secondary"
+              onPress={() => setCandidates(sessionsToAttach(db, entry.scheduledDate))}
+            />
+          ) : candidates.length === 0 ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              Brak treningów z okolic tej daty, które nie są jeszcze przypisane do innego terminu.
+            </ThemedText>
+          ) : (
+            <View style={styles.chips}>
+              {candidates.map((session) => (
+                <Chip
+                  key={session.id}
+                  label={`${session.title} · ${formatDateTime(session.startTime)}`}
+                  selected={false}
+                  onPress={() => attach(session.id)}
+                />
+              ))}
+            </View>
+          )}
+        </View>
       </ScrollView>
     </ThemedView>
   );
@@ -103,4 +182,5 @@ const styles = StyleSheet.create({
   header: { gap: Spacing.half },
   group: { gap: Spacing.two },
   card: { borderRadius: 14, padding: Spacing.three, gap: Spacing.two },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
 });

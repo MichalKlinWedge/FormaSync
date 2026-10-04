@@ -92,6 +92,91 @@ export function loadScheduled(db: SyncDb, id: number, today = todayKey()): Sched
   return row ? { ...row, status: scheduleStatus(row, today) } : null;
 }
 
+/**
+ * Treningi, które można przypisać do terminu: zakończone, jeszcze nieprzypisane do żadnego
+ * terminu i z okolic jego daty. Bliżej w czasie znaczy bardziej prawdopodobnie ten sam trening,
+ * więc tak je porządkujemy.
+ */
+export function sessionsToAttach(
+  db: SyncDb,
+  scheduledDate: string,
+  days = 3,
+): { id: number; title: string; startTime: string }[] {
+  const around = Date.parse(combineDateAndTime(scheduledDate, null).toISOString());
+  const span = days * 24 * 3600 * 1000;
+  return db
+    .select({
+      id: schema.workoutSessions.id,
+      title: schema.workoutSessions.title,
+      planTitle: schema.workoutPlans.title,
+      startTime: schema.workoutSessions.startTime,
+      scheduledId: schema.workoutSessions.scheduledId,
+      status: schema.workoutSessions.status,
+    })
+    .from(schema.workoutSessions)
+    .leftJoin(schema.workoutPlans, eq(schema.workoutSessions.planId, schema.workoutPlans.id))
+    .all()
+    .filter(
+      (row) =>
+        row.scheduledId === null &&
+        row.status !== 'IN_PROGRESS' &&
+        Math.abs(Date.parse(row.startTime) - around) <= span,
+    )
+    .sort(
+      (a, b) =>
+        Math.abs(Date.parse(a.startTime) - around) - Math.abs(Date.parse(b.startTime) - around),
+    )
+    .map(({ title, planTitle, scheduledId: _s, status: _st, ...rest }) => ({
+      ...rest,
+      title: title ?? planTitle ?? 'Trening',
+    }));
+}
+
+/**
+ * Przypisuje przeprowadzony trening do terminu. Termin zrealizowany ukończonym treningiem
+ * oznaczamy jako wykonany — tak samo, jak robi to zakończenie treningu startowanego z kalendarza.
+ */
+export function attachSession(db: SyncDb, scheduledId: number, sessionId: number): void {
+  db.transaction((tx) => {
+    const session = tx
+      .select({ status: schema.workoutSessions.status })
+      .from(schema.workoutSessions)
+      .where(eq(schema.workoutSessions.id, sessionId))
+      .get();
+    if (!session) return;
+
+    tx.update(schema.workoutSessions)
+      .set({ scheduledId })
+      .where(eq(schema.workoutSessions.id, sessionId))
+      .run();
+    tx.update(schema.scheduledWorkouts)
+      .set({ isCompleted: session.status === 'COMPLETED' })
+      .where(eq(schema.scheduledWorkouts.id, scheduledId))
+      .run();
+  });
+}
+
+/** Odpina trening od terminu. Sam trening zostaje w historii nietknięty. */
+export function detachSession(db: SyncDb, sessionId: number): void {
+  db.transaction((tx) => {
+    const session = tx
+      .select({ scheduledId: schema.workoutSessions.scheduledId })
+      .from(schema.workoutSessions)
+      .where(eq(schema.workoutSessions.id, sessionId))
+      .get();
+    if (!session?.scheduledId) return;
+
+    tx.update(schema.workoutSessions)
+      .set({ scheduledId: null })
+      .where(eq(schema.workoutSessions.id, sessionId))
+      .run();
+    tx.update(schema.scheduledWorkouts)
+      .set({ isCompleted: false })
+      .where(eq(schema.scheduledWorkouts.id, session.scheduledId))
+      .run();
+  });
+}
+
 export type ScheduleInput = {
   planId: number;
   dates: string[];
