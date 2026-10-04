@@ -37,6 +37,7 @@ function setup() {
   const plank = db.select().from(schema.exercises).where(eq(schema.exercises.name, 'Plank (deska)')).get()!;
 
   const planId = savePlan(db, {
+    sport: 'STRENGTH',
     title: 'Mój plan',
     description: '',
     sourceTemplateId: null,
@@ -207,6 +208,7 @@ describe('proposePlanUpdate', () => {
       notes: null,
     });
     const planId = savePlan(db, {
+      sport: 'STRENGTH',
       title: 'Dwa razy przysiad',
       description: '',
       sourceTemplateId: null,

@@ -73,6 +73,7 @@ describe('savePlan', () => {
     const { db } = setup();
     const plank = db.select().from(schema.exercises).where(eq(schema.exercises.name, 'Plank (deska)')).get()!;
     const id = savePlan(db, {
+      sport: 'STRENGTH',
       title: 'Core',
       description: '',
       sourceTemplateId: null,

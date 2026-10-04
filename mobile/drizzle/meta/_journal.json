@@ -29,6 +29,13 @@
       "when": 1791132931179,
       "tag": "0003_archived_activities",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1791141187154,
+      "tag": "0004_sport",
+      "breakpoints": true
     }
   ]
 }

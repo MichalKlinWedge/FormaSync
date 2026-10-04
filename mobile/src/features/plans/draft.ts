@@ -1,4 +1,4 @@
-import type { TrackingType } from '@/db/schema';
+import type { Sport, TrackingType } from '@/db/schema';
 
 // Wersja robocza planu edytowana w kreatorze (przed zapisem do bazy).
 
@@ -19,6 +19,7 @@ export type DraftItem = {
 export type PlanDraft = {
   /** Brak id = nowy plan. */
   id?: number;
+  sport: Sport;
   title: string;
   description: string;
   sourceTemplateId: number | null;
@@ -35,7 +36,13 @@ export const DEFAULT_REST_SECONDS = 90;
 let keyCounter = 0;
 export const newItemKey = () => `item-${Date.now().toString(36)}-${(keyCounter++).toString(36)}`;
 
-export const emptyDraft = (): PlanDraft => ({ title: '', description: '', sourceTemplateId: null, items: [] });
+export const emptyDraft = (sport: Sport): PlanDraft => ({
+  sport,
+  title: '',
+  description: '',
+  sourceTemplateId: null,
+  items: [],
+});
 
 export function createItem(exercise: ExerciseRef): DraftItem {
   const timed = exercise.trackingType === 'TIME';

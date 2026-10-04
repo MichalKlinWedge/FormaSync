@@ -9,6 +9,8 @@ import { BottomTabInset, Spacing } from '@/constants/theme';
 import { emptyDraft } from '@/features/plans/draft';
 import { usePlanDraftStore } from '@/features/plans/draft-store';
 import { usePlanList } from '@/features/plans/use-plans';
+import { SportSwitcher } from '@/features/sports/sport-switcher';
+import { useActiveSport } from '@/features/sports/sport-store';
 import { pluralWith } from '@/lib/number';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -16,11 +18,12 @@ type PlanSummary = ReturnType<typeof usePlanList>['own'][number];
 
 export default function PlansScreen() {
   const theme = useTheme();
-  const { own, templates } = usePlanList();
+  const sport = useActiveSport();
+  const { own, templates } = usePlanList(sport);
   const startDraft = usePlanDraftStore((s) => s.start);
 
   const createPlan = () => {
-    startDraft(emptyDraft());
+    startDraft(emptyDraft(sport));
     router.push('/plans/edit');
   };
 
@@ -34,6 +37,8 @@ export default function PlansScreen() {
               <Icon name="add" size={28} color={theme.accent} />
             </Pressable>
           </View>
+
+          <SportSwitcher />
 
           <Section title="Moje plany">
             {own.length === 0 ? (

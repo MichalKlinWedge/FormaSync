@@ -66,8 +66,16 @@ export const exerciseMuscles = sqliteTable(
 
 // --- 2. Plany i szablony ---
 
+/**
+ * Sport jest cechą planu i sesji, nie ćwiczenia. Siła ma serie, powtórzenia i ciężar; pozostałe
+ * dyscypliny — odcinki z dystansem lub czasem. Dane sprzed wprowadzenia sportów to siła.
+ */
+export const sports = ['STRENGTH', 'RUNNING', 'CYCLING', 'SWIMMING'] as const;
+export type Sport = (typeof sports)[number];
+
 export const workoutPlans = sqliteTable('workout_plans', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  sport: text('sport', { enum: sports }).notNull().default('STRENGTH'),
   title: text('title').notNull(),
   description: text('description'),
   isTemplate: integer('is_template', { mode: 'boolean' }).notNull().default(false),
@@ -131,8 +139,9 @@ export const workoutSessions = sqliteTable(
     scheduledId: integer('scheduled_id').references(() => scheduledWorkouts.id, { onDelete: 'set null' }),
     // Sesja może powstać bez harmonogramu (z planu lub „pusty trening”).
     planId: integer('plan_id').references(() => workoutPlans.id, { onDelete: 'set null' }),
-    // Nazwa z chwili startu — historia zachowuje ją także po usunięciu planu.
+    // Nazwa i sport z chwili startu — historia zachowuje je także po usunięciu planu.
     title: text('title'),
+    sport: text('sport', { enum: sports }).notNull().default('STRENGTH'),
     status: text('status', { enum: sessionStatuses }).notNull().default('IN_PROGRESS'),
     startTime: text('start_time').notNull(),
     endTime: text('end_time'),

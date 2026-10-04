@@ -16,7 +16,7 @@ export class ActiveSessionExistsError extends Error {
 export type StartSessionOptions =
   | { kind: 'plan'; planId: number }
   | { kind: 'scheduled'; scheduledId: number }
-  | { kind: 'empty' };
+  | { kind: 'empty'; sport?: schema.Sport };
 
 /** Id trwającej sesji albo null. Aplikacja dopuszcza tylko jedną sesję naraz. */
 export function findActiveSessionId(db: SyncDb): number | null {
@@ -49,17 +49,20 @@ export function startSession(db: SyncDb, options: StartSessionOptions, now = now
   if (options.kind === 'scheduled' && !scheduled) throw new Error('Zaplanowany trening nie istnieje');
 
   const planId = options.kind === 'plan' ? options.planId : (scheduled?.planId ?? null);
-  const planTitle =
+  const plan =
     planId === null
       ? null
-      : (db.select().from(schema.workoutPlans).where(eq(schema.workoutPlans.id, planId)).get()?.title ?? null);
+      : (db.select().from(schema.workoutPlans).where(eq(schema.workoutPlans.id, planId)).get() ?? null);
+  // Trening bez planu zapisujemy w sporcie, który jest właśnie wybrany w aplikacji.
+  const sport = plan?.sport ?? (options.kind === 'empty' ? (options.sport ?? 'STRENGTH') : 'STRENGTH');
 
   return db.transaction((tx) => {
     const sessionId = tx
       .insert(schema.workoutSessions)
       .values({
         planId,
-        title: planTitle,
+        title: plan?.title ?? null,
+        sport,
         scheduledId: scheduled?.id ?? null,
         status: 'IN_PROGRESS',
         startTime: now,

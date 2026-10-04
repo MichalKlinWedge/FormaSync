@@ -9,6 +9,7 @@ import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
 import { seedDatabase } from '@/db/seed';
 import { syncWorkoutReminders } from '@/features/calendar/reminders';
+import { useSportStore } from '@/features/sports/sport-store';
 import migrations from '../../drizzle/migrations';
 
 type InitState = { status: 'loading' } | { status: 'ready' } | { status: 'error'; error: Error };
@@ -18,6 +19,7 @@ let initPromise: Promise<void> | null = null;
 function initDatabase() {
   initPromise ??= migrate(db, migrations).then(() => {
     seedDatabase(db);
+    useSportStore.getState().hydrate();
     // Android kasuje zaplanowane alarmy przy aktualizacji aplikacji — odtwarzamy je przy starcie.
     // Ewentualny błąd powiadomień nie może zablokować uruchomienia aplikacji.
     void syncWorkoutReminders().catch(() => {});

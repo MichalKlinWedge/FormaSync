@@ -32,6 +32,7 @@ function setup() {
     .where(eq(schema.exercises.name, 'Przysiad ze sztangą'))
     .get()!;
   const planId = savePlan(db, {
+    sport: 'STRENGTH',
     title: 'Mój plan',
     description: '',
     sourceTemplateId: null,

@@ -29,6 +29,7 @@ export function loadPlanDraft(db: SyncDb, id: number): PlanDraft {
     .all();
   return {
     id: plan.id,
+    sport: plan.sport,
     title: plan.title,
     description: plan.description ?? '',
     sourceTemplateId: plan.sourceTemplateId,
@@ -54,6 +55,7 @@ export function savePlan(db: SyncDb, draft: PlanDraft): number {
 
   return db.transaction((tx) => {
     const values = {
+      sport: draft.sport,
       title: draft.title.trim(),
       description: draft.description.trim() || null,
       sourceTemplateId: draft.sourceTemplateId,

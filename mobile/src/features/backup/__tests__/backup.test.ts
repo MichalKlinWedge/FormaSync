@@ -32,6 +32,7 @@ function populated() {
     .get()!;
 
   const planId = savePlan(db, {
+    sport: 'STRENGTH',
     title: 'Mój plan',
     description: 'Opis',
     sourceTemplateId: null,
@@ -138,6 +139,7 @@ describe('pełny obieg: eksport, wyczyszczenie, przywrócenie', () => {
 
     const other = populated().db;
     savePlan(other, {
+      sport: 'STRENGTH',
       title: 'Plan do nadpisania',
       description: '',
       sourceTemplateId: null,

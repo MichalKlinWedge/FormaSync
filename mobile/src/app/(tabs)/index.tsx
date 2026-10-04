@@ -10,6 +10,8 @@ import { BottomTabInset, Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
 import { useScheduledRange } from '@/features/calendar/use-calendar';
 import { usePlanList } from '@/features/plans/use-plans';
+import { SportSwitcher } from '@/features/sports/sport-switcher';
+import { useActiveSport } from '@/features/sports/sport-store';
 import { elapsedSeconds, formatClock } from '@/features/workout/logic';
 import { ensureNotificationPermission } from '@/features/workout/notifications';
 import { ActiveSessionExistsError, startSession, type StartSessionOptions } from '@/features/workout/repository';
@@ -23,7 +25,8 @@ export default function TodayScreen() {
   const now = useNow(1000);
   const today = todayKey();
   const active = useActiveSessionBanner();
-  const { own, templates } = usePlanList();
+  const sport = useActiveSport();
+  const { own, templates } = usePlanList(sport);
   const todayEntries = useScheduledRange(today, today).filter((entry) => !entry.isCompleted);
 
   const begin = (options: StartSessionOptions) => {
@@ -58,6 +61,8 @@ export default function TodayScreen() {
               <Icon name="settings" size={26} color={theme.textSecondary} />
             </Pressable>
           </View>
+
+          <SportSwitcher />
 
           {active ? (
             <Pressable
@@ -125,7 +130,7 @@ export default function TodayScreen() {
                   label="Trening bez planu"
                   icon="add"
                   variant="secondary"
-                  onPress={() => begin({ kind: 'empty' })}
+                  onPress={() => begin({ kind: 'empty', sport })}
                 />
               </View>
             </>

@@ -9,6 +9,8 @@ import { BottomTabInset, Spacing } from '@/constants/theme';
 
 import type { HistoryEntry } from '@/features/history/repository';
 import { useHistory } from '@/features/history/use-history';
+import { SportSwitcher } from '@/features/sports/sport-switcher';
+import { useActiveSport } from '@/features/sports/sport-store';
 import { formatClock } from '@/features/workout/logic';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDateTime } from '@/lib/date';
@@ -16,13 +18,16 @@ import { pluralWith } from '@/lib/number';
 
 export default function HistoryScreen() {
   const theme = useTheme();
-  const groups = useHistory();
+  const sport = useActiveSport();
+  const groups = useHistory(sport);
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView contentContainerStyle={styles.content}>
           <ThemedText type="subtitle">Historia</ThemedText>
+
+          <SportSwitcher />
 
           <View style={styles.actions}>
             <Pressable

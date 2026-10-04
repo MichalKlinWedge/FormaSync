@@ -93,6 +93,7 @@ function setup() {
   const plank = byName('Plank (deska)');
 
   const planId = savePlan(db, {
+    sport: 'STRENGTH',
     title: 'Mój plan',
     description: '',
     sourceTemplateId: null,

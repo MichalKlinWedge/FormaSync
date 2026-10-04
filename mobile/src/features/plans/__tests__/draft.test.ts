@@ -20,7 +20,7 @@ const plank = { id: 2, name: 'Plank', trackingType: 'TIME' as const };
 const bench = { id: 3, name: 'Wyciskanie', trackingType: 'REPS' as const };
 
 const draftWith = (...exercises: (typeof squat | typeof plank)[]): PlanDraft => ({
-  ...addExercises(emptyDraft(), exercises),
+  ...addExercises(emptyDraft('STRENGTH'), exercises),
   title: 'Plan',
 });
 

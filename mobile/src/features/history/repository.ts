@@ -8,6 +8,7 @@ export type HistoryEntry = {
   startTime: string;
   title: string;
   status: schema.SessionStatus;
+  sport: schema.Sport;
   durationSeconds: number | null;
   rpeRating: number | null;
   userNotes: string | null;
@@ -15,8 +16,8 @@ export type HistoryEntry = {
   tonnage: number;
 };
 
-/** Zakończone i przerwane treningi, od najnowszego. */
-export function listHistory(db: SyncDb): HistoryEntry[] {
+/** Zakończone i przerwane treningi, od najnowszego; bez podanego sportu — wszystkie. */
+export function listHistory(db: SyncDb, sport?: schema.Sport): HistoryEntry[] {
   return db
     .select({
       id: schema.workoutSessions.id,
@@ -24,6 +25,7 @@ export function listHistory(db: SyncDb): HistoryEntry[] {
       title: schema.workoutSessions.title,
       planTitle: schema.workoutPlans.title,
       status: schema.workoutSessions.status,
+      sport: schema.workoutSessions.sport,
       durationSeconds: schema.workoutSessions.totalDurationSeconds,
       rpeRating: schema.workoutSessions.rpeRating,
       userNotes: schema.workoutSessions.userNotes,
@@ -39,7 +41,11 @@ export function listHistory(db: SyncDb): HistoryEntry[] {
         isNotNull(schema.loggedSets.completedAt),
       ),
     )
-    .where(ne(schema.workoutSessions.status, 'IN_PROGRESS'))
+    .where(
+      sport === undefined
+        ? ne(schema.workoutSessions.status, 'IN_PROGRESS')
+        : and(ne(schema.workoutSessions.status, 'IN_PROGRESS'), eq(schema.workoutSessions.sport, sport)),
+    )
     .groupBy(schema.workoutSessions.id)
     .orderBy(desc(schema.workoutSessions.startTime))
     .all()

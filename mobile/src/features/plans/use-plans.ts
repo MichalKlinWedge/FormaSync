@@ -2,14 +2,15 @@ import { asc, count, desc, eq } from 'drizzle-orm';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 
 import { db } from '@/db/client';
-import { exercises, planExercises, workoutPlans } from '@/db/schema';
+import { exercises, planExercises, type Sport, workoutPlans } from '@/db/schema';
 
-/** Wszystkie plany i szablony z liczbą ćwiczeń (szablony w kolejności seeda, własne od najnowszych). */
-export function usePlanList() {
+/** Plany i szablony wybranego sportu (szablony w kolejności seeda, własne od najnowszych). */
+export function usePlanList(sport?: Sport) {
   const { data } = useLiveQuery(
     db
       .select({
         id: workoutPlans.id,
+        sport: workoutPlans.sport,
         title: workoutPlans.title,
         description: workoutPlans.description,
         isTemplate: workoutPlans.isTemplate,
@@ -20,10 +21,11 @@ export function usePlanList() {
       .groupBy(workoutPlans.id)
       .orderBy(desc(workoutPlans.isTemplate), asc(workoutPlans.id)),
   );
+  const ofSport = sport === undefined ? data : data.filter((p) => p.sport === sport);
   return {
-    templates: data.filter((p) => p.isTemplate),
+    templates: ofSport.filter((p) => p.isTemplate),
     // Najnowsze własne plany na górze.
-    own: data.filter((p) => !p.isTemplate).reverse(),
+    own: ofSport.filter((p) => !p.isTemplate).reverse(),
   };
 }
 
