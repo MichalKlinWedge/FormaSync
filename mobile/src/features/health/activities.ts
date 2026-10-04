@@ -2,9 +2,19 @@ import { getGrantedPermissions, initialize, readRecords } from 'react-native-hea
 
 import { db } from '@/db/client';
 
-import type { WatchActivity } from './activities-mapping';
+import type { ImportCandidate, WatchActivity } from './activities-mapping';
 import { selectImportable, toWatchActivity } from './activities-mapping';
-import { createSessionFromActivity, importedActivityIds, sessionWindows } from './repository';
+import {
+  archiveActivity,
+  archivedActivityIds,
+  createSessionFromActivity,
+  importedActivityIds,
+  linkActivityToSession,
+  linkCandidates,
+  listArchivedActivities,
+  restoreActivity,
+  sessionWindows,
+} from './repository';
 import {
   ExercisePermissionError,
   getAvailability,
@@ -13,13 +23,13 @@ import {
   HISTORY_DAYS,
 } from './sync';
 
-export type { WatchActivity } from './activities-mapping';
+export type { ImportCandidate, SessionWindow, WatchActivity } from './activities-mapping';
 
 /**
  * Treningi nagrane poza aplikacją — na zegarku albo w telefonie — których jeszcze nie ma
  * w historii. Czyta je z Health Connect razem z tętnem i kaloriami z tego samego okna.
  */
-export async function listWatchActivities(now: Date = new Date()): Promise<WatchActivity[]> {
+export async function listWatchActivities(now: Date = new Date()): Promise<ImportCandidate[]> {
   const availability = await getAvailability();
   if (availability !== 'AVAILABLE') throw new HealthUnavailableError(availability);
   if (!(await initialize())) throw new HealthUnavailableError('UNAVAILABLE');
@@ -52,9 +62,28 @@ export async function listWatchActivities(now: Date = new Date()): Promise<Watch
     .map((record) => toWatchActivity(record, samples, calorieBlocks))
     .filter((activity): activity is WatchActivity => activity !== null);
 
-  return selectImportable(activities, importedActivityIds(db), sessionWindows(db, fromIso));
+  return selectImportable(
+    activities,
+    importedActivityIds(db),
+    archivedActivityIds(db),
+    sessionWindows(db, fromIso),
+  );
 }
 
 /** Dopisuje aktywność do historii i zwraca identyfikator utworzonej sesji. */
 export const importWatchActivity = (activity: WatchActivity): number =>
   createSessionFromActivity(db, activity);
+
+/** Dopina pomiary z zegarka do treningu już zapisanego w aplikacji. */
+export const linkWatchActivity = (sessionId: number, activity: WatchActivity): void =>
+  linkActivityToSession(db, sessionId, activity);
+
+/** Treningi z okolic daty aktywności, z którymi można ją połączyć. */
+export const sessionsToLink = (activity: WatchActivity) => linkCandidates(db, activity.startTime);
+
+/** Odkłada aktywność, której nie chcemy w historii. */
+export const archiveWatchActivity = (activity: WatchActivity): void => archiveActivity(db, activity);
+
+export const listArchived = () => listArchivedActivities(db);
+
+export const restoreWatchActivity = (recordId: string): void => restoreActivity(db, recordId);

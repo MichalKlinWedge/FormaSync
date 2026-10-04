@@ -2,7 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 
 import {
   exerciseTypeName,
-  overlapsSession,
+  findOverlappingSession,
   selectImportable,
   toWatchActivity,
   type ExerciseSession,
@@ -74,23 +74,28 @@ describe('toWatchActivity', () => {
   });
 });
 
-describe('overlapsSession', () => {
+describe('findOverlappingSession', () => {
   const activity = { startTime: '2026-10-02T14:00:00.000Z', endTime: '2026-10-02T14:30:00.000Z' };
+  const window = (id: number, startTime: string, endTime: string) => ({
+    id,
+    title: `Trening ${id}`,
+    startTime,
+    endTime,
+  });
 
-  it('wykrywa trening prowadzony w aplikacji w tym samym czasie', () => {
-    expect(
-      overlapsSession(activity, [
-        { startTime: '2026-10-02T14:20:00.000Z', endTime: '2026-10-02T15:00:00.000Z' },
-      ]),
-    ).toBe(true);
+  it('wskazuje trening prowadzony w aplikacji w tym samym czasie', () => {
+    const found = findOverlappingSession(activity, [
+      window(1, '2026-10-02T14:20:00.000Z', '2026-10-02T15:00:00.000Z'),
+    ]);
+    expect(found?.id).toBe(1);
   });
 
   it('nie uznaje za pokrywający się treningu stykającego się końcem', () => {
     expect(
-      overlapsSession(activity, [
-        { startTime: '2026-10-02T14:30:00.000Z', endTime: '2026-10-02T15:00:00.000Z' },
+      findOverlappingSession(activity, [
+        window(1, '2026-10-02T14:30:00.000Z', '2026-10-02T15:00:00.000Z'),
       ]),
-    ).toBe(false);
+    ).toBeNull();
   });
 });
 
@@ -114,17 +119,37 @@ describe('selectImportable', () => {
         make('c', '2026-09-30T10:00:00.000Z'),
       ],
       new Set(['c']),
+      new Set(),
       [],
     );
     expect(result.map((item) => item.recordId)).toEqual(['b', 'a']);
   });
 
-  it('pomija aktywność pokrywającą się z treningiem z aplikacji', () => {
+  it('pomija aktywność odłożoną przez użytkownika', () => {
     const result = selectImportable(
       [make('a', '2026-10-01T10:00:00.000Z')],
       new Set(),
-      [{ startTime: '2026-10-01T09:30:00.000Z', endTime: '2026-10-01T11:00:00.000Z' }],
+      new Set(['a']),
+      [],
     );
     expect(result).toEqual([]);
+  });
+
+  it('pokrywającej się aktywności nie ukrywa, tylko podpowiada trening do połączenia', () => {
+    const result = selectImportable([make('a', '2026-10-01T10:00:00.000Z')], new Set(), new Set(), [
+      {
+        id: 7,
+        title: 'Nogi',
+        startTime: '2026-10-01T09:30:00.000Z',
+        endTime: '2026-10-01T11:00:00.000Z',
+      },
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0].matchingSession?.id).toBe(7);
+  });
+
+  it('bez pokrycia nie podpowiada żadnego treningu', () => {
+    const result = selectImportable([make('a', '2026-10-01T10:00:00.000Z')], new Set(), new Set(), []);
+    expect(result[0].matchingSession).toBeNull();
   });
 });

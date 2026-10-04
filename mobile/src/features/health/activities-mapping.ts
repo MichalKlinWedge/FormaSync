@@ -63,12 +63,24 @@ const EXERCISE_TYPE_NAMES: Record<number, string> = {
 
 export const exerciseTypeName = (type: number): string => EXERCISE_TYPE_NAMES[type] ?? 'Trening';
 
-/** Czy aktywność nachodzi na okno któregoś z treningów już zapisanych w aplikacji. */
-export function overlapsSession(activity: Interval, sessions: Interval[]): boolean {
+/** Trening z aplikacji, na który nachodzi aktywność — kandydat do połączenia. */
+export type SessionWindow = Interval & { id: number; title: string };
+
+/**
+ * Trening z aplikacji prowadzony w tym samym czasie co aktywność. Taka para to prawie zawsze
+ * ten sam trening zapisany dwukrotnie: raz przez aplikację, raz przez zegarek. Nie ukrywamy go,
+ * tylko podpowiadamy połączenie, żeby pomiary z czujników trafiły do istniejącego treningu.
+ */
+export function findOverlappingSession(
+  activity: Interval,
+  sessions: SessionWindow[],
+): SessionWindow | null {
   const from = Date.parse(activity.startTime);
   const to = Date.parse(activity.endTime);
-  return sessions.some(
-    (session) => Date.parse(session.startTime) < to && Date.parse(session.endTime) > from,
+  return (
+    sessions.find(
+      (session) => Date.parse(session.startTime) < to && Date.parse(session.endTime) > from,
+    ) ?? null
   );
 }
 
@@ -100,13 +112,18 @@ export function toWatchActivity(
   };
 }
 
-/** Aktywności jeszcze niezapisane w aplikacji, od najnowszej. */
+/** Aktywność gotowa do pokazania razem z podpowiedzią treningu do połączenia. */
+export type ImportCandidate = WatchActivity & { matchingSession: SessionWindow | null };
+
+/** Aktywności jeszcze nieprzypisane i nieodłożone, od najnowszej. */
 export function selectImportable(
   activities: WatchActivity[],
   imported: Set<string>,
-  sessions: Interval[],
-): WatchActivity[] {
+  archived: Set<string>,
+  sessions: SessionWindow[],
+): ImportCandidate[] {
   return activities
-    .filter((activity) => !imported.has(activity.recordId) && !overlapsSession(activity, sessions))
-    .sort((a, b) => Date.parse(b.startTime) - Date.parse(a.startTime));
+    .filter((activity) => !imported.has(activity.recordId) && !archived.has(activity.recordId))
+    .sort((a, b) => Date.parse(b.startTime) - Date.parse(a.startTime))
+    .map((activity) => ({ ...activity, matchingSession: findOverlappingSession(activity, sessions) }));
 }

@@ -3,12 +3,21 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
+import { Chip } from '@/components/chip';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 
-import type { WatchActivity } from '@/features/health/activities';
-import { importWatchActivity, listWatchActivities } from '@/features/health/activities';
+import type { ImportCandidate } from '@/features/health/activities';
+import {
+  archiveWatchActivity,
+  importWatchActivity,
+  linkWatchActivity,
+  listArchived,
+  listWatchActivities,
+  restoreWatchActivity,
+  sessionsToLink,
+} from '@/features/health/activities';
 import {
   ExercisePermissionError,
   HealthPermissionsError,
@@ -21,11 +30,13 @@ import { formatDateTime } from '@/lib/date';
 import { formatNumber } from '@/lib/number';
 
 /**
- * Wczytywanie treningów nagranych na zegarku. Garmin Connect zapisuje je do Health Connect,
- * skąd przychodzi czas i biometria — bez serii i powtórzeń, których Health Connect nie udostępnia.
+ * Treningi nagrane poza aplikacją. Garmin Connect zapisuje je do Health Connect, skąd przychodzi
+ * czas i biometria — bez serii i powtórzeń, których Health Connect nie udostępnia. Każdą aktywność
+ * można dopisać do historii osobno, połączyć z treningiem prowadzonym w aplikacji albo odłożyć.
  */
 export default function ImportActivitiesScreen() {
-  const [activities, setActivities] = useState<WatchActivity[] | null>(null);
+  const [activities, setActivities] = useState<ImportCandidate[] | null>(null);
+  const [archived, setArchived] = useState(() => listArchived());
   const [problem, setProblem] = useState<Problem | null>(null);
   const [busy, setBusy] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -59,18 +70,47 @@ export default function ImportActivitiesScreen() {
     retry();
   };
 
-  const add = (activity: WatchActivity) => {
+  const drop = (recordId: string) =>
+    setActivities((current) => current?.filter((item) => item.recordId !== recordId) ?? null);
+
+  const run = (what: string, action: () => void) => {
     setBusy(true);
     try {
-      const sessionId = importWatchActivity(activity);
-      setActivities((current) => current?.filter((item) => item.recordId !== activity.recordId) ?? null);
-      router.replace({ pathname: '/history/[id]', params: { id: sessionId } });
+      action();
     } catch (e) {
-      Alert.alert('Nie udało się dodać', e instanceof Error ? e.message : 'Nieznany błąd.');
+      Alert.alert(what, e instanceof Error ? e.message : 'Nieznany błąd.');
     } finally {
       setBusy(false);
     }
   };
+
+  const add = (activity: ImportCandidate) =>
+    run('Nie udało się dodać', () => {
+      const sessionId = importWatchActivity(activity);
+      drop(activity.recordId);
+      router.replace({ pathname: '/history/[id]', params: { id: sessionId } });
+    });
+
+  const link = (activity: ImportCandidate, sessionId: number) =>
+    run('Nie udało się połączyć', () => {
+      linkWatchActivity(sessionId, activity);
+      drop(activity.recordId);
+      router.replace({ pathname: '/history/[id]', params: { id: sessionId } });
+    });
+
+  const archive = (activity: ImportCandidate) =>
+    run('Nie udało się odłożyć', () => {
+      archiveWatchActivity(activity);
+      drop(activity.recordId);
+      setArchived(listArchived());
+    });
+
+  const restore = (recordId: string) =>
+    run('Nie udało się przywrócić', () => {
+      restoreWatchActivity(recordId);
+      setArchived(listArchived());
+      retry();
+    });
 
   return (
     <ThemedView style={styles.container}>
@@ -104,30 +144,120 @@ export default function ImportActivitiesScreen() {
         {activities !== null && problem === null && activities.length === 0 && (
           <ThemedView type="backgroundElement" style={styles.card}>
             <ThemedText type="small" themeColor="textSecondary">
-              Nie ma nic nowego do wczytania. Treningi, które już są w historii, pomijamy.
+              Nie ma nic nowego do wczytania. Treningi już dopisane do historii i te odłożone pomijamy.
             </ThemedText>
           </ThemedView>
         )}
 
         {activities?.map((activity) => (
-          <ThemedView key={activity.recordId} type="backgroundElement" style={styles.card}>
-            <ThemedText type="smallBold">{activity.title}</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              {formatDateTime(activity.startTime)} · {formatClock(activity.durationSeconds)}
-            </ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              {describeMetrics(activity)}
-            </ThemedText>
-            <Button
-              label="Dodaj do historii"
-              icon="add"
-              variant="secondary"
-              onPress={() => add(activity)}
-              disabled={busy}
-            />
-          </ThemedView>
+          <ActivityCard
+            key={activity.recordId}
+            activity={activity}
+            busy={busy}
+            onAdd={() => add(activity)}
+            onLink={(sessionId) => link(activity, sessionId)}
+            onArchive={() => archive(activity)}
+          />
         ))}
+
+        {archived.length > 0 && (
+          <View style={styles.group}>
+            <ThemedText type="smallBold" themeColor="textSecondary">
+              ODŁOŻONE
+            </ThemedText>
+            {archived.map((item) => (
+              <ThemedView key={item.recordId} type="backgroundElement" style={styles.card}>
+                <ThemedText type="smallBold">{item.title}</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {formatDateTime(item.startTime)}
+                </ThemedText>
+                <Button
+                  label="Przywróć"
+                  icon="undo"
+                  variant="secondary"
+                  onPress={() => restore(item.recordId)}
+                  disabled={busy}
+                />
+              </ThemedView>
+            ))}
+          </View>
+        )}
       </ScrollView>
+    </ThemedView>
+  );
+}
+
+type ActivityCardProps = {
+  activity: ImportCandidate;
+  busy: boolean;
+  onAdd: () => void;
+  onLink: (sessionId: number) => void;
+  onArchive: () => void;
+};
+
+function ActivityCard({ activity, busy, onAdd, onLink, onArchive }: ActivityCardProps) {
+  // Listę treningów do połączenia czytamy dopiero przy rozwinięciu — nie potrzebuje jej
+  // większość kart, a zapytanie trafia do bazy za każdym razem od nowa.
+  const [candidates, setCandidates] = useState<{ id: number; title: string; startTime: string }[] | null>(
+    null,
+  );
+  const match = activity.matchingSession;
+
+  return (
+    <ThemedView type="backgroundElement" style={styles.card}>
+      <ThemedText type="smallBold">{activity.title}</ThemedText>
+      <ThemedText type="small" themeColor="textSecondary">
+        {formatDateTime(activity.startTime)} · {formatClock(activity.durationSeconds)}
+      </ThemedText>
+      <ThemedText type="small" themeColor="textSecondary">
+        {describeMetrics(activity)}
+      </ThemedText>
+
+      {match !== null && (
+        <ThemedText type="small" themeColor="textSecondary">
+          W tym samym czasie trwał trening „{match.title}”. Połącz je, a pomiary z czujników trafią
+          do niego zamiast tworzyć drugi wpis.
+        </ThemedText>
+      )}
+
+      {match !== null ? (
+        <Button label={`Połącz z „${match.title}”`} icon="link" onPress={() => onLink(match.id)} disabled={busy} />
+      ) : null}
+
+      <Button
+        label="Dodaj jako osobny trening"
+        icon="add"
+        variant="secondary"
+        onPress={onAdd}
+        disabled={busy}
+      />
+
+      {candidates === null ? (
+        <Button
+          label="Połącz z innym treningiem"
+          icon="link"
+          variant="secondary"
+          onPress={() => setCandidates(sessionsToLink(activity))}
+          disabled={busy}
+        />
+      ) : candidates.length === 0 ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          Brak treningów z okolic tej daty, które nie mają jeszcze pomiarów z zegarka.
+        </ThemedText>
+      ) : (
+        <View style={styles.chips}>
+          {candidates.map((session) => (
+            <Chip
+              key={session.id}
+              label={`${session.title} · ${formatDateTime(session.startTime)}`}
+              selected={false}
+              onPress={() => onLink(session.id)}
+            />
+          ))}
+        </View>
+      )}
+
+      <Button label="Odłóż" icon="archive" variant="secondary" onPress={onArchive} disabled={busy} />
     </ThemedView>
   );
 }
@@ -152,7 +282,7 @@ function describeProblem(error: unknown): Problem {
   };
 }
 
-function describeMetrics(activity: WatchActivity): string {
+function describeMetrics(activity: ImportCandidate): string {
   const parts = [
     activity.avgHeartRate !== null ? `tętno śr. ${activity.avgHeartRate}` : null,
     activity.maxHeartRate !== null ? `maks. ${activity.maxHeartRate}` : null,
@@ -166,4 +296,6 @@ const styles = StyleSheet.create({
   content: { padding: Spacing.four, gap: Spacing.three },
   card: { borderRadius: 16, padding: Spacing.three, gap: Spacing.two },
   busy: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  group: { gap: Spacing.two },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
 });

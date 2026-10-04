@@ -16,7 +16,7 @@ System wspomagania treningu siłowego z integracją Garmin.
 - [x] Etap 5 — historia i korekta (dziennik, edycja serii po fakcie, aktualizacja planu)
 - [x] Etap 6 — harmonogram i powiadomienia (kalendarz, cykle, przypomnienia push)
 - [—] Etap 7 — backend serverless + e-mail (pominięty: bez webhooków Garmin zbędny, przypomnienia push wystarczają)
-- [x] Etap 8 — biometria przez Android Health Connect (tętno, sen, HRV, ciśnienie, kalorie) oraz wczytywanie do historii treningów nagranych na zegarku
+- [x] Etap 8 — biometria przez Android Health Connect (tętno, sen, HRV, ciśnienie, kalorie) oraz treningi nagrane na zegarku: wczytywanie do historii, łączenie z treningiem z aplikacji i odkładanie
 - [x] Etap 9 — plany na zegarek: wysyłka do biblioteki i kalendarza przez narzędzie na komputerze; eksport .FIT z aplikacji do skopiowania wprost na zegarek (Garmin Connect nie importuje plików treningowych)
 - [x] Etap 10 — analityka (tonaż, progresja, 1RM, rekordy, pomiary ciała)
 - [x] Etap 11 — RPE i auto-progresja (ocena serii, kalkulator 1RM, sugestie ciężaru)

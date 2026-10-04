@@ -85,6 +85,7 @@ describe('createBackup', () => {
     expect(backup).toMatchObject({ app: 'FormaSync', version: BACKUP_VERSION, exportedAt: '2026-10-06T08:00:00.000Z' });
     expect(Object.keys(backup.tables).sort()).toEqual([
       'app_settings',
+      'archived_activities',
       'body_measurements',
       'categories',
       'equipment',

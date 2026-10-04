@@ -240,6 +240,19 @@ export const bodyMeasurements = sqliteTable('body_measurements', {
   notes: text('notes'),
 });
 
+/**
+ * Aktywności z Health Connect odłożone przez użytkownika — nie każdy trening z zegarka ma
+ * trafić do historii. Trzymamy tytuł i datę, żeby dało się je przejrzeć i przywrócić;
+ * `record_id` to identyfikator rekordu Health Connect, po którym poznajemy go przy odczycie.
+ */
+export const archivedActivities = sqliteTable('archived_activities', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  recordId: text('record_id').notNull().unique(),
+  title: text('title').notNull(),
+  startTime: text('start_time').notNull(),
+  archivedAt: createdAt(),
+});
+
 // Proste ustawienia klucz–wartość (e-mail, preferencje powiadomień, wersja seeda).
 // Sekrety (tokeny Garmin) trzymamy w expo-secure-store, nie tutaj.
 export const appSettings = sqliteTable('app_settings', {

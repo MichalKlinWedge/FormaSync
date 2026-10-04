@@ -28,6 +28,7 @@ const TABLES = [
   schema.garminActivityMetrics,
   schema.garminDailyHealth,
   schema.bodyMeasurements,
+  schema.archivedActivities,
   schema.appSettings,
 ] satisfies Table[];
 

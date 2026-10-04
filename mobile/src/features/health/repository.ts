@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, ne } from 'drizzle-orm';
 
 import * as schema from '@/db/schema';
 import type { SyncDb } from '@/db/types';
@@ -127,16 +127,129 @@ export function importedActivityIds(db: SyncDb): Set<string> {
  * Okna czasowe treningów zapisanych w aplikacji. Sesja trwająca nie ma jeszcze końca —
  * przyjmujemy wtedy jej początek, żeby nie uznać za pokrywającą się całej doby.
  */
-export function sessionWindows(db: SyncDb, fromIso: string): { startTime: string; endTime: string }[] {
+export function sessionWindows(
+  db: SyncDb,
+  fromIso: string,
+): { id: number; title: string; startTime: string; endTime: string }[] {
   return db
     .select({
+      id: schema.workoutSessions.id,
+      title: schema.workoutSessions.title,
+      planTitle: schema.workoutPlans.title,
       startTime: schema.workoutSessions.startTime,
       endTime: schema.workoutSessions.endTime,
     })
     .from(schema.workoutSessions)
+    .leftJoin(schema.workoutPlans, eq(schema.workoutSessions.planId, schema.workoutPlans.id))
     .where(gte(schema.workoutSessions.startTime, fromIso))
     .all()
-    .map(({ startTime, endTime }) => ({ startTime, endTime: endTime ?? startTime }));
+    .map(({ title, planTitle, endTime, ...rest }) => ({
+      ...rest,
+      title: title ?? planTitle ?? 'Trening',
+      endTime: endTime ?? rest.startTime,
+    }));
+}
+
+/**
+ * Treningi, z którymi można połączyć aktywność: zakończone, jeszcze nieprzypisane do żadnej
+ * aktywności i z okolic jej daty. Bliżej w czasie znaczy bardziej prawdopodobnie ten sam trening,
+ * więc tak je porządkujemy.
+ */
+export function linkCandidates(
+  db: SyncDb,
+  aroundIso: string,
+  days = 3,
+): { id: number; title: string; startTime: string }[] {
+  const around = Date.parse(aroundIso);
+  const span = days * 24 * 3600 * 1000;
+  return db
+    .select({
+      id: schema.workoutSessions.id,
+      title: schema.workoutSessions.title,
+      planTitle: schema.workoutPlans.title,
+      startTime: schema.workoutSessions.startTime,
+      linkedTo: schema.garminActivityMetrics.garminActivityId,
+    })
+    .from(schema.workoutSessions)
+    .leftJoin(schema.workoutPlans, eq(schema.workoutSessions.planId, schema.workoutPlans.id))
+    .leftJoin(
+      schema.garminActivityMetrics,
+      eq(schema.garminActivityMetrics.sessionId, schema.workoutSessions.id),
+    )
+    .where(ne(schema.workoutSessions.status, 'IN_PROGRESS'))
+    .all()
+    .filter((row) => row.linkedTo === null && Math.abs(Date.parse(row.startTime) - around) <= span)
+    .sort(
+      (a, b) =>
+        Math.abs(Date.parse(a.startTime) - around) - Math.abs(Date.parse(b.startTime) - around),
+    )
+    .map(({ title, planTitle, linkedTo: _linkedTo, ...rest }) => ({
+      ...rest,
+      title: title ?? planTitle ?? 'Trening',
+    }));
+}
+
+/**
+ * Dopina pomiary z zegarka do treningu prowadzonego w aplikacji. Serie i powtórzenia zostają
+ * te wpisane ręcznie — z zegarka dochodzi wyłącznie to, czego aplikacja sama nie zmierzy.
+ */
+export function linkActivityToSession(db: SyncDb, sessionId: number, activity: ImportedActivity): void {
+  db.insert(schema.garminActivityMetrics)
+    .values({
+      sessionId,
+      garminActivityId: activity.recordId,
+      avgHeartRate: activity.avgHeartRate,
+      maxHeartRate: activity.maxHeartRate,
+      caloriesBurned: activity.caloriesBurned,
+      rawGarminJson: null,
+    })
+    .onConflictDoUpdate({
+      target: schema.garminActivityMetrics.sessionId,
+      set: {
+        garminActivityId: activity.recordId,
+        avgHeartRate: activity.avgHeartRate,
+        maxHeartRate: activity.maxHeartRate,
+        caloriesBurned: activity.caloriesBurned,
+      },
+    })
+    .run();
+}
+
+/** Aktywności odłożone przez użytkownika — pomijamy je przy kolejnych odczytach. */
+export function archivedActivityIds(db: SyncDb): Set<string> {
+  return new Set(
+    db
+      .select({ recordId: schema.archivedActivities.recordId })
+      .from(schema.archivedActivities)
+      .all()
+      .map((row) => row.recordId),
+  );
+}
+
+export function listArchivedActivities(db: SyncDb): { recordId: string; title: string; startTime: string }[] {
+  return db
+    .select({
+      recordId: schema.archivedActivities.recordId,
+      title: schema.archivedActivities.title,
+      startTime: schema.archivedActivities.startTime,
+    })
+    .from(schema.archivedActivities)
+    .orderBy(desc(schema.archivedActivities.startTime))
+    .all();
+}
+
+export function archiveActivity(
+  db: SyncDb,
+  activity: { recordId: string; title: string; startTime: string },
+): void {
+  db.insert(schema.archivedActivities)
+    .values({ recordId: activity.recordId, title: activity.title, startTime: activity.startTime })
+    .onConflictDoNothing({ target: schema.archivedActivities.recordId })
+    .run();
+}
+
+export function restoreActivity(db: SyncDb, recordId: string): void {
+  db.delete(schema.archivedActivities).where(eq(schema.archivedActivities.recordId, recordId)).run();
 }
 
 export type ImportedActivity = {
