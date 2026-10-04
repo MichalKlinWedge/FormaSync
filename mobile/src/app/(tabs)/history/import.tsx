@@ -9,7 +9,13 @@ import { Spacing } from '@/constants/theme';
 
 import type { WatchActivity } from '@/features/health/activities';
 import { importWatchActivity, listWatchActivities } from '@/features/health/activities';
-import { HealthPermissionsError, HealthUnavailableError, HISTORY_DAYS } from '@/features/health/sync';
+import {
+  ExercisePermissionError,
+  HealthPermissionsError,
+  HealthUnavailableError,
+  HISTORY_DAYS,
+  requestExercisePermission,
+} from '@/features/health/sync';
 import { formatClock } from '@/features/workout/logic';
 import { formatDateTime } from '@/lib/date';
 import { formatNumber } from '@/lib/number';
@@ -20,7 +26,7 @@ import { formatNumber } from '@/lib/number';
  */
 export default function ImportActivitiesScreen() {
   const [activities, setActivities] = useState<WatchActivity[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [problem, setProblem] = useState<Problem | null>(null);
   const [busy, setBusy] = useState(false);
   const [attempt, setAttempt] = useState(0);
 
@@ -30,12 +36,12 @@ export default function ImportActivitiesScreen() {
       .then((items) => {
         if (cancelled) return;
         setActivities(items);
-        setError(null);
+        setProblem(null);
       })
       .catch((e: unknown) => {
         if (cancelled) return;
         setActivities([]);
-        setError(describeError(e));
+        setProblem(describeProblem(e));
       });
     return () => {
       cancelled = true;
@@ -45,6 +51,12 @@ export default function ImportActivitiesScreen() {
   const retry = () => {
     setActivities(null);
     setAttempt((value) => value + 1);
+  };
+
+  // Okno zgody pokazuje Health Connect — decyzję podejmuje użytkownik, my tylko ponawiamy odczyt.
+  const grantAndRetry = async () => {
+    await requestExercisePermission();
+    retry();
   };
 
   const add = (activity: WatchActivity) => {
@@ -78,14 +90,18 @@ export default function ImportActivitiesScreen() {
           </View>
         )}
 
-        {error !== null && (
+        {problem !== null && (
           <ThemedView type="backgroundElement" style={styles.card}>
-            <ThemedText type="small">{error}</ThemedText>
-            <Button label="Spróbuj ponownie" icon="sync" variant="secondary" onPress={retry} />
+            <ThemedText type="small">{problem.message}</ThemedText>
+            {problem.needsPermission ? (
+              <Button label="Przyznaj zgodę" icon="check" onPress={() => void grantAndRetry()} />
+            ) : (
+              <Button label="Spróbuj ponownie" icon="sync" variant="secondary" onPress={retry} />
+            )}
           </ThemedView>
         )}
 
-        {activities !== null && error === null && activities.length === 0 && (
+        {activities !== null && problem === null && activities.length === 0 && (
           <ThemedView type="backgroundElement" style={styles.card}>
             <ThemedText type="small" themeColor="textSecondary">
               Nie ma nic nowego do wczytania. Treningi, które już są w historii, pomijamy.
@@ -116,12 +132,24 @@ export default function ImportActivitiesScreen() {
   );
 }
 
-function describeError(error: unknown): string {
-  if (error instanceof HealthPermissionsError) {
-    return 'Najpierw połącz aplikację z Health Connect w Ustawieniach.';
+type Problem = { message: string; needsPermission: boolean };
+
+function describeProblem(error: unknown): Problem {
+  if (error instanceof ExercisePermissionError) {
+    return {
+      message:
+        'Health Connect nie pozwala jeszcze odczytywać ćwiczeń. To osobna zgoda — nadasz ją tutaj.',
+      needsPermission: true,
+    };
   }
-  if (error instanceof HealthUnavailableError) return error.message;
-  return error instanceof Error ? error.message : 'Nie udało się odczytać danych.';
+  if (error instanceof HealthPermissionsError) {
+    return { message: 'Najpierw połącz aplikację z Health Connect w Ustawieniach.', needsPermission: false };
+  }
+  if (error instanceof HealthUnavailableError) return { message: error.message, needsPermission: false };
+  return {
+    message: error instanceof Error ? error.message : 'Nie udało się odczytać danych.',
+    needsPermission: false,
+  };
 }
 
 function describeMetrics(activity: WatchActivity): string {

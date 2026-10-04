@@ -6,6 +6,7 @@ import type { WatchActivity } from './activities-mapping';
 import { selectImportable, toWatchActivity } from './activities-mapping';
 import { createSessionFromActivity, importedActivityIds, sessionWindows } from './repository';
 import {
+  ExercisePermissionError,
   getAvailability,
   HealthPermissionsError,
   HealthUnavailableError,
@@ -22,7 +23,13 @@ export async function listWatchActivities(now: Date = new Date()): Promise<Watch
   const availability = await getAvailability();
   if (availability !== 'AVAILABLE') throw new HealthUnavailableError(availability);
   if (!(await initialize())) throw new HealthUnavailableError('UNAVAILABLE');
-  if ((await getGrantedPermissions()).length === 0) throw new HealthPermissionsError();
+  const granted = await getGrantedPermissions();
+  if (granted.length === 0) throw new HealthPermissionsError();
+  // Bez tej jednej zgody Health Connect rzuca wyjątkiem Javy — pytamy wcześniej, żeby
+  // zamiast niego pokazać powód i przycisk nadania zgody.
+  if (!granted.some((permission) => permission.recordType === 'ExerciseSession')) {
+    throw new ExercisePermissionError();
+  }
 
   const from = new Date(now.getTime() - HISTORY_DAYS * 24 * 3600 * 1000);
   const fromIso = from.toISOString();

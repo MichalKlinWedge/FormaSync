@@ -27,6 +27,9 @@ export const LAST_HEALTH_SYNC_KEY = 'health_last_sync';
 /** Health Connect udostępnia bez dodatkowych uprawnień 30 dni wstecz. */
 export const HISTORY_DAYS = 30;
 
+/** Odczyt treningów nagranych poza aplikacją — potrzebny tylko ekranowi „Z zegarka”. */
+export const EXERCISE_PERMISSION: Permission = { accessType: 'read', recordType: 'ExerciseSession' };
+
 export const HEALTH_PERMISSIONS: Permission[] = [
   { accessType: 'read', recordType: 'HeartRate' },
   { accessType: 'read', recordType: 'RestingHeartRate' },
@@ -34,8 +37,7 @@ export const HEALTH_PERMISSIONS: Permission[] = [
   { accessType: 'read', recordType: 'SleepSession' },
   { accessType: 'read', recordType: 'BloodPressure' },
   { accessType: 'read', recordType: 'ActiveCaloriesBurned' },
-  // Treningi nagrane na zegarku — do wczytania do historii (Historia → Z zegarka).
-  { accessType: 'read', recordType: 'ExerciseSession' },
+  EXERCISE_PERMISSION,
 ];
 
 export type HealthAvailability = 'AVAILABLE' | 'NEEDS_UPDATE' | 'UNAVAILABLE';
@@ -88,6 +90,23 @@ export class HealthPermissionsError extends Error {
   constructor() {
     super('Brak zgody na odczyt danych zdrowotnych.');
   }
+}
+
+/**
+ * Zgody w Health Connect nadaje się osobno dla każdego rodzaju danych. Odczyt ćwiczeń doszedł
+ * później niż pozostałe, więc kto połączył aplikacje wcześniej, ma komplet zgód bez tej jednej.
+ */
+export class ExercisePermissionError extends Error {
+  constructor() {
+    super('Brak zgody na odczyt ćwiczeń.');
+  }
+}
+
+/** Prosi o samą zgodę na odczyt ćwiczeń i mówi, czy ją dostaliśmy. */
+export async function requestExercisePermission(): Promise<boolean> {
+  if (!(await ready())) return false;
+  const granted = await requestPermission([EXERCISE_PERMISSION]);
+  return granted.some((permission) => permission.recordType === 'ExerciseSession');
 }
 
 /**
