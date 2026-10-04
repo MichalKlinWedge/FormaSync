@@ -98,6 +98,7 @@ describe('scheduleWorkouts', () => {
       reminderOffsetMinutes: 60,
       status: 'PLANNED',
       sessionId: null,
+      sport: 'STRENGTH',
     });
   });
 

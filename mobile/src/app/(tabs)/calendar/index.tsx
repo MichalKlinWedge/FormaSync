@@ -4,6 +4,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
+import { Chip } from '@/components/chip';
 import { Icon } from '@/components/icon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -12,6 +13,8 @@ import { db } from '@/db/client';
 import { syncWorkoutReminders } from '@/features/calendar/reminders';
 import { deleteScheduled, type ScheduledEntry, type ScheduleStatus } from '@/features/calendar/repository';
 import { groupByDay, useScheduledRange } from '@/features/calendar/use-calendar';
+import { SPORT_ICONS, SPORT_LABELS } from '@/features/sports/sport';
+import { useActiveSport, useSportStore } from '@/features/sports/sport-store';
 import { ensureNotificationPermission } from '@/features/workout/notifications';
 import { ActiveSessionExistsError, startSession } from '@/features/workout/repository';
 import { useTheme } from '@/hooks/use-theme';
@@ -30,13 +33,18 @@ export default function CalendarScreen() {
   const theme = useTheme();
   const today = todayKey();
   const [selected, setSelected] = useState(today);
+  const sport = useActiveSport();
+  const showsAll = useSportStore((state) => state.calendarShowsAll);
+  const setShowsAll = useSportStore((state) => state.setCalendarShowsAll);
   const [view, setView] = useState(() => {
     const d = fromDateKey(today);
     return { year: d.getFullYear(), month: d.getMonth() };
   });
 
   const weeks = monthGrid(view.year, view.month);
-  const entries = useScheduledRange(weeks[0][0], weeks.at(-1)![6]);
+  const all = useScheduledRange(weeks[0][0], weeks.at(-1)![6]);
+  // Kalendarz jest wspólny dla wszystkich dyscyplin; zawężenie to wybór na chwilę, nie ustawienie.
+  const entries = showsAll ? all : all.filter((entry) => entry.sport === sport);
   const byDay = groupByDay(entries);
   const selectedEntries = byDay.get(selected) ?? [];
 
@@ -55,6 +63,11 @@ export default function CalendarScreen() {
               hitSlop={8}>
               <Icon name="add" size={28} color={theme.accent} />
             </Pressable>
+          </View>
+
+          <View style={styles.chips}>
+            <Chip label="Wszystkie sporty" selected={showsAll} onPress={() => setShowsAll(true)} />
+            <Chip label={SPORT_LABELS[sport]} selected={!showsAll} onPress={() => setShowsAll(false)} />
           </View>
 
           <View style={styles.monthBar}>
@@ -185,6 +198,7 @@ function ScheduledRow({ entry, color }: { entry: ScheduledEntry; color: string }
   return (
     <ThemedView type="backgroundElement" style={styles.entry}>
       <View style={[styles.statusBar, { backgroundColor: color }]} />
+      <Icon name={SPORT_ICONS[entry.sport]} size={20} color={theme.textSecondary} />
       <Pressable
         accessibilityLabel={`Szczegóły: ${entry.planTitle}`}
         onPress={openDetails}
@@ -214,6 +228,7 @@ const styles = StyleSheet.create({
   content: { padding: Spacing.four, gap: Spacing.three, paddingBottom: BottomTabInset + Spacing.four },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   monthBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  chips: { flexDirection: 'row', gap: Spacing.two },
   weekdays: { flexDirection: 'row' },
   weekdayCell: { flex: 1, textAlign: 'center' },
   grid: { gap: Spacing.one },

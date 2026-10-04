@@ -1,6 +1,7 @@
 import { and, asc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 
 import * as schema from '@/db/schema';
+import type { Sport } from '@/db/schema';
 import type { SyncDb } from '@/db/types';
 import { combineDateAndTime, todayKey } from '@/lib/date';
 
@@ -10,6 +11,7 @@ export type ScheduledEntry = {
   id: number;
   planId: number;
   planTitle: string;
+  sport: Sport;
   scheduledDate: string;
   scheduledTime: string | null;
   reminderOffsetMinutes: number | null;
@@ -45,6 +47,7 @@ export function listScheduled(db: SyncDb, fromKey: string, toKey: string, today 
       id: schema.scheduledWorkouts.id,
       planId: schema.scheduledWorkouts.planId,
       planTitle: schema.workoutPlans.title,
+      sport: schema.workoutPlans.sport,
       scheduledDate: schema.scheduledWorkouts.scheduledDate,
       scheduledTime: schema.scheduledWorkouts.scheduledTime,
       reminderOffsetMinutes: schema.scheduledWorkouts.reminderOffsetMinutes,
@@ -77,6 +80,7 @@ export function loadScheduled(db: SyncDb, id: number, today = todayKey()): Sched
       id: schema.scheduledWorkouts.id,
       planId: schema.scheduledWorkouts.planId,
       planTitle: schema.workoutPlans.title,
+      sport: schema.workoutPlans.sport,
       scheduledDate: schema.scheduledWorkouts.scheduledDate,
       scheduledTime: schema.scheduledWorkouts.scheduledTime,
       reminderOffsetMinutes: schema.scheduledWorkouts.reminderOffsetMinutes,
@@ -231,6 +235,7 @@ export function listPendingReminders(db: SyncDb, now: Date = new Date()) {
     .select({
       id: schema.scheduledWorkouts.id,
       planTitle: schema.workoutPlans.title,
+      sport: schema.workoutPlans.sport,
       scheduledDate: schema.scheduledWorkouts.scheduledDate,
       scheduledTime: schema.scheduledWorkouts.scheduledTime,
       reminderOffsetMinutes: schema.scheduledWorkouts.reminderOffsetMinutes,
