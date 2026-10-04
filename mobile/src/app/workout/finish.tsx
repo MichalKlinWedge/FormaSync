@@ -8,6 +8,9 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
+import { formatDistance, formatPace, paceFrom } from '@/features/endurance/format';
+import { loadEnduranceSession, sessionTotals } from '@/features/endurance/session';
+import { isEndurance } from '@/features/sports/sport';
 import { formatClock, summarize } from '@/features/workout/logic';
 import { cancelRestEnd } from '@/features/workout/notifications';
 import { findActiveSessionId, finishSession } from '@/features/workout/repository';
@@ -22,12 +25,19 @@ export default function FinishWorkoutScreen() {
   const now = useNow();
   const [sessionId] = useState(() => findActiveSessionId(db));
   const { session } = useSession(sessionId ?? -1);
+  const [endurance] = useState(() =>
+    sessionId === null ? null : loadEnduranceSession(db, sessionId),
+  );
   const [notes, setNotes] = useState('');
   const [rpe, setRpe] = useState<number | null>(null);
 
   if (!session) return <ThemedView style={styles.flex} />;
 
   const summary = summarize(session, now);
+  // Bieg podsumowujemy dystansem i tempem; serie i tonaż nic tu nie znaczą.
+  const asEndurance = endurance !== null && isEndurance(endurance.sport) ? endurance : null;
+  const totals = asEndurance === null ? null : sessionTotals(asEndurance.segments);
+  const donePace = totals === null ? null : paceFrom(totals.meters, totals.seconds);
 
   const save = () => {
     finishSession(db, session.id, { userNotes: notes.trim() || null, rpeRating: rpe });
@@ -39,16 +49,32 @@ export default function FinishWorkoutScreen() {
     <KeyboardAvoidingView style={styles.flex} behavior="padding">
       <ThemedView style={styles.flex}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <View style={styles.stats}>
-            <Stat label="Czas" value={formatClock(summary.durationSeconds)} />
-            <Stat label="Serie" value={`${summary.completedSets}/${summary.plannedSets}`} />
-            <Stat label="Tonaż" value={`${Math.round(summary.tonnage)} kg`} />
-          </View>
-
-          {summary.completedSets === 0 && (
-            <ThemedText type="small" themeColor="textSecondary">
-              Nie zapisano żadnej wykonanej serii — trening trafi do historii jako pusty.
-            </ThemedText>
+          {totals !== null && asEndurance !== null ? (
+            <>
+              <View style={styles.stats}>
+                <Stat label="Czas" value={formatClock(summary.durationSeconds)} />
+                <Stat label="Dystans" value={formatDistance(totals.meters)} />
+                <Stat label="Tempo" value={donePace === null ? '—' : formatPace(donePace)} />
+              </View>
+              {totals.meters === 0 && totals.seconds === 0 && (
+                <ThemedText type="small" themeColor="textSecondary">
+                  Nie zapisano żadnego odcinka — trening trafi do historii jako pusty.
+                </ThemedText>
+              )}
+            </>
+          ) : (
+            <>
+              <View style={styles.stats}>
+                <Stat label="Czas" value={formatClock(summary.durationSeconds)} />
+                <Stat label="Serie" value={`${summary.completedSets}/${summary.plannedSets}`} />
+                <Stat label="Tonaż" value={`${Math.round(summary.tonnage)} kg`} />
+              </View>
+              {summary.completedSets === 0 && (
+                <ThemedText type="small" themeColor="textSecondary">
+                  Nie zapisano żadnej wykonanej serii — trening trafi do historii jako pusty.
+                </ThemedText>
+              )}
+            </>
           )}
 
           <View style={styles.field}>

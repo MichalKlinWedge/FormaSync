@@ -1,0 +1,153 @@
+import { asc, eq } from 'drizzle-orm';
+
+import * as schema from '@/db/schema';
+import type { SyncDb } from '@/db/types';
+
+/**
+ * Trening wytrzymałościowy w trakcie: lista odcinków do pokonania w kolejności biegu,
+ * każdy z celem z planu i miejscem na to, co faktycznie wyszło.
+ */
+
+export type ActiveSegment = {
+  /** Wiersz wykonania — to jego zapisujemy. */
+  id: number;
+  orderIndex: number;
+  iteration: number;
+  kind: schema.SegmentKind;
+  /** Która iteracja z ilu; 1 z 1 dla odcinków poza grupą powtórzeń. */
+  totalIterations: number;
+  durationType: schema.DurationType;
+  targetDistanceMeters: number | null;
+  targetDurationSeconds: number | null;
+  targetType: schema.TargetType;
+  targetLow: number | null;
+  targetHigh: number | null;
+  distanceMeters: number | null;
+  durationSeconds: number | null;
+  avgHeartRate: number | null;
+  completedAt: string | null;
+};
+
+export type ActiveEnduranceSession = {
+  id: number;
+  title: string | null;
+  sport: schema.Sport;
+  startTime: string;
+  segments: ActiveSegment[];
+};
+
+export function loadEnduranceSession(db: SyncDb, sessionId: number): ActiveEnduranceSession | null {
+  const session = db
+    .select()
+    .from(schema.workoutSessions)
+    .where(eq(schema.workoutSessions.id, sessionId))
+    .get();
+  if (!session) return null;
+
+  const segments = db
+    .select()
+    .from(schema.sessionSegments)
+    .where(eq(schema.sessionSegments.sessionId, sessionId))
+    .all();
+  const byId = new Map(segments.map((segment) => [segment.id, segment]));
+
+  const rows = db
+    .select()
+    .from(schema.loggedSegments)
+    .where(eq(schema.loggedSegments.sessionId, sessionId))
+    .orderBy(asc(schema.loggedSegments.orderIndex))
+    .all();
+
+  return {
+    id: session.id,
+    title: session.title,
+    sport: session.sport,
+    startTime: session.startTime,
+    segments: rows.flatMap((row) => {
+      const segment = byId.get(row.sessionSegmentId);
+      if (!segment) return [];
+      const parent = segment.parentId === null ? null : (byId.get(segment.parentId) ?? null);
+      return [
+        {
+          id: row.id,
+          orderIndex: row.orderIndex,
+          iteration: row.iteration,
+          kind: segment.kind,
+          totalIterations: parent?.repeatCount ?? 1,
+          durationType: segment.durationType,
+          targetDistanceMeters: segment.distanceMeters,
+          targetDurationSeconds: segment.durationSeconds,
+          targetType: segment.targetType,
+          targetLow: segment.targetLow,
+          targetHigh: segment.targetHigh,
+          distanceMeters: row.distanceMeters,
+          durationSeconds: row.durationSeconds,
+          avgHeartRate: row.avgHeartRate,
+          completedAt: row.completedAt,
+        },
+      ];
+    }),
+  };
+}
+
+export type SegmentValues = {
+  distanceMeters?: number | null;
+  durationSeconds?: number | null;
+  avgHeartRate?: number | null;
+};
+
+/** Zapisuje wykonanie odcinka. Puste pola uzupełniamy celem z planu — tak zwykle wychodzi. */
+export function completeSegment(
+  db: SyncDb,
+  loggedSegmentId: number,
+  values: SegmentValues,
+  now = new Date().toISOString(),
+): void {
+  const row = db
+    .select()
+    .from(schema.loggedSegments)
+    .where(eq(schema.loggedSegments.id, loggedSegmentId))
+    .get();
+  if (!row) throw new Error(`Odcinek ${loggedSegmentId} nie istnieje`);
+
+  const segment = db
+    .select()
+    .from(schema.sessionSegments)
+    .where(eq(schema.sessionSegments.id, row.sessionSegmentId))
+    .get();
+
+  db.update(schema.loggedSegments)
+    .set({
+      distanceMeters: values.distanceMeters ?? row.distanceMeters ?? segment?.distanceMeters ?? null,
+      durationSeconds: values.durationSeconds ?? row.durationSeconds ?? segment?.durationSeconds ?? null,
+      avgHeartRate: values.avgHeartRate ?? row.avgHeartRate ?? null,
+      completedAt: now,
+    })
+    .where(eq(schema.loggedSegments.id, loggedSegmentId))
+    .run();
+}
+
+/** Cofa zapis odcinka — pomyłka przy szybkim klikaniu w biegu zdarza się często. */
+export function uncompleteSegment(db: SyncDb, loggedSegmentId: number): void {
+  db.update(schema.loggedSegments)
+    .set({ completedAt: null })
+    .where(eq(schema.loggedSegments.id, loggedSegmentId))
+    .run();
+}
+
+export function updateSegmentValues(db: SyncDb, loggedSegmentId: number, values: SegmentValues): void {
+  db.update(schema.loggedSegments).set(values).where(eq(schema.loggedSegments.id, loggedSegmentId)).run();
+}
+
+/** Podsumowanie wykonanych odcinków — dystans i czas treningu. */
+export function sessionTotals(segments: ActiveSegment[]): { meters: number; seconds: number } {
+  return segments
+    .filter((segment) => segment.completedAt !== null)
+    .reduce(
+      (sum, segment) => ({
+        meters: sum.meters + (segment.distanceMeters ?? 0),
+        seconds: sum.seconds + (segment.durationSeconds ?? 0),
+      }),
+      { meters: 0, seconds: 0 },
+    );
+}

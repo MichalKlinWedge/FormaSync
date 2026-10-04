@@ -25,6 +25,7 @@ import {
 import { cancelRestEnd, scheduleRestEnd } from '@/features/workout/notifications';
 import {
   abandonSession,
+  activeSessionSport,
   addSet,
   completeSet,
   findActiveSessionId,
@@ -34,6 +35,8 @@ import {
   type SetValues,
   updateSet,
 } from '@/features/workout/repository';
+import { ActiveEnduranceSession } from '@/features/endurance/active-session';
+import { isEndurance } from '@/features/sports/sport';
 import { SetRow } from '@/features/workout/set-row';
 import { useSession } from '@/features/workout/use-session';
 import { useNow } from '@/hooks/use-now';
@@ -62,6 +65,7 @@ export default function ActiveWorkoutScreen() {
   const theme = useTheme();
   const now = useNow();
   const [sessionId] = useState(() => findActiveSessionId(db));
+  const [sessionSport] = useState(() => (sessionId === null ? null : activeSessionSport(db, sessionId)));
   const { session, reload } = useSession(sessionId ?? -1);
   const [restOverride, setRestOverride] = useState<RestOverride | null>(null);
 
@@ -82,6 +86,11 @@ export default function ActiveWorkoutScreen() {
     }
     wasActive.current = restActive;
   }, [restActive, skipped]);
+
+  // Trening wytrzymałościowy prowadzi się po odcinkach, nie po seriach — to osobny ekran.
+  if (sessionId !== null && sessionSport !== null && isEndurance(sessionSport)) {
+    return <ActiveEnduranceSession sessionId={sessionId} />;
+  }
 
   if (sessionId === null || !session) {
     return (

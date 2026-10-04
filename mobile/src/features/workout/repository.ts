@@ -29,6 +29,17 @@ export function findActiveSessionId(db: SyncDb): number | null {
   return row?.id ?? null;
 }
 
+/** Sport trwającej sesji — decyduje, który ekran treningu pokazać. */
+export function activeSessionSport(db: SyncDb, sessionId: number): schema.Sport | null {
+  return (
+    db
+      .select({ sport: schema.workoutSessions.sport })
+      .from(schema.workoutSessions)
+      .where(eq(schema.workoutSessions.id, sessionId))
+      .get()?.sport ?? null
+  );
+}
+
 /**
  * Rozpoczyna sesję i utrwala w niej migawkę planu (session_exercises) wraz z zaplanowanymi
  * seriami (logged_sets z completed_at = null). Wartości docelowe trafiają do serii jako
@@ -70,7 +81,9 @@ export function startSession(db: SyncDb, options: StartSessionOptions, now = now
       .returning({ id: schema.workoutSessions.id })
       .get().id;
 
-    if (planId !== null) {
+    if (planId !== null && isEnduranceSport(sport)) {
+      insertSessionSegments(tx, sessionId, planId);
+    } else if (planId !== null) {
       const planItems = tx
         .select()
         .from(schema.planExercises)
@@ -102,6 +115,65 @@ export function startSession(db: SyncDb, options: StartSessionOptions, now = now
     }
     return sessionId;
   });
+}
+
+const isEnduranceSport = (sport: schema.Sport) => sport !== 'STRENGTH';
+
+/**
+ * Migawka odcinków planu wytrzymałościowego wraz z zaplanowanym wykonaniem. Grupa powtórzeń
+ * rozwija się na tyle wierszy, ile iteracji — inaczej nie dałoby się pokazać, które okrążenie
+ * było wolniejsze. Kolejność wierszy to kolejność biegu, nie kolejność zapisu w planie.
+ */
+function insertSessionSegments(tx: SyncDb, sessionId: number, planId: number): void {
+  const planRows = tx
+    .select()
+    .from(schema.planSegments)
+    .where(eq(schema.planSegments.planId, planId))
+    .orderBy(asc(schema.planSegments.orderIndex))
+    .all();
+
+  const idByPlanId = new Map<number, number>();
+  for (const row of planRows) {
+    const inserted = tx
+      .insert(schema.sessionSegments)
+      .values({
+        sessionId,
+        parentId: row.parentId === null ? null : (idByPlanId.get(row.parentId) ?? null),
+        orderIndex: row.orderIndex,
+        kind: row.kind,
+        repeatCount: row.repeatCount,
+        durationType: row.durationType,
+        distanceMeters: row.distanceMeters,
+        durationSeconds: row.durationSeconds,
+        targetType: row.targetType,
+        targetLow: row.targetLow,
+        targetHigh: row.targetHigh,
+        notes: row.notes,
+      })
+      .returning({ id: schema.sessionSegments.id })
+      .get();
+    idByPlanId.set(row.id, inserted.id);
+  }
+
+  let orderIndex = 0;
+  const planned = (planSegmentId: number, iteration: number) => {
+    const sessionSegmentId = idByPlanId.get(planSegmentId);
+    if (sessionSegmentId === undefined) return;
+    tx.insert(schema.loggedSegments)
+      .values({ sessionId, sessionSegmentId, orderIndex: orderIndex++, iteration })
+      .run();
+  };
+
+  for (const row of planRows.filter((r) => r.parentId === null)) {
+    if (row.kind !== 'REPEAT') {
+      planned(row.id, 1);
+      continue;
+    }
+    const inside = planRows.filter((r) => r.parentId === row.id);
+    for (let iteration = 1; iteration <= (row.repeatCount ?? 1); iteration += 1) {
+      for (const child of inside) planned(child.id, iteration);
+    }
+  }
 }
 
 type SetDefaults = { reps: number | null; weight: number | null; duration: number | null };
@@ -311,6 +383,9 @@ export function finishSession(db: SyncDb, sessionId: number, values: FinishValue
     tx.delete(schema.loggedSets)
       .where(and(eq(schema.loggedSets.sessionId, sessionId), isNull(schema.loggedSets.completedAt)))
       .run();
+    tx.delete(schema.loggedSegments)
+      .where(and(eq(schema.loggedSegments.sessionId, sessionId), isNull(schema.loggedSegments.completedAt)))
+      .run();
 
     tx.update(schema.workoutSessions)
       .set({
@@ -349,13 +424,23 @@ export function abandonSession(db: SyncDb, sessionId: number, now = nowIso()): v
       .from(schema.loggedSets)
       .where(and(eq(schema.loggedSets.sessionId, sessionId), isNotNull(schema.loggedSets.completedAt)))
       .get();
-    if (!anyCompleted) {
+    const anySegment = tx
+      .select({ id: schema.loggedSegments.id })
+      .from(schema.loggedSegments)
+      .where(
+        and(eq(schema.loggedSegments.sessionId, sessionId), isNotNull(schema.loggedSegments.completedAt)),
+      )
+      .get();
+    if (!anyCompleted && !anySegment) {
       tx.delete(schema.workoutSessions).where(eq(schema.workoutSessions.id, sessionId)).run();
       return;
     }
 
     tx.delete(schema.loggedSets)
       .where(and(eq(schema.loggedSets.sessionId, sessionId), isNull(schema.loggedSets.completedAt)))
+      .run();
+    tx.delete(schema.loggedSegments)
+      .where(and(eq(schema.loggedSegments.sessionId, sessionId), isNull(schema.loggedSegments.completedAt)))
       .run();
     tx.update(schema.workoutSessions)
       .set({
