@@ -17,6 +17,7 @@ import {
   listArchivedActivities,
   restoreActivity,
   sessionWindows,
+  unlinkActivity,
 } from '../repository';
 
 const ACTIVITY = {
@@ -74,6 +75,19 @@ describe('linkActivityToSession', () => {
 
     expect(sessionWindows(db, '2026-10-01T00:00:00.000Z')).toHaveLength(1);
     expect(importedActivityIds(db)).toEqual(new Set(['rec-1']));
+  });
+});
+
+describe('unlinkActivity', () => {
+  it('zdejmuje pomiary i zwalnia aktywność do ponownego wczytania', () => {
+    const db = createTestDb({ seed: true });
+    const sessionId = createSessionFromActivity(db, ACTIVITY);
+
+    unlinkActivity(db, sessionId);
+
+    expect(importedActivityIds(db)).toEqual(new Set());
+    // Sam trening zostaje — znika tylko to, co przyszło z zegarka.
+    expect(sessionWindows(db, '2026-10-01T00:00:00.000Z')).toHaveLength(1);
   });
 });
 

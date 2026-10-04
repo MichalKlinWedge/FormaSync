@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
-import { StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 
+import { Button } from '@/components/button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -9,7 +10,7 @@ import { garminActivityMetrics, garminDailyHealth } from '@/db/schema';
 import { toDateKey } from '@/lib/date';
 import { formatNumber } from '@/lib/number';
 
-import { loadSessionHealth } from './repository';
+import { loadSessionHealth, unlinkActivity } from './repository';
 
 type SessionHealthProps = { sessionId: number; startTime: string };
 
@@ -42,7 +43,18 @@ export function SessionHealth({ sessionId, startTime }: SessionHealthProps) {
       value: `${daily.bloodPressureSystolic}/${daily.bloodPressureDiastolic} mmHg`,
     });
 
-  if (rows.length === 0) return null;
+  const linked = activity?.garminActivityId ?? null;
+  if (rows.length === 0 && linked === null) return null;
+
+  const confirmUnlink = () =>
+    Alert.alert(
+      'Odłączyć dane z zegarka?',
+      'Pomiary znikną z tego treningu, a aktywność wróci na listę „Z zegarka”.',
+      [
+        { text: 'Anuluj', style: 'cancel' },
+        { text: 'Odłącz', style: 'destructive', onPress: () => unlinkActivity(db, sessionId) },
+      ],
+    );
 
   return (
     <View style={styles.section}>
@@ -59,6 +71,9 @@ export function SessionHealth({ sessionId, startTime }: SessionHealthProps) {
           </View>
         ))}
       </ThemedView>
+      {linked !== null && (
+        <Button label="Odłącz dane z zegarka" icon="link_off" variant="secondary" onPress={confirmUnlink} />
+      )}
     </View>
   );
 }

@@ -114,6 +114,17 @@ export function loadSessionHealth(db: SyncDb, sessionId: number, dayKey: string)
   return { activity: activity ?? null, daily: daily ?? null };
 }
 
+/**
+ * Zdejmuje z treningu pomiary przypisane z zegarka. Kasujemy cały wiersz, a nie samo powiązanie:
+ * zostawione tętno i kalorie nadal pochodziłyby z tamtej aktywności, tylko bez śladu skąd.
+ * Aktywność wraca wtedy na listę „Z zegarka”.
+ */
+export function unlinkActivity(db: SyncDb, sessionId: number): void {
+  db.delete(schema.garminActivityMetrics)
+    .where(eq(schema.garminActivityMetrics.sessionId, sessionId))
+    .run();
+}
+
 /** Identyfikatory rekordów Health Connect, które już trafiły do historii. */
 export function importedActivityIds(db: SyncDb): Set<string> {
   const rows = db

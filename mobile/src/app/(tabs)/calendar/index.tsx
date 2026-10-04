@@ -180,17 +180,26 @@ function ScheduledRow({ entry, color }: { entry: ScheduledEntry; color: string }
       },
     ]);
 
+  /** Wykonany termin prowadzi do zapisu w historii, niewykonany — do planu z listą ćwiczeń. */
+  const openDetails = () =>
+    entry.sessionId !== null
+      ? router.push({ pathname: '/history/[id]', params: { id: entry.sessionId } })
+      : router.push({ pathname: '/plans/[id]', params: { id: entry.planId } });
+
   return (
     <ThemedView type="backgroundElement" style={styles.entry}>
       <View style={[styles.statusBar, { backgroundColor: color }]} />
-      <View style={styles.entryText}>
+      <Pressable
+        accessibilityLabel={`Szczegóły: ${entry.planTitle}`}
+        onPress={openDetails}
+        style={({ pressed }) => [styles.entryText, { opacity: pressed ? 0.7 : 1 }]}>
         <ThemedText type="smallBold" numberOfLines={1}>
           {entry.planTitle}
         </ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
           {entry.scheduledTime ?? 'cały dzień'} · {STATUS_LABELS[entry.status]}
         </ThemedText>
-      </View>
+      </Pressable>
       {!entry.isCompleted && (
         <Pressable accessibilityLabel="Rozpocznij trening" onPress={begin} hitSlop={6}>
           <Icon name="play_arrow" size={24} color={theme.accent} />

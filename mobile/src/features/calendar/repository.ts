@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, inArray, lte } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 
 import * as schema from '@/db/schema';
 import type { SyncDb } from '@/db/types';
@@ -15,6 +15,8 @@ export type ScheduledEntry = {
   reminderOffsetMinutes: number | null;
   isCompleted: boolean;
   status: ScheduleStatus;
+  /** Trening przeprowadzony z tego terminu, jeśli już się odbył — prowadzi do jego szczegółów. */
+  sessionId: number | null;
 };
 
 /** Klucze dat są w formacie YYYY-MM-DD, więc porównanie tekstowe wystarcza. */
@@ -47,15 +49,22 @@ export function listScheduled(db: SyncDb, fromKey: string, toKey: string, today 
       scheduledTime: schema.scheduledWorkouts.scheduledTime,
       reminderOffsetMinutes: schema.scheduledWorkouts.reminderOffsetMinutes,
       isCompleted: schema.scheduledWorkouts.isCompleted,
+      // Z jednego terminu może zostać kilka podejść; prowadzimy do ostatniego.
+      sessionId: sql<number | null>`max(${schema.workoutSessions.id})`,
     })
     .from(schema.scheduledWorkouts)
     .innerJoin(schema.workoutPlans, eq(schema.scheduledWorkouts.planId, schema.workoutPlans.id))
+    .leftJoin(
+      schema.workoutSessions,
+      eq(schema.workoutSessions.scheduledId, schema.scheduledWorkouts.id),
+    )
     .where(
       and(
         gte(schema.scheduledWorkouts.scheduledDate, fromKey),
         lte(schema.scheduledWorkouts.scheduledDate, toKey),
       ),
     )
+    .groupBy(schema.scheduledWorkouts.id)
     .orderBy(asc(schema.scheduledWorkouts.scheduledDate), asc(schema.scheduledWorkouts.scheduledTime))
     .all()
     .map((row) => ({ ...row, status: scheduleStatus(row, today) }));

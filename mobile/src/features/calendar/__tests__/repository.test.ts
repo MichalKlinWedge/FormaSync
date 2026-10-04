@@ -91,7 +91,24 @@ describe('scheduleWorkouts', () => {
       scheduledTime: '18:00',
       reminderOffsetMinutes: 60,
       status: 'PLANNED',
+      sessionId: null,
     });
+  });
+
+  it('wskazuje trening przeprowadzony z terminu, żeby dało się wejść w jego szczegóły', () => {
+    const { db, planId } = setup();
+    scheduleWorkouts(db, {
+      planId,
+      dates: ['2026-10-02'],
+      scheduledTime: '18:00',
+      reminderOffsetMinutes: null,
+    });
+    const [entry] = listScheduled(db, '2026-10-01', '2026-10-31', '2026-10-01');
+    const sessionId = startSession(db, { kind: 'scheduled', scheduledId: entry.id });
+    finishSession(db, sessionId);
+
+    const [after] = listScheduled(db, '2026-10-01', '2026-10-31', '2026-10-01');
+    expect(after).toMatchObject({ status: 'COMPLETED', sessionId });
   });
 
   it('nie tworzy duplikatu dla tego samego planu i dnia', () => {
