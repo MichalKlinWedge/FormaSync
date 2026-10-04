@@ -1,0 +1,4 @@
+- liczenie kalorii dziennych
+- pilnowanie nawodnienia
+- inne sporty np. bieganie
+- trener online AI

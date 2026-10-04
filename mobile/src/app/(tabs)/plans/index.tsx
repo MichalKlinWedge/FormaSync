@@ -7,9 +7,12 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { emptyDraft } from '@/features/plans/draft';
+import { emptyEnduranceDraft } from '@/features/endurance/draft';
+import { useEnduranceDraftStore } from '@/features/endurance/draft-store';
 import { usePlanDraftStore } from '@/features/plans/draft-store';
 import { usePlanList } from '@/features/plans/use-plans';
 import { SportSwitcher } from '@/features/sports/sport-switcher';
+import { isEndurance } from '@/features/sports/sport';
 import { useActiveSport } from '@/features/sports/sport-store';
 import { pluralWith } from '@/lib/number';
 import { useTheme } from '@/hooks/use-theme';
@@ -21,8 +24,15 @@ export default function PlansScreen() {
   const sport = useActiveSport();
   const { own, templates } = usePlanList(sport);
   const startDraft = usePlanDraftStore((s) => s.start);
+  const startEnduranceDraft = useEnduranceDraftStore((s) => s.start);
 
+  // Siła i wytrzymałość mają osobne modele planu, więc i osobne kreatory.
   const createPlan = () => {
+    if (isEndurance(sport)) {
+      startEnduranceDraft(emptyEnduranceDraft(sport));
+      router.push('/plans/edit-endurance');
+      return;
+    }
     startDraft(emptyDraft(sport));
     router.push('/plans/edit');
   };

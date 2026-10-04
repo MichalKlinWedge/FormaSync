@@ -9,7 +9,9 @@ import { db } from '@/db/client';
 import { formatDuration, formatTarget } from '@/features/plans/draft';
 import { usePlanDraftStore } from '@/features/plans/draft-store';
 import { deletePlan, draftFromPlan, loadPlanDraft } from '@/features/plans/repository';
+import { EndurancePlanDetails } from '@/features/endurance/plan-details';
 import { usePlanDetails } from '@/features/plans/use-plans';
+import { isEndurance } from '@/features/sports/sport';
 import { buildWorkoutFit, FitExportError, fitFileName } from '@/features/garmin/fit-workout';
 import { loadPlanForFit } from '@/features/garmin/repository';
 import { proposeProgression } from '@/features/progress/progression';
@@ -23,6 +25,8 @@ export default function PlanDetailsScreen() {
   const startDraft = usePlanDraftStore((s) => s.start);
 
   if (!plan) return <ThemedView style={styles.container} />;
+  // Plan wytrzymałościowy ma odcinki zamiast ćwiczeń, więc i własny ekran.
+  if (isEndurance(plan.sport)) return <EndurancePlanDetails planId={id} />;
 
   const edit = () => {
     startDraft(loadPlanDraft(db, plan.id));

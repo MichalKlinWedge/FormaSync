@@ -36,6 +36,13 @@
       "when": 1791141187154,
       "tag": "0004_sport",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1791141770203,
+      "tag": "0005_segments",
+      "breakpoints": true
     }
   ]
 }

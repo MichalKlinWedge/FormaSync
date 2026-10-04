@@ -94,10 +94,13 @@ describe('createBackup', () => {
       'exercises',
       'garmin_activity_metrics',
       'garmin_daily_health',
+      'logged_segments',
       'logged_sets',
       'plan_exercises',
+      'plan_segments',
       'scheduled_workouts',
       'session_exercises',
+      'session_segments',
       'workout_plans',
       'workout_sessions',
     ]);

@@ -106,6 +106,49 @@ export const planExercises = sqliteTable(
   (t) => [index('plan_exercises_plan_idx').on(t.planId)],
 );
 
+/**
+ * Odcinki treningu wytrzymałościowego. Dwa poziomy wystarczą: odcinek `REPEAT` jest grupą
+ * powtórzeń, a odcinki wskazujące na nią przez `parentId` są jej wnętrzem. Tak samo opisuje
+ * trening Garmin i plik FIT, więc wysyłka na zegarek nie wymaga tłumaczenia jednego modelu
+ * na drugi.
+ */
+export const segmentKinds = ['WARMUP', 'WORK', 'RECOVERY', 'COOLDOWN', 'REPEAT'] as const;
+export type SegmentKind = (typeof segmentKinds)[number];
+
+/** Czym kończy się odcinek: przebiegniętym dystansem, upływem czasu albo decyzją biegacza. */
+export const durationTypes = ['DISTANCE', 'TIME', 'OPEN'] as const;
+export type DurationType = (typeof durationTypes)[number];
+
+/** Cel odcinka. Tempo trzymamy w sekundach na kilometr, tętno w uderzeniach na minutę. */
+export const targetTypes = ['NONE', 'PACE', 'HEART_RATE'] as const;
+export type TargetType = (typeof targetTypes)[number];
+
+const segmentColumns = {
+  parentId: integer('parent_id'),
+  orderIndex: integer('order_index').notNull(),
+  kind: text('kind', { enum: segmentKinds }).notNull(),
+  repeatCount: integer('repeat_count'), // tylko dla grupy powtórzeń
+  durationType: text('duration_type', { enum: durationTypes }).notNull().default('OPEN'),
+  distanceMeters: real('distance_meters'),
+  durationSeconds: integer('duration_seconds'),
+  targetType: text('target_type', { enum: targetTypes }).notNull().default('NONE'),
+  targetLow: real('target_low'),
+  targetHigh: real('target_high'),
+  notes: text('notes'),
+};
+
+export const planSegments = sqliteTable(
+  'plan_segments',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    planId: integer('plan_id')
+      .notNull()
+      .references(() => workoutPlans.id, { onDelete: 'cascade' }),
+    ...segmentColumns,
+  },
+  (t) => [index('plan_segments_plan_idx').on(t.planId)],
+);
+
 // --- 3. Harmonogram i powiadomienia ---
 
 export const scheduledWorkouts = sqliteTable(
@@ -199,6 +242,44 @@ export const loggedSets = sqliteTable(
     completedAt: text('completed_at'), // null = seria zaplanowana, niewykonana
   },
   (t) => [index('logged_sets_session_idx').on(t.sessionId), index('logged_sets_exercise_idx').on(t.exerciseId)],
+);
+
+/** Migawka odcinków z chwili startu sesji — odpowiednik session_exercises dla wytrzymałości. */
+export const sessionSegments = sqliteTable(
+  'session_segments',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    sessionId: integer('session_id')
+      .notNull()
+      .references(() => workoutSessions.id, { onDelete: 'cascade' }),
+    ...segmentColumns,
+  },
+  (t) => [index('session_segments_session_idx').on(t.sessionId)],
+);
+
+/**
+ * Co faktycznie pokonane. Jedna grupa powtórzeń daje tyle wierszy, ile iteracji — każde
+ * okrążenie zapisujemy osobno, bo inaczej nie da się pokazać, które było wolniejsze.
+ */
+export const loggedSegments = sqliteTable(
+  'logged_segments',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    sessionId: integer('session_id')
+      .notNull()
+      .references(() => workoutSessions.id, { onDelete: 'cascade' }),
+    sessionSegmentId: integer('session_segment_id')
+      .notNull()
+      .references(() => sessionSegments.id, { onDelete: 'cascade' }),
+    orderIndex: integer('order_index').notNull(),
+    /** Którą iterację grupy powtórzeń zapisuje ten wiersz; 1 dla odcinków poza grupą. */
+    iteration: integer('iteration').notNull().default(1),
+    distanceMeters: real('distance_meters'),
+    durationSeconds: integer('duration_seconds'),
+    avgHeartRate: integer('avg_heart_rate'),
+    completedAt: text('completed_at'), // null = odcinek zaplanowany, niewykonany
+  },
+  (t) => [index('logged_segments_session_idx').on(t.sessionId)],
 );
 
 // --- 5. Dane biometryczne Garmin ---
