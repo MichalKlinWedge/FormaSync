@@ -1,0 +1,351 @@
+{
+  "Mój plan": {
+    "workoutName": "Mój plan",
+    "sportType": {
+      "sportTypeId": 5,
+      "sportTypeKey": "strength_training",
+      "displayOrder": 5
+    },
+    "estimatedDurationInSecs": 0,
+    "workoutSegments": [
+      {
+        "segmentOrder": 1,
+        "sportType": {
+          "sportTypeId": 5,
+          "sportTypeKey": "strength_training"
+        },
+        "workoutSteps": [
+          {
+            "type": "RepeatGroupDTO",
+            "stepOrder": 1,
+            "stepType": {
+              "stepTypeId": 6,
+              "stepTypeKey": "repeat",
+              "displayOrder": 6
+            },
+            "numberOfIterations": 3,
+            "workoutSteps": [
+              {
+                "type": "ExecutableStepDTO",
+                "stepOrder": 2,
+                "stepType": {
+                  "stepTypeId": 3,
+                  "stepTypeKey": "interval",
+                  "displayOrder": 3
+                },
+                "endCondition": {
+                  "conditionTypeId": 10,
+                  "conditionTypeKey": "reps",
+                  "displayOrder": 10,
+                  "displayable": true
+                },
+                "endConditionValue": 5.0,
+                "targetType": {
+                  "workoutTargetTypeId": 1,
+                  "workoutTargetTypeKey": "no.target",
+                  "displayOrder": 1
+                },
+                "category": "SQUAT",
+                "exerciseName": "",
+                "weightValue": 100000.0,
+                "weightUnit": {
+                  "unitId": 8,
+                  "unitKey": "kilogram",
+                  "factor": 1000.0
+                }
+              },
+              {
+                "type": "ExecutableStepDTO",
+                "stepOrder": 3,
+                "stepType": {
+                  "stepTypeId": 5,
+                  "stepTypeKey": "rest",
+                  "displayOrder": 5
+                },
+                "endCondition": {
+                  "conditionTypeId": 2,
+                  "conditionTypeKey": "time",
+                  "displayOrder": 2,
+                  "displayable": true
+                },
+                "endConditionValue": 120.0,
+                "targetType": {
+                  "workoutTargetTypeId": 1,
+                  "workoutTargetTypeKey": "no.target",
+                  "displayOrder": 1
+                }
+              }
+            ],
+            "endCondition": {
+              "conditionTypeId": 7,
+              "conditionTypeKey": "iterations",
+              "displayOrder": 7,
+              "displayable": false
+            },
+            "endConditionValue": 3.0,
+            "smartRepeat": false
+          },
+          {
+            "type": "RepeatGroupDTO",
+            "stepOrder": 4,
+            "stepType": {
+              "stepTypeId": 6,
+              "stepTypeKey": "repeat",
+              "displayOrder": 6
+            },
+            "numberOfIterations": 2,
+            "workoutSteps": [
+              {
+                "type": "ExecutableStepDTO",
+                "stepOrder": 5,
+                "stepType": {
+                  "stepTypeId": 3,
+                  "stepTypeKey": "interval",
+                  "displayOrder": 3
+                },
+                "endCondition": {
+                  "conditionTypeId": 2,
+                  "conditionTypeKey": "time",
+                  "displayOrder": 2,
+                  "displayable": true
+                },
+                "endConditionValue": 45.0,
+                "targetType": {
+                  "workoutTargetTypeId": 1,
+                  "workoutTargetTypeKey": "no.target",
+                  "displayOrder": 1
+                },
+                "category": "PLANK",
+                "exerciseName": ""
+              },
+              {
+                "type": "ExecutableStepDTO",
+                "stepOrder": 6,
+                "stepType": {
+                  "stepTypeId": 5,
+                  "stepTypeKey": "rest",
+                  "displayOrder": 5
+                },
+                "endCondition": {
+                  "conditionTypeId": 2,
+                  "conditionTypeKey": "time",
+                  "displayOrder": 2,
+                  "displayable": true
+                },
+                "endConditionValue": 60.0,
+                "targetType": {
+                  "workoutTargetTypeId": 1,
+                  "workoutTargetTypeKey": "no.target",
+                  "displayOrder": 1
+                }
+              }
+            ],
+            "endCondition": {
+              "conditionTypeId": 7,
+              "conditionTypeKey": "iterations",
+              "displayOrder": 7,
+              "displayable": false
+            },
+            "endConditionValue": 2.0,
+            "smartRepeat": false
+          },
+          {
+            "type": "RepeatGroupDTO",
+            "stepOrder": 7,
+            "stepType": {
+              "stepTypeId": 6,
+              "stepTypeKey": "repeat",
+              "displayOrder": 6
+            },
+            "numberOfIterations": 2,
+            "workoutSteps": [
+              {
+                "type": "ExecutableStepDTO",
+                "stepOrder": 8,
+                "stepType": {
+                  "stepTypeId": 3,
+                  "stepTypeKey": "interval",
+                  "displayOrder": 3
+                },
+                "endCondition": {
+                  "conditionTypeId": 10,
+                  "conditionTypeKey": "reps",
+                  "displayOrder": 10,
+                  "displayable": true
+                },
+                "endConditionValue": 8.0,
+                "targetType": {
+                  "workoutTargetTypeId": 1,
+                  "workoutTargetTypeKey": "no.target",
+                  "displayOrder": 1
+                },
+                "category": "UNKNOWN",
+                "exerciseName": ""
+              },
+              {
+                "type": "ExecutableStepDTO",
+                "stepOrder": 9,
+                "stepType": {
+                  "stepTypeId": 5,
+                  "stepTypeKey": "rest",
+                  "displayOrder": 5
+                },
+                "endCondition": {
+                  "conditionTypeId": 2,
+                  "conditionTypeKey": "time",
+                  "displayOrder": 2,
+                  "displayable": true
+                },
+                "endConditionValue": 90.0,
+                "targetType": {
+                  "workoutTargetTypeId": 1,
+                  "workoutTargetTypeKey": "no.target",
+                  "displayOrder": 1
+                }
+              }
+            ],
+            "endCondition": {
+              "conditionTypeId": 7,
+              "conditionTypeKey": "iterations",
+              "displayOrder": 7,
+              "displayable": false
+            },
+            "endConditionValue": 2.0,
+            "smartRepeat": false
+          }
+        ]
+      }
+    ],
+    "author": {}
+  },
+  "Interwały 5×400": {
+    "workoutName": "Interwały 5×400",
+    "sportType": {
+      "sportTypeId": 1,
+      "sportTypeKey": "running",
+      "displayOrder": 1
+    },
+    "estimatedDurationInSecs": 0,
+    "workoutSegments": [
+      {
+        "segmentOrder": 1,
+        "sportType": {
+          "sportTypeId": 1,
+          "sportTypeKey": "running",
+          "displayOrder": 1
+        },
+        "workoutSteps": [
+          {
+            "type": "ExecutableStepDTO",
+            "stepOrder": 1,
+            "stepType": {
+              "stepTypeId": 1,
+              "stepTypeKey": "warmup",
+              "displayOrder": 1
+            },
+            "endCondition": {
+              "conditionTypeId": 2,
+              "conditionTypeKey": "time",
+              "displayOrder": 2,
+              "displayable": true
+            },
+            "endConditionValue": 600.0,
+            "targetType": {
+              "workoutTargetTypeId": 1,
+              "workoutTargetTypeKey": "no.target",
+              "displayOrder": 1
+            }
+          },
+          {
+            "type": "RepeatGroupDTO",
+            "stepOrder": 2,
+            "stepType": {
+              "stepTypeId": 6,
+              "stepTypeKey": "repeat",
+              "displayOrder": 6
+            },
+            "numberOfIterations": 5,
+            "workoutSteps": [
+              {
+                "type": "ExecutableStepDTO",
+                "stepOrder": 3,
+                "stepType": {
+                  "stepTypeId": 3,
+                  "stepTypeKey": "interval",
+                  "displayOrder": 3
+                },
+                "endCondition": {
+                  "conditionTypeId": 3,
+                  "conditionTypeKey": "distance",
+                  "displayOrder": 3,
+                  "displayable": true
+                },
+                "endConditionValue": 400.0,
+                "targetType": {
+                  "workoutTargetTypeId": 6,
+                  "workoutTargetTypeKey": "pace.zone",
+                  "displayOrder": 6
+                },
+                "targetValueOne": 3.9216,
+                "targetValueTwo": 4.1667
+              },
+              {
+                "type": "ExecutableStepDTO",
+                "stepOrder": 4,
+                "stepType": {
+                  "stepTypeId": 4,
+                  "stepTypeKey": "recovery",
+                  "displayOrder": 4
+                },
+                "endCondition": {
+                  "conditionTypeId": 2,
+                  "conditionTypeKey": "time",
+                  "displayOrder": 2,
+                  "displayable": true
+                },
+                "endConditionValue": 90.0,
+                "targetType": {
+                  "workoutTargetTypeId": 1,
+                  "workoutTargetTypeKey": "no.target",
+                  "displayOrder": 1
+                }
+              }
+            ],
+            "endCondition": {
+              "conditionTypeId": 7,
+              "conditionTypeKey": "iterations",
+              "displayOrder": 7,
+              "displayable": false
+            },
+            "endConditionValue": 5.0,
+            "smartRepeat": false
+          },
+          {
+            "type": "ExecutableStepDTO",
+            "stepOrder": 5,
+            "stepType": {
+              "stepTypeId": 2,
+              "stepTypeKey": "cooldown",
+              "displayOrder": 2
+            },
+            "endCondition": {
+              "conditionTypeId": 2,
+              "conditionTypeKey": "time",
+              "displayOrder": 2,
+              "displayable": true
+            },
+            "endConditionValue": 600.0,
+            "targetType": {
+              "workoutTargetTypeId": 4,
+              "workoutTargetTypeKey": "heart.rate.zone",
+              "displayOrder": 4
+            },
+            "targetValueOne": 120,
+            "targetValueTwo": 140
+          }
+        ]
+      }
+    ],
+    "author": {}
+  }
+}
