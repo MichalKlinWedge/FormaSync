@@ -57,8 +57,29 @@ describe('toWatchActivity', () => {
       durationSeconds: 1800,
       avgHeartRate: 80,
       maxHeartRate: 90,
+      distanceMeters: null,
       caloriesBurned: 120,
     });
+  });
+
+  it('sumuje dystans z bloków należących do okna aktywności', () => {
+    const activity = toWatchActivity(
+      session({ exerciseType: 56 }),
+      [],
+      [],
+      [
+        { startTime: '2026-10-02T14:00:00.000Z', endTime: '2026-10-02T14:15:00.000Z', meters: 3000 },
+        { startTime: '2026-10-02T14:15:00.000Z', endTime: '2026-10-02T14:30:00.000Z', meters: 2500 },
+        // Blok z innej pory dnia nie ma prawa dołożyć się do tego biegu.
+        { startTime: '2026-10-02T18:00:00.000Z', endTime: '2026-10-02T18:30:00.000Z', meters: 9000 },
+      ],
+    );
+    expect(activity?.distanceMeters).toBe(5500);
+    expect(activity?.sport).toBe('RUNNING');
+  });
+
+  it('bez odczytów dystansu zostawia pustkę, a nie zero kilometrów', () => {
+    expect(toWatchActivity(session({ exerciseType: 56 }), [], [], [])?.distanceMeters).toBeNull();
   });
 
   it('bez własnego tytułu bierze nazwę dyscypliny', () => {
@@ -109,6 +130,7 @@ describe('selectImportable', () => {
     startTime,
     endTime: startTime,
     durationSeconds: 0,
+    distanceMeters: null,
     avgHeartRate: null,
     maxHeartRate: null,
     caloriesBurned: null,

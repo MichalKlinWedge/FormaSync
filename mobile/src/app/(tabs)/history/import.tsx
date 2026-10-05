@@ -23,8 +23,10 @@ import {
   HealthPermissionsError,
   HealthUnavailableError,
   HISTORY_DAYS,
+  requestDistancePermission,
   requestExercisePermission,
 } from '@/features/health/sync';
+import { formatDistance } from '@/features/endurance/format';
 import { SPORT_LABELS } from '@/features/sports/sport';
 import { formatClock } from '@/features/workout/logic';
 import { formatDateTime } from '@/lib/date';
@@ -37,6 +39,7 @@ import { formatNumber } from '@/lib/number';
  */
 export default function ImportActivitiesScreen() {
   const [activities, setActivities] = useState<ImportCandidate[] | null>(null);
+  const [distanceAvailable, setDistanceAvailable] = useState(true);
   const [archived, setArchived] = useState(() => listArchived());
   const [problem, setProblem] = useState<Problem | null>(null);
   const [busy, setBusy] = useState(false);
@@ -45,9 +48,10 @@ export default function ImportActivitiesScreen() {
   useEffect(() => {
     let cancelled = false;
     listWatchActivities()
-      .then((items) => {
+      .then((result) => {
         if (cancelled) return;
-        setActivities(items);
+        setActivities(result.activities);
+        setDistanceAvailable(result.distanceAvailable);
         setProblem(null);
       })
       .catch((e: unknown) => {
@@ -68,6 +72,11 @@ export default function ImportActivitiesScreen() {
   // Okno zgody pokazuje Health Connect — decyzję podejmuje użytkownik, my tylko ponawiamy odczyt.
   const grantAndRetry = async () => {
     await requestExercisePermission();
+    retry();
+  };
+
+  const grantDistanceAndRetry = async () => {
+    await requestDistancePermission();
     retry();
   };
 
@@ -117,10 +126,20 @@ export default function ImportActivitiesScreen() {
     <ThemedView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <ThemedText type="small" themeColor="textSecondary">
-          Treningi z ostatnich {HISTORY_DAYS} dni nagrane poza aplikacją. Przychodzi czas trwania, tętno
-          i kalorie — serii i powtórzeń Health Connect nie udostępnia, więc liczy je tylko trening
-          prowadzony w FormaSync.
+          Treningi z ostatnich {HISTORY_DAYS} dni nagrane poza aplikacją. Przychodzi czas trwania,
+          dystans, tętno i kalorie — serii i powtórzeń Health Connect nie udostępnia, więc liczy je
+          tylko trening prowadzony w FormaSync.
         </ThemedText>
+
+        {!distanceAvailable && problem === null && (
+          <ThemedView type="backgroundElement" style={styles.card}>
+            <ThemedText type="small">
+              Health Connect nie pozwala jeszcze odczytywać dystansu. To osobna zgoda — bez niej biegi
+              przychodzą bez kilometrów i bez tempa.
+            </ThemedText>
+            <Button label="Przyznaj zgodę na dystans" icon="check" onPress={() => void grantDistanceAndRetry()} />
+          </ThemedView>
+        )}
 
         {activities === null && (
           <View style={styles.busy}>
@@ -208,8 +227,14 @@ function ActivityCard({ activity, busy, onAdd, onLink, onArchive }: ActivityCard
     <ThemedView type="backgroundElement" style={styles.card}>
       <ThemedText type="smallBold">{activity.title}</ThemedText>
       <ThemedText type="small" themeColor="textSecondary">
-        {SPORT_LABELS[activity.sport]} · {formatDateTime(activity.startTime)} ·{' '}
-        {formatClock(activity.durationSeconds)}
+        {[
+          SPORT_LABELS[activity.sport],
+          formatDateTime(activity.startTime),
+          formatClock(activity.durationSeconds),
+          activity.distanceMeters === null ? null : formatDistance(activity.distanceMeters),
+        ]
+          .filter(Boolean)
+          .join(' · ')}
       </ThemedText>
       <ThemedText type="small" themeColor="textSecondary">
         {describeMetrics(activity)}

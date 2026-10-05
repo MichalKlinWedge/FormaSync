@@ -25,11 +25,18 @@ import {
 
 export type { ImportCandidate, SessionWindow, WatchActivity } from './activities-mapping';
 
+/** Lista aktywności razem z informacją, czy dystans w ogóle mógł dojść. */
+export type WatchActivities = {
+  activities: ImportCandidate[];
+  /** false, gdy brakuje zgody na odczyt dystansu — wtedy biegi przychodzą bez kilometrów. */
+  distanceAvailable: boolean;
+};
+
 /**
  * Treningi nagrane poza aplikacją — na zegarku albo w telefonie — których jeszcze nie ma
- * w historii. Czyta je z Health Connect razem z tętnem i kaloriami z tego samego okna.
+ * w historii. Czyta je z Health Connect razem z dystansem, tętnem i kaloriami z tego samego okna.
  */
-export async function listWatchActivities(now: Date = new Date()): Promise<ImportCandidate[]> {
+export async function listWatchActivities(now: Date = new Date()): Promise<WatchActivities> {
   const availability = await getAvailability();
   if (availability !== 'AVAILABLE') throw new HealthUnavailableError(availability);
   if (!(await initialize())) throw new HealthUnavailableError('UNAVAILABLE');
@@ -45,10 +52,17 @@ export async function listWatchActivities(now: Date = new Date()): Promise<Impor
   const fromIso = from.toISOString();
   const range = { operator: 'between', startTime: fromIso, endTime: now.toISOString() } as const;
 
-  const [exercise, heart, calories] = await Promise.all([
+  // Dystans to osobna zgoda, nadawana niezależnie od reszty. Bez niej odczyt rzuciłby wyjątkiem,
+  // więc pomijamy go i mówimy o tym wprost, zamiast pokazywać bieg bez kilometrów bez wyjaśnienia.
+  const distanceAvailable = granted.some((permission) => permission.recordType === 'Distance');
+
+  const [exercise, heart, calories, distance] = await Promise.all([
     readRecords('ExerciseSession', { timeRangeFilter: range }),
     readRecords('HeartRate', { timeRangeFilter: range }),
     readRecords('ActiveCaloriesBurned', { timeRangeFilter: range }),
+    distanceAvailable
+      ? readRecords('Distance', { timeRangeFilter: range })
+      : Promise.resolve({ records: [] as { startTime: string; endTime: string; distance: { inMeters: number } }[] }),
   ]);
 
   const samples = heart.records.flatMap((record) => record.samples);
@@ -57,17 +71,25 @@ export async function listWatchActivities(now: Date = new Date()): Promise<Impor
     endTime: record.endTime,
     kilocalories: record.energy.inKilocalories,
   }));
+  const distanceBlocks = distance.records.map((record) => ({
+    startTime: record.startTime,
+    endTime: record.endTime,
+    meters: record.distance.inMeters,
+  }));
 
   const activities = exercise.records
-    .map((record) => toWatchActivity(record, samples, calorieBlocks))
+    .map((record) => toWatchActivity(record, samples, calorieBlocks, distanceBlocks))
     .filter((activity): activity is WatchActivity => activity !== null);
 
-  return selectImportable(
-    activities,
-    importedActivityIds(db),
-    archivedActivityIds(db),
-    sessionWindows(db, fromIso),
-  );
+  return {
+    distanceAvailable,
+    activities: selectImportable(
+      activities,
+      importedActivityIds(db),
+      archivedActivityIds(db),
+      sessionWindows(db, fromIso),
+    ),
+  };
 }
 
 /** Dopisuje aktywność do historii i zwraca identyfikator utworzonej sesji. */

@@ -24,7 +24,8 @@
         "android.permission.health.READ_BLOOD_PRESSURE",
         "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
         "android.permission.health.READ_TOTAL_CALORIES_BURNED",
-        "android.permission.health.READ_EXERCISE"
+        "android.permission.health.READ_EXERCISE",
+        "android.permission.health.READ_DISTANCE"
       ]
     },
     "web": {

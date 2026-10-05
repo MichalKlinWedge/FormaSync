@@ -30,6 +30,12 @@ export const HISTORY_DAYS = 30;
 /** Odczyt treningów nagranych poza aplikacją — potrzebny tylko ekranowi „Z zegarka”. */
 export const EXERCISE_PERMISSION: Permission = { accessType: 'read', recordType: 'ExerciseSession' };
 
+/** Dystans jest osobnym rodzajem danych: bez tej zgody biegi przychodzą bez kilometrów. */
+export const DISTANCE_PERMISSION: Permission = { accessType: 'read', recordType: 'Distance' };
+
+/** Komplet potrzebny ekranowi „Z zegarka”: sama aktywność i przebyty dystans. */
+export const ACTIVITY_PERMISSIONS: Permission[] = [EXERCISE_PERMISSION, DISTANCE_PERMISSION];
+
 export const HEALTH_PERMISSIONS: Permission[] = [
   { accessType: 'read', recordType: 'HeartRate' },
   { accessType: 'read', recordType: 'RestingHeartRate' },
@@ -38,6 +44,7 @@ export const HEALTH_PERMISSIONS: Permission[] = [
   { accessType: 'read', recordType: 'BloodPressure' },
   { accessType: 'read', recordType: 'ActiveCaloriesBurned' },
   EXERCISE_PERMISSION,
+  DISTANCE_PERMISSION,
 ];
 
 export type HealthAvailability = 'AVAILABLE' | 'NEEDS_UPDATE' | 'UNAVAILABLE';
@@ -102,11 +109,21 @@ export class ExercisePermissionError extends Error {
   }
 }
 
-/** Prosi o samą zgodę na odczyt ćwiczeń i mówi, czy ją dostaliśmy. */
+/**
+ * Prosi o zgody potrzebne liście „Z zegarka” i mówi, czy dostaliśmy tę na odczyt ćwiczeń.
+ * O dystans pytamy przy okazji — jedno okno zamiast dwóch, a bez niego bieg nie ma kilometrów.
+ */
 export async function requestExercisePermission(): Promise<boolean> {
   if (!(await ready())) return false;
-  const granted = await requestPermission([EXERCISE_PERMISSION]);
+  const granted = await requestPermission(ACTIVITY_PERMISSIONS);
   return granted.some((permission) => permission.recordType === 'ExerciseSession');
+}
+
+/** Prosi o samą zgodę na dystans — gdy reszta już jest, a kilometrów brakuje. */
+export async function requestDistancePermission(): Promise<boolean> {
+  if (!(await ready())) return false;
+  const granted = await requestPermission([DISTANCE_PERMISSION]);
+  return granted.some((permission) => permission.recordType === 'Distance');
 }
 
 /**

@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gte, ne } from 'drizzle-orm';
 
 import * as schema from '@/db/schema';
 import type { SyncDb } from '@/db/types';
+import { isEndurance } from '@/features/sports/sport';
 
 /**
  * Zapis danych zdrowotnych. Tabele noszą nazwy z „garmin”, bo taka była pierwotna
@@ -205,6 +206,23 @@ export function linkCandidates(
  * te wpisane ręcznie — z zegarka dochodzi wyłącznie to, czego aplikacja sama nie zmierzy.
  */
 export function linkActivityToSession(db: SyncDb, sessionId: number, activity: ImportedActivity): void {
+  // Dystans z zegarka to też pomiar, którego aplikacja sama nie zrobi — ale dopisujemy go tylko
+  // treningowi, który nie ma własnych odcinków. Inaczej policzylibyśmy tę samą trasę dwa razy.
+  const sport = db
+    .select({ sport: schema.workoutSessions.sport })
+    .from(schema.workoutSessions)
+    .where(eq(schema.workoutSessions.id, sessionId))
+    .get()?.sport;
+  const hasSegments =
+    db
+      .select({ id: schema.loggedSegments.id })
+      .from(schema.loggedSegments)
+      .where(eq(schema.loggedSegments.sessionId, sessionId))
+      .all().length > 0;
+  if (sport !== undefined && isEndurance(sport) && !hasSegments) {
+    insertMeasuredSegment(db, sessionId, activity);
+  }
+
   db.insert(schema.garminActivityMetrics)
     .values({
       sessionId,
@@ -270,14 +288,49 @@ export type ImportedActivity = {
   startTime: string;
   endTime: string;
   durationSeconds: number;
+  distanceMeters: number | null;
   avgHeartRate: number | null;
   maxHeartRate: number | null;
   caloriesBurned: number | null;
 };
 
 /**
- * Zapisuje aktywność z zegarka jako zakończoną sesję. Sesja nie ma serii ani planu —
- * Health Connect ich nie udostępnia — więc w historii pokaże się sam czas i biometria.
+ * Zapisuje pokonany dystans jako jeden odcinek roboczy. Zegarek nie dzieli aktywności na odcinki
+ * tak, jak robi to plan, ale bez żadnego odcinka trening nie miałby ani dystansu, ani tempa —
+ * a to jedyne, co o biegu mówi cokolwiek.
+ */
+function insertMeasuredSegment(db: SyncDb, sessionId: number, activity: ImportedActivity): void {
+  if (activity.distanceMeters === null || activity.distanceMeters <= 0) return;
+  const segment = db
+    .insert(schema.sessionSegments)
+    .values({
+      sessionId,
+      orderIndex: 0,
+      kind: 'WORK',
+      durationType: 'DISTANCE',
+      distanceMeters: activity.distanceMeters,
+      durationSeconds: activity.durationSeconds,
+    })
+    .returning({ id: schema.sessionSegments.id })
+    .get();
+  db.insert(schema.loggedSegments)
+    .values({
+      sessionId,
+      sessionSegmentId: segment.id,
+      orderIndex: 0,
+      iteration: 1,
+      distanceMeters: activity.distanceMeters,
+      durationSeconds: activity.durationSeconds,
+      avgHeartRate: activity.avgHeartRate,
+      completedAt: activity.endTime,
+    })
+    .run();
+}
+
+/**
+ * Zapisuje aktywność z zegarka jako zakończoną sesję. Serii ani planu Health Connect nie
+ * udostępnia, więc w historii pokaże się czas, biometria i — przy bieganiu, rowerze i pływaniu —
+ * dystans zapisany jako jeden odcinek.
  */
 export function createSessionFromActivity(db: SyncDb, activity: ImportedActivity): number {
   return db.transaction((tx) => {
@@ -293,6 +346,8 @@ export function createSessionFromActivity(db: SyncDb, activity: ImportedActivity
       })
       .returning({ id: schema.workoutSessions.id })
       .get();
+
+    if (isEndurance(activity.sport)) insertMeasuredSegment(tx, session.id, activity);
 
     tx.insert(schema.garminActivityMetrics)
       .values({

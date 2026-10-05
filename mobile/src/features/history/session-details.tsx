@@ -30,6 +30,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { formatDateTime } from '@/lib/date';
 
 import { deleteSession, loadSessionMeta, proposePlanUpdate, updateSessionMeta } from './repository';
+import { useFlushNotes } from './use-flush-notes';
 
 const RPE_VALUES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
@@ -52,6 +53,8 @@ export function SessionDetails({ id, updatePlanRoute, footer }: SessionDetailsPr
   const [sessionSport] = useState(() => activeSessionSport(db, id) ?? 'STRENGTH');
   const [notes, setNotes] = useState(meta?.userNotes ?? '');
   const [rpe, setRpe] = useState<number | null>(meta?.rpeRating ?? null);
+  // Przy biegu notatkę prowadzi osadzony niżej widok wytrzymałościowy — ten stan jest tylko kopią.
+  useFlushNotes(id, notes, !isEndurance(sessionSport));
 
   // Po powrocie z okna aktualizacji planu odświeżamy cele pokazywane przy ćwiczeniach.
   useFocusEffect(useCallback(() => reload(), [reload]));

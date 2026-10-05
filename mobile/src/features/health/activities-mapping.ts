@@ -1,12 +1,12 @@
 import type { Sport } from '@/db/schema';
 
 import type { HeartRateSummary, Interval, Sample } from './mapping';
-import { caloriesInWindow, summarizeHeartRate } from './mapping';
+import { caloriesInWindow, metersInWindow, summarizeHeartRate } from './mapping';
 
 /**
  * Przeliczenia aktywności nagranych poza aplikacją — na zegarku albo w telefonie.
  * Garmin Connect zapisuje je do Health Connect jako `ExerciseSession`; tą drogą przychodzi
- * czas trwania i dyscyplina, ale nie serie ani powtórzenia. Te zegarek liczy wyłącznie
+ * czas trwania, dyscyplina i — osobnym rodzajem danych — dystans, ale nie serie ani powtórzenia. Te zegarek liczy wyłącznie
  * w aktywności siłowej prowadzonej po krokach wczytanego treningu i nie udostępnia ich
  * przez Health Connect, więc zaimportowany trening trafia do historii bez serii.
  */
@@ -20,6 +20,8 @@ export type WatchActivity = {
   startTime: string;
   endTime: string;
   durationSeconds: number;
+  /** Przebyty dystans w metrach; null, gdy Garmin go nie zapisał albo brakuje zgody. */
+  distanceMeters: number | null;
   avgHeartRate: number | null;
   maxHeartRate: number | null;
   caloriesBurned: number | null;
@@ -119,6 +121,7 @@ export function toWatchActivity(
   record: ExerciseSession,
   samples: Sample[],
   calorieBlocks: (Interval & { kilocalories: number })[],
+  distanceBlocks: (Interval & { meters: number })[] = [],
 ): WatchActivity | null {
   const recordId = record.metadata?.id;
   if (!recordId) return null;
@@ -133,6 +136,7 @@ export function toWatchActivity(
     startTime: record.startTime,
     endTime: record.endTime,
     durationSeconds: Math.max(seconds, 0),
+    distanceMeters: metersInWindow(distanceBlocks, record.startTime, record.endTime),
     avgHeartRate: heart.avgHeartRate,
     maxHeartRate: heart.maxHeartRate,
     caloriesBurned: caloriesInWindow(calorieBlocks, record.startTime, record.endTime),

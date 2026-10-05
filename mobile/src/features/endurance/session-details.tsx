@@ -15,6 +15,8 @@ import { formatClock } from '@/features/workout/logic';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDateTime } from '@/lib/date';
 
+import { useFlushNotes } from '@/features/history/use-flush-notes';
+
 import { SEGMENT_LABELS } from './draft';
 import { describeTarget, formatDistance, formatPace, formatSeconds, paceFrom } from './format';
 import { loadEnduranceSession, paceBreakdown, sessionTotals } from './session';
@@ -28,6 +30,7 @@ export function EnduranceSessionDetails({ id, footer }: Props) {
   const [meta] = useState(() => loadSessionMeta(db, id));
   const [notes, setNotes] = useState(meta?.userNotes ?? '');
   const [rpe, setRpe] = useState<number | null>(meta?.rpeRating ?? null);
+  useFlushNotes(id, notes);
 
   if (!session || !meta) return <ThemedView style={styles.flex} />;
 
@@ -144,6 +147,7 @@ export function EnduranceSessionDetails({ id, footer }: Props) {
             <TextInput
               value={notes}
               onChangeText={setNotes}
+              onEndEditing={() => saveMeta({ userNotes: notes.trim() || null })}
               onBlur={() => saveMeta({ userNotes: notes.trim() || null })}
               multiline
               placeholder="Jak się biegło…"

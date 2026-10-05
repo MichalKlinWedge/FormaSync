@@ -40,6 +40,31 @@ export function caloriesInWindow(
   startTime: string,
   endTime: string,
 ): number | null {
+  const total = sumInWindow(records, (record) => record.kilocalories, startTime, endTime);
+  return total === null ? null : Math.round(total);
+}
+
+/**
+ * Dystans z okresów nachodzących na okno sesji. Garmin zapisuje go blokami, które nie muszą
+ * pokrywać się z treningiem co do sekundy, więc część wspólną liczymy proporcjonalnie — tak samo
+ * jak kalorie.
+ */
+export function metersInWindow(
+  records: (Interval & { meters: number })[],
+  startTime: string,
+  endTime: string,
+): number | null {
+  const total = sumInWindow(records, (record) => record.meters, startTime, endTime);
+  return total === null ? null : Math.round(total);
+}
+
+/** Suma wartości z bloków nachodzących na okno, ważona długością części wspólnej. */
+function sumInWindow<T extends Interval>(
+  records: T[],
+  valueOf: (record: T) => number,
+  startTime: string,
+  endTime: string,
+): number | null {
   const from = Date.parse(startTime);
   const to = Date.parse(endTime);
   let total = 0;
@@ -50,10 +75,11 @@ export function caloriesInWindow(
     const overlap = Math.min(to, recordEnd) - Math.max(from, recordStart);
     if (overlap <= 0) continue;
     const span = recordEnd - recordStart;
-    total += span > 0 ? (record.kilocalories * overlap) / span : record.kilocalories;
+    const value = valueOf(record);
+    total += span > 0 ? (value * overlap) / span : value;
     matched = true;
   }
-  return matched ? Math.round(total) : null;
+  return matched ? total : null;
 }
 
 /** Sumaryczny czas snu w minutach dla sesji kończących się danego dnia. */
