@@ -1,4 +1,5 @@
-import type { DurationType, SegmentKind, Sport, TargetType } from '@/db/schema';
+import type { DurationType, SegmentKind, Sport, Stroke, TargetType } from '@/db/schema';
+import { GARMIN_STROKES } from '@/features/endurance/swim';
 
 /**
  * Trening w zapisie, jakiego oczekuje Garmin Connect. Kształt jest przepisany jeden do jednego
@@ -41,6 +42,7 @@ const PACE_TARGET = { workoutTargetTypeId: 6, workoutTargetTypeKey: 'pace.zone',
 const HR_TARGET = { workoutTargetTypeId: 4, workoutTargetTypeKey: 'heart.rate.zone', displayOrder: 4 };
 
 const KILOGRAM = { unitId: 8, unitKey: 'kilogram', factor: 1000.0 };
+const METER = { unitId: 1, unitKey: 'meter', factor: 100.0 };
 
 /** Garmin ucina dłuższe nazwy po swojej stronie; robimy to u siebie, żeby wiedzieć, co wysyłamy. */
 const MAX_TITLE = 80;
@@ -53,6 +55,7 @@ export type GarminSegment = {
   targetType: TargetType;
   targetLow: number | null;
   targetHigh: number | null;
+  stroke: Stroke | null;
   repeatCount: number | null;
   children: GarminSegment[];
 };
@@ -73,6 +76,8 @@ export type GarminPlan = {
   sport: Sport;
   exercises: GarminExercise[];
   segments: GarminSegment[];
+  /** Długość basenu w metrach — tylko pływanie. */
+  poolLength?: number | null;
 };
 
 export class EmptyPlanError extends Error {
@@ -119,6 +124,8 @@ function enduranceStep(segment: GarminSegment, stepOrder: number): Named {
     endCondition: { ...endCondition },
     endConditionValue: value,
     ...targetFields(segment),
+    // Styl dotyczy wyłącznie pływania; w biegu i na rowerze Garmin nie wie, co z nim zrobić.
+    ...(segment.stroke === null ? {} : { strokeType: { ...GARMIN_STROKES[segment.stroke] } }),
   };
 }
 
@@ -220,5 +227,9 @@ export function buildWorkoutPayload(plan: GarminPlan): Named {
     estimatedDurationInSecs: 0,
     workoutSegments: [{ segmentOrder: 1, sportType: segmentSport, workoutSteps: steps }],
     author: {},
+    // Zegarek liczy długości, więc musi wiedzieć, jak długi jest basen.
+    ...(plan.sport === 'SWIMMING' && plan.poolLength
+      ? { poolLength: plan.poolLength, poolLengthUnit: { ...METER } }
+      : {}),
   };
 }

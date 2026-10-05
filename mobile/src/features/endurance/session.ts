@@ -1,6 +1,7 @@
 import { and, asc, eq, isNotNull } from 'drizzle-orm';
 
 import * as schema from '@/db/schema';
+import type { Stroke } from '@/db/schema';
 import type { SyncDb } from '@/db/types';
 
 import { paceFrom } from './format';
@@ -24,6 +25,7 @@ export type ActiveSegment = {
   targetType: schema.TargetType;
   targetLow: number | null;
   targetHigh: number | null;
+  stroke: Stroke | null;
   distanceMeters: number | null;
   durationSeconds: number | null;
   avgHeartRate: number | null;
@@ -82,6 +84,7 @@ export function loadEnduranceSession(db: SyncDb, sessionId: number): ActiveEndur
           targetType: segment.targetType,
           targetLow: segment.targetLow,
           targetHigh: segment.targetHigh,
+          stroke: segment.stroke ?? null,
           distanceMeters: row.distanceMeters,
           durationSeconds: row.durationSeconds,
           avgHeartRate: row.avgHeartRate,

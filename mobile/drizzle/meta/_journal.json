@@ -57,6 +57,13 @@
       "when": 1791229663515,
       "tag": "0007_body_pressure",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1791232604726,
+      "tag": "0008_segment_stroke",
+      "breakpoints": true
     }
   ]
 }

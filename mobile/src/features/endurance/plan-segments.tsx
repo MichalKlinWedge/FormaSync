@@ -6,8 +6,12 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { pluralWith } from '@/lib/number';
 
+import type { Sport } from '@/db/schema';
+
 import { SEGMENT_LABELS } from './draft';
-import { describeDuration, describeTarget } from './format';
+import { describeDuration, describeTarget, formatDistance } from './format';
+import { usePoolLength } from './pool-store';
+import { describeSwimDistance, STROKE_LABELS } from './swim';
 import type { SegmentRow } from './use-endurance-plan';
 
 /**
@@ -15,8 +19,9 @@ import type { SegmentRow } from './use-endurance-plan';
  * podglądowi planu i terminowi w kalendarzu — plan wytrzymałościowy nie ma ćwiczeń, więc bez
  * tego termin na bieg wyglądałby na pusty.
  */
-export function PlanSegmentList({ rows }: { rows: SegmentRow[] }) {
+export function PlanSegmentList({ rows, sport }: { rows: SegmentRow[]; sport?: Sport }) {
   const theme = useTheme();
+  const poolLength = usePoolLength();
 
   if (rows.length === 0) {
     return (
@@ -45,7 +50,11 @@ export function PlanSegmentList({ rows }: { rows: SegmentRow[] }) {
             {row.kind !== 'REPEAT' && (
               <ThemedText type="small" themeColor="textSecondary">
                 {[
-                  describeDuration(row.durationType, row.distanceMeters, row.durationSeconds),
+                  // Na basenie dystans czyta się w długościach — „8× ” mówi więcej niż „200 m”.
+                  sport === 'SWIMMING' && row.durationType === 'DISTANCE'
+                    ? describeSwimDistance(row.distanceMeters, poolLength, formatDistance)
+                    : describeDuration(row.durationType, row.distanceMeters, row.durationSeconds),
+                  row.stroke === null || row.stroke === 'ANY' ? null : STROKE_LABELS[row.stroke],
                   describeTarget(row.targetType, row.targetLow, row.targetHigh),
                 ]
                   .filter(Boolean)

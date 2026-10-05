@@ -125,7 +125,7 @@ function PlannedDetails({ entry, onAttached }: { entry: Entry; onAttached: () =>
             PLAN
           </ThemedText>
           {isEndurance(entry.sport) ? (
-            <PlanSegmentList rows={endurancePlan?.rows ?? []} />
+            <PlanSegmentList rows={endurancePlan?.rows ?? []} sport={entry.sport} />
           ) : items.length === 0 ? (
             <ThemedView type="backgroundElement" style={styles.card}>
               <ThemedText type="small" themeColor="textSecondary">

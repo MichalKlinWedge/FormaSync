@@ -148,6 +148,7 @@ function insertSessionSegments(tx: SyncDb, sessionId: number, planId: number): v
         targetType: row.targetType,
         targetLow: row.targetLow,
         targetHigh: row.targetHigh,
+        stroke: row.stroke,
         notes: row.notes,
       })
       .returning({ id: schema.sessionSegments.id })

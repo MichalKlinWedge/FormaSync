@@ -1,4 +1,4 @@
-import type { DurationType, SegmentKind, Sport, TargetType } from '@/db/schema';
+import type { DurationType, SegmentKind, Sport, Stroke, TargetType } from '@/db/schema';
 
 /**
  * Wersja robocza planu wytrzymałościowego. Odcinki trzymamy płasko, a przynależność do grupy
@@ -16,6 +16,8 @@ export type SegmentDraft = {
   targetType: TargetType;
   targetLow: number | null;
   targetHigh: number | null;
+  /** Tylko pływanie; null oznacza, że styl nie dotyczy tej dyscypliny. */
+  stroke: Stroke | null;
   notes: string | null;
 };
 
@@ -61,6 +63,7 @@ const base = (kind: SegmentKind, parentKey: string | null = null): SegmentDraft 
   targetType: 'NONE',
   targetLow: null,
   targetHigh: null,
+  stroke: null,
   notes: null,
 });
 

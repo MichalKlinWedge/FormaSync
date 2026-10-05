@@ -41,6 +41,7 @@ function insertSegments(tx: SyncDb, planId: number, segments: SegmentDraft[]): v
         targetType: segment.targetType,
         targetLow: segment.targetLow,
         targetHigh: segment.targetHigh,
+        stroke: segment.stroke,
         notes: segment.notes,
       })
       .returning({ id: schema.planSegments.id })
@@ -105,6 +106,7 @@ export function loadEnduranceDraft(db: SyncDb, planId: number): EnduranceDraft {
       targetType: row.targetType,
       targetLow: row.targetLow,
       targetHigh: row.targetHigh,
+      stroke: row.stroke,
       notes: row.notes,
     })),
   };

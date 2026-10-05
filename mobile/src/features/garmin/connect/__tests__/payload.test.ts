@@ -29,6 +29,7 @@ const segment = (over: Partial<GarminSegment> = {}): GarminSegment => ({
   targetType: 'NONE',
   targetLow: null,
   targetHigh: null,
+  stroke: null,
   repeatCount: null,
   children: [],
   ...over,

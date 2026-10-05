@@ -1,4 +1,12 @@
-import type { DifficultyLevel, DurationType, SegmentKind, Sport, TargetType, TrackingType } from './schema';
+import type {
+  DifficultyLevel,
+  DurationType,
+  SegmentKind,
+  Sport,
+  Stroke,
+  TargetType,
+  TrackingType,
+} from './schema';
 
 // Dane startowe: słowniki, katalog ćwiczeń i wbudowane szablony.
 // Zmiana zawartości wymaga podbicia SEED_VERSION (seed.ts dograje brakujące rekordy).
@@ -598,6 +606,7 @@ export type SeedSegment = {
   targetType?: TargetType;
   targetLow?: number;
   targetHigh?: number;
+  stroke?: Stroke;
 };
 
 export type SeedEnduranceTemplate = {
@@ -657,11 +666,11 @@ export const seedEnduranceTemplates: SeedEnduranceTemplate[] = [
     title: 'Pływanie 10×100 m',
     description: 'Odcinki na basenie z krótką przerwą na ścianie.',
     segments: [
-      { kind: 'WARMUP', durationType: 'DISTANCE', distanceMeters: 400 },
+      { kind: 'WARMUP', durationType: 'DISTANCE', distanceMeters: 400, stroke: 'ANY' },
       { kind: 'REPEAT', repeatCount: 10, durationType: 'OPEN' },
-      { kind: 'WORK', inRepeat: true, durationType: 'DISTANCE', distanceMeters: 100 },
+      { kind: 'WORK', inRepeat: true, durationType: 'DISTANCE', distanceMeters: 100, stroke: 'FREE' },
       { kind: 'RECOVERY', inRepeat: true, durationType: 'TIME', durationSeconds: 30 },
-      { kind: 'COOLDOWN', durationType: 'DISTANCE', distanceMeters: 200 },
+      { kind: 'COOLDOWN', durationType: 'DISTANCE', distanceMeters: 200, stroke: 'BACKSTROKE' },
     ],
   },
 ];

@@ -125,6 +125,10 @@ export type DurationType = (typeof durationTypes)[number];
 export const targetTypes = ['NONE', 'PACE', 'HEART_RATE'] as const;
 export type TargetType = (typeof targetTypes)[number];
 
+/** Styl pływacki odcinka. `ANY` znaczy „dowolny” — tak samo, jak rozumie to zegarek. */
+export const strokes = ['ANY', 'FREE', 'BACKSTROKE', 'BREASTSTROKE', 'FLY', 'MEDLEY', 'DRILL'] as const;
+export type Stroke = (typeof strokes)[number];
+
 const segmentColumns = {
   parentId: integer('parent_id'),
   orderIndex: integer('order_index').notNull(),
@@ -136,6 +140,8 @@ const segmentColumns = {
   targetType: text('target_type', { enum: targetTypes }).notNull().default('NONE'),
   targetLow: real('target_low'),
   targetHigh: real('target_high'),
+  /** Tylko pływanie; null w pozostałych dyscyplinach. */
+  stroke: text('stroke', { enum: strokes }),
   notes: text('notes'),
 };
 

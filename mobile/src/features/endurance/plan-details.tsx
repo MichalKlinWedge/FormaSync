@@ -81,7 +81,7 @@ export function EndurancePlanDetails({ planId }: { planId: number }) {
           </ThemedText>
         </View>
 
-        <PlanSegmentList rows={plan.rows} />
+        <PlanSegmentList rows={plan.rows} sport={plan.sport} />
 
         <View style={styles.actions}>
           <Button label="Rozpocznij trening" icon="play_arrow" onPress={start} />

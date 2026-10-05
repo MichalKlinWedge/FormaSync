@@ -8,7 +8,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
-import type { DurationType, SegmentKind, TargetType } from '@/db/schema';
+import { type DurationType, type SegmentKind, type Sport, strokes, type TargetType } from '@/db/schema';
 import {
   childrenOf,
   createRepeatBlock,
@@ -23,6 +23,8 @@ import {
 } from '@/features/endurance/draft';
 import { useEnduranceDraftStore } from '@/features/endurance/draft-store';
 import { formatDistance, formatSeconds } from '@/features/endurance/format';
+import { usePoolLength, usePoolStore } from '@/features/endurance/pool-store';
+import { COMMON_POOL_LENGTHS, lengths, STROKE_LABELS } from '@/features/endurance/swim';
 import { saveEndurancePlan } from '@/features/endurance/repository';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -100,6 +102,8 @@ export default function EnduranceEditorScreen() {
             ODCINKI
           </ThemedText>
 
+          {draft.sport === 'SWIMMING' && <PoolLengthPicker />}
+
           {draft.segments.length === 0 && (
             <ThemedView type="backgroundElement" style={styles.card}>
               <ThemedText type="small" themeColor="textSecondary">
@@ -114,6 +118,7 @@ export default function EnduranceEditorScreen() {
               <RepeatCard
                 key={segment.key}
                 group={segment}
+                sport={draft.sport}
                 inner={childrenOf(draft.segments, segment.key)}
                 onChange={(key, change) => setSegments((s) => updateSegment(s, key, change))}
                 onRemove={(key) => setSegments((s) => removeSegment(s, key))}
@@ -123,6 +128,7 @@ export default function EnduranceEditorScreen() {
               <SegmentCard
                 key={segment.key}
                 segment={segment}
+                sport={draft.sport}
                 onChange={(change) => setSegments((s) => updateSegment(s, segment.key, change))}
                 onRemove={() => setSegments((s) => removeSegment(s, segment.key))}
               />
@@ -185,9 +191,10 @@ type RepeatCardProps = {
   onChange: (key: string, change: Partial<SegmentDraft>) => void;
   onRemove: (key: string) => void;
   onAddInside: (kind: SegmentKind) => void;
+  sport: Sport;
 };
 
-function RepeatCard({ group, inner, onChange, onRemove, onAddInside }: RepeatCardProps) {
+function RepeatCard({ group, inner, sport, onChange, onRemove, onAddInside }: RepeatCardProps) {
   return (
     <ThemedView type="backgroundElement" style={styles.card}>
       <View style={styles.cardHeader}>
@@ -203,6 +210,7 @@ function RepeatCard({ group, inner, onChange, onRemove, onAddInside }: RepeatCar
         <SegmentCard
           key={child.key}
           segment={child}
+          sport={sport}
           nested
           onChange={(change) => onChange(child.key, change)}
           onRemove={() => onRemove(child.key)}
@@ -216,14 +224,55 @@ function RepeatCard({ group, inner, onChange, onRemove, onAddInside }: RepeatCar
   );
 }
 
+/** Basen zmienia się rzadziej niż plany, więc to ustawienie, a nie pole planu. */
+function PoolLengthPicker() {
+  const poolLength = usePoolLength();
+  const setPoolLength = usePoolStore((state) => state.setPoolLength);
+  return (
+    <ThemedView type="backgroundElement" style={styles.card}>
+      <ThemedText type="small" themeColor="textSecondary">
+        Długość basenu
+      </ThemedText>
+      <View style={styles.chips}>
+        {COMMON_POOL_LENGTHS.map((meters) => (
+          <Chip
+            key={meters}
+            label={`${meters} m`}
+            selected={poolLength === meters}
+            onPress={() => setPoolLength(meters)}
+          />
+        ))}
+      </View>
+      <NumberField label="Inna długość (m)" value={poolLength} onChange={(value) => value !== null && setPoolLength(value)} />
+      <ThemedText type="small" themeColor="textSecondary">
+        Dotyczy wszystkich planów pływackich — dystanse przeliczamy na długości.
+      </ThemedText>
+    </ThemedView>
+  );
+}
+
+/** „= 16 długości”; przy dystansie niepodzielnym przez długość basenu nic nie pokazujemy. */
+function PoolLengthsHint({ meters }: { meters: number | null }) {
+  const poolLength = usePoolLength();
+  const count = lengths(meters, poolLength);
+  return (
+    <ThemedText type="small" themeColor="textSecondary">
+      {count === null
+        ? `Dystans nie dzieli się równo na długości basenu (${poolLength} m).`
+        : `= ${count} × ${poolLength} m`}
+    </ThemedText>
+  );
+}
+
 type SegmentCardProps = {
   segment: SegmentDraft;
+  sport: Sport;
   nested?: boolean;
   onChange: (change: Partial<SegmentDraft>) => void;
   onRemove: () => void;
 };
 
-function SegmentCard({ segment, nested, onChange, onRemove }: SegmentCardProps) {
+function SegmentCard({ segment, sport, nested, onChange, onRemove }: SegmentCardProps) {
   const theme = useTheme();
   return (
     <ThemedView
@@ -249,12 +298,15 @@ function SegmentCard({ segment, nested, onChange, onRemove }: SegmentCardProps) 
       </View>
 
       {segment.durationType === 'DISTANCE' && (
-        <NumberField
-          label="Dystans (m)"
-          value={segment.distanceMeters}
-          decimal
-          onChange={(distanceMeters) => onChange({ distanceMeters })}
-        />
+        <>
+          <NumberField
+            label="Dystans (m)"
+            value={segment.distanceMeters}
+            decimal
+            onChange={(distanceMeters) => onChange({ distanceMeters })}
+          />
+          {sport === 'SWIMMING' && <PoolLengthsHint meters={segment.distanceMeters} />}
+        </>
       )}
       {segment.durationType === 'TIME' && (
         <NumberField
@@ -262,6 +314,24 @@ function SegmentCard({ segment, nested, onChange, onRemove }: SegmentCardProps) 
           value={segment.durationSeconds}
           onChange={(durationSeconds) => onChange({ durationSeconds })}
         />
+      )}
+
+      {sport === 'SWIMMING' && (
+        <>
+          <ThemedText type="small" themeColor="textSecondary">
+            Styl
+          </ThemedText>
+          <View style={styles.chips}>
+            {strokes.map((stroke) => (
+              <Chip
+                key={stroke}
+                label={STROKE_LABELS[stroke]}
+                selected={(segment.stroke ?? 'ANY') === stroke}
+                onPress={() => onChange({ stroke })}
+              />
+            ))}
+          </View>
+        </>
       )}
 
       <ThemedText type="small" themeColor="textSecondary">

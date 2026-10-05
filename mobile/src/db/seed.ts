@@ -133,6 +133,7 @@ export function seedDatabase(db: SyncDb): boolean {
             targetType: segment.targetType ?? 'NONE',
             targetLow: segment.targetLow ?? null,
             targetHigh: segment.targetHigh ?? null,
+            stroke: segment.stroke ?? null,
           })
           .returning({ id: schema.planSegments.id })
           .get();

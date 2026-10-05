@@ -18,6 +18,7 @@ import { formatDateTime } from '@/lib/date';
 import { useFlushNotes } from '@/features/history/use-flush-notes';
 
 import { SEGMENT_LABELS } from './draft';
+import { STROKE_LABELS } from './swim';
 import { describeTarget, formatDistance, formatPace, formatSeconds, paceFrom } from './format';
 import { loadEnduranceSession, paceBreakdown, sessionTotals } from './session';
 
@@ -96,6 +97,9 @@ export function EnduranceSessionDetails({ id, footer }: Props) {
                       {segment.totalIterations > 1
                         ? ` ${segment.iteration}/${segment.totalIterations}`
                         : ''}
+                      {segment.stroke === null || segment.stroke === 'ANY'
+                        ? ''
+                        : ` · ${STROKE_LABELS[segment.stroke]}`}
                     </ThemedText>
                     <ThemedText type="small" themeColor="textSecondary">
                       {[

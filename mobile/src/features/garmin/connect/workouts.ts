@@ -4,10 +4,19 @@ import * as schema from '@/db/schema';
 import type { SyncDb } from '@/db/types';
 import { isEndurance } from '@/features/sports/sport';
 
+import { DEFAULT_POOL_LENGTH, POOL_LENGTH_KEY } from '@/features/endurance/swim';
+import { getSetting } from '@/db/settings';
+
 import { connectApi } from './client';
 import { buildWorkoutPayload, type GarminPlan, type GarminSegment } from './payload';
 
 /** Wysyłka planu do biblioteki Garmin Connect i wpisywanie go do kalendarza Garmina. */
+
+/** Długość basenu z ustawień; zegarek bez niej nie policzy długości. */
+function poolLength(db: SyncDb): number {
+  const value = Number(getSetting(db, POOL_LENGTH_KEY));
+  return Number.isFinite(value) && value > 0 ? value : DEFAULT_POOL_LENGTH;
+}
 
 const WORKOUTS = '/workout-service';
 
@@ -54,6 +63,7 @@ export function loadGarminPlan(db: SyncDb, planId: number): GarminPlan | null {
     targetType: row.targetType,
     targetLow: row.targetLow,
     targetHigh: row.targetHigh,
+    stroke: row.stroke,
     repeatCount: row.repeatCount,
     children: rows.filter((child) => child.parentId === row.id).map(toSegment),
   });
@@ -63,6 +73,7 @@ export function loadGarminPlan(db: SyncDb, planId: number): GarminPlan | null {
     sport: plan.sport,
     exercises: [],
     segments: rows.filter((row) => row.parentId === null).map(toSegment),
+    poolLength: plan.sport === 'SWIMMING' ? poolLength(db) : null,
   };
 }
 
