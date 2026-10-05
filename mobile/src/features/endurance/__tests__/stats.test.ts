@@ -38,6 +38,30 @@ describe('loadEnduranceWorkouts', () => {
     expect(workout.meters).toBe(5000);
     expect(workout.seconds).toBe(1500);
     expect(workout.pace).toBe(300);
+    // Plan ma jeden odcinek roboczy, więc oba tempa są tu takie same.
+    expect(workout.workPace).toBe(300);
+  });
+
+  it('oddziela tempo pracy od tempa całości, gdy jest rozgrzewka', () => {
+    const db = createTestDb({ seed: true });
+    const planId = saveEndurancePlan(db, {
+      ...emptyEnduranceDraft('RUNNING'),
+      title: 'Z rozgrzewką',
+      segments: [createSegment('WARMUP'), createSegment('WORK')],
+    });
+    const sessionId = startSession(db, { kind: 'plan', planId });
+    const segments = loadEnduranceSession(db, sessionId)!.segments;
+    const warmup = segments.find((s) => s.kind === 'WARMUP')!;
+    const work = segments.find((s) => s.kind === 'WORK')!;
+
+    completeSegment(db, warmup.id, { distanceMeters: 2000, durationSeconds: 720 });
+    completeSegment(db, work.id, { distanceMeters: 1000, durationSeconds: 240 });
+    finishSession(db, sessionId);
+
+    const [saved] = loadEnduranceWorkouts(db, 'RUNNING');
+    // 3 km w 16 min to 5:20/km, ale sam odcinek roboczy biegnięty po 4:00/km.
+    expect(saved.pace).toBe(320);
+    expect(saved.workPace).toBe(240);
   });
 
   it('pomija dyscypliny inne niż pytana', () => {
@@ -61,13 +85,14 @@ describe('loadEnduranceWorkouts', () => {
 });
 
 describe('summarizeEndurance', () => {
-  const workout = (meters: number, seconds: number, startTime: string) => ({
+  const workout = (meters: number, seconds: number, startTime: string, workPace: number | null = null) => ({
     sessionId: 1,
     startTime,
     title: 'Bieg',
     meters,
     seconds,
     pace: Math.round(seconds / (meters / 1000)),
+    workPace,
   });
 
   it('najlepsze tempo to najniższa liczba sekund na kilometr', () => {
@@ -83,6 +108,12 @@ describe('summarizeEndurance', () => {
   it('bez treningów nie zgaduje tempa', () => {
     expect(summarizeEndurance([]).bestPace).toBeNull();
   });
+
+  it('rekord bierze z tempa pracy, nie z tempa całości', () => {
+    // Tempo całości 5:00/km, ale same odcinki robocze biegnięte po 3:30/km.
+    const summary = summarizeEndurance([workout(6000, 1800, '2026-10-02T06:00:00.000Z', 210)]);
+    expect(summary.bestPace).toBe(210);
+  });
 });
 
 describe('weeklyVolume', () => {
@@ -97,6 +128,7 @@ describe('weeklyVolume', () => {
           meters: 5000,
           seconds: 1500,
           pace: 300,
+          workPace: 300,
         },
       ],
       2,

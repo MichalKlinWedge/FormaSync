@@ -17,7 +17,7 @@ import { formatDateTime } from '@/lib/date';
 
 import { SEGMENT_LABELS } from './draft';
 import { describeTarget, formatDistance, formatPace, formatSeconds, paceFrom } from './format';
-import { loadEnduranceSession, sessionTotals } from './session';
+import { loadEnduranceSession, paceBreakdown, sessionTotals } from './session';
 
 type Props = { id: number; footer?: ReactNode };
 
@@ -32,7 +32,7 @@ export function EnduranceSessionDetails({ id, footer }: Props) {
   if (!session || !meta) return <ThemedView style={styles.flex} />;
 
   const totals = sessionTotals(session.segments);
-  const pace = paceFrom(totals.meters, totals.seconds);
+  const pace = paceBreakdown(session.segments);
   const saveMeta = (values: { userNotes?: string | null; rpeRating?: number | null }) =>
     updateSessionMeta(db, id, values);
 
@@ -67,7 +67,10 @@ export function EnduranceSessionDetails({ id, footer }: Props) {
               value={meta.totalDurationSeconds === null ? '—' : formatClock(meta.totalDurationSeconds)}
             />
             <Stat label="Dystans" value={totals.meters > 0 ? formatDistance(totals.meters) : '—'} />
-            <Stat label="Tempo" value={pace === null ? '—' : formatPace(pace)} />
+          </View>
+          <View style={styles.stats}>
+            <Stat label="Tempo całości" value={pace.overall === null ? '—' : formatPace(pace.overall)} />
+            <Stat label="Tempo pracy" value={pace.work === null ? '—' : formatPace(pace.work)} />
           </View>
 
           <View style={styles.group}>

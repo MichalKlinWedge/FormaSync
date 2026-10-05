@@ -17,8 +17,10 @@ export type EnduranceWorkout = {
   title: string;
   meters: number;
   seconds: number;
-  /** Sekundy na kilometr; null, gdy nie da się policzyć. */
+  /** Sekundy na kilometr z całego treningu; null, gdy nie da się policzyć. */
   pace: number | null;
+  /** Tempo samych odcinków pracy — bez rozgrzewki, przerw i schłodzenia. */
+  workPace: number | null;
 };
 
 export function loadEnduranceWorkouts(db: SyncDb, sport: schema.Sport): EnduranceWorkout[] {
@@ -36,24 +38,39 @@ export function loadEnduranceWorkouts(db: SyncDb, sport: schema.Sport): Enduranc
     )
     .all();
 
+  // Rodzaj odcinka leży w migawce planu, a nie w zapisie wykonania — stąd złączenie.
   const segments = db
-    .select()
+    .select({
+      sessionId: schema.loggedSegments.sessionId,
+      kind: schema.sessionSegments.kind,
+      distanceMeters: schema.loggedSegments.distanceMeters,
+      durationSeconds: schema.loggedSegments.durationSeconds,
+    })
     .from(schema.loggedSegments)
+    .innerJoin(
+      schema.sessionSegments,
+      eq(schema.loggedSegments.sessionSegmentId, schema.sessionSegments.id),
+    )
     .where(isNotNull(schema.loggedSegments.completedAt))
     .all();
 
   return sessions
     .map((session) => {
       const mine = segments.filter((segment) => segment.sessionId === session.id);
-      const meters = mine.reduce((sum, segment) => sum + (segment.distanceMeters ?? 0), 0);
-      const seconds = mine.reduce((sum, segment) => sum + (segment.durationSeconds ?? 0), 0);
+      const sum = (rows: typeof mine) => ({
+        meters: rows.reduce((total, segment) => total + (segment.distanceMeters ?? 0), 0),
+        seconds: rows.reduce((total, segment) => total + (segment.durationSeconds ?? 0), 0),
+      });
+      const all = sum(mine);
+      const work = sum(mine.filter((segment) => segment.kind === 'WORK'));
       return {
         sessionId: session.id,
         startTime: session.startTime,
         title: session.title ?? session.planTitle ?? 'Trening',
-        meters,
-        seconds,
-        pace: paceFrom(meters, seconds),
+        meters: all.meters,
+        seconds: all.seconds,
+        pace: paceFrom(all.meters, all.seconds),
+        workPace: paceFrom(work.meters, work.seconds),
       };
     })
     .filter((workout) => workout.meters > 0 || workout.seconds > 0)
@@ -95,13 +112,17 @@ export type EnduranceSummary = {
   workouts: number;
   meters: number;
   seconds: number;
-  /** Najszybszy trening — najniższa liczba sekund na kilometr. */
+  /** Najszybsze tempo odcinków pracy — najniższa liczba sekund na kilometr. */
   bestPace: number | null;
   longestMeters: number;
 };
 
 export function summarizeEndurance(workouts: EnduranceWorkout[]): EnduranceSummary {
-  const paces = workouts.map((workout) => workout.pace).filter((pace): pace is number => pace !== null);
+  // Rekord liczymy z odcinków pracy: tempo całości zaniża rozgrzewka i przerwy, więc
+  // porównywanie go między treningami o różnej budowie nic nie mówi.
+  const paces = workouts
+    .map((workout) => workout.workPace ?? workout.pace)
+    .filter((pace): pace is number => pace !== null);
   return {
     workouts: workouts.length,
     meters: workouts.reduce((sum, workout) => sum + workout.meters, 0),

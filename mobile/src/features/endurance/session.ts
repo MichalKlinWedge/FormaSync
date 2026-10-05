@@ -3,6 +3,8 @@ import { and, asc, eq, isNotNull } from 'drizzle-orm';
 import * as schema from '@/db/schema';
 import type { SyncDb } from '@/db/types';
 
+import { paceFrom } from './format';
+
 /**
  * Trening wytrzymałościowy w trakcie: lista odcinków do pokonania w kolejności biegu,
  * każdy z celem z planu i miejscem na to, co faktycznie wyszło.
@@ -175,13 +177,36 @@ export function updateSegmentValues(db: SyncDb, loggedSegmentId: number, values:
 
 /** Podsumowanie wykonanych odcinków — dystans i czas treningu. */
 export function sessionTotals(segments: ActiveSegment[]): { meters: number; seconds: number } {
-  return segments
-    .filter((segment) => segment.completedAt !== null)
-    .reduce(
-      (sum, segment) => ({
-        meters: sum.meters + (segment.distanceMeters ?? 0),
-        seconds: sum.seconds + (segment.durationSeconds ?? 0),
-      }),
-      { meters: 0, seconds: 0 },
-    );
+  return sumSegments(segments.filter((segment) => segment.completedAt !== null));
+}
+
+/** Dystans i czas samych odcinków pracy — bez rozgrzewki, przerw i schłodzenia. */
+export function workTotals(segments: ActiveSegment[]): { meters: number; seconds: number } {
+  return sumSegments(
+    segments.filter((segment) => segment.completedAt !== null && segment.kind === 'WORK'),
+  );
+}
+
+function sumSegments(segments: ActiveSegment[]): { meters: number; seconds: number } {
+  return segments.reduce(
+    (sum, segment) => ({
+      meters: sum.meters + (segment.distanceMeters ?? 0),
+      seconds: sum.seconds + (segment.durationSeconds ?? 0),
+    }),
+    { meters: 0, seconds: 0 },
+  );
+}
+
+/**
+ * Dwa tempa, bo opisują co innego. Tempo całości dzieli cały dystans przez cały czas, więc
+ * rozgrzewka i przerwy je spowalniają — pasuje do porównania całych treningów. Tempo pracy
+ * liczy tylko odcinki robocze i mówi, jak szybko biegło się wtedy, gdy miało być szybko.
+ */
+export function paceBreakdown(segments: ActiveSegment[]): { overall: number | null; work: number | null } {
+  const all = sessionTotals(segments);
+  const work = workTotals(segments);
+  return {
+    overall: paceFrom(all.meters, all.seconds),
+    work: paceFrom(work.meters, work.seconds),
+  };
 }

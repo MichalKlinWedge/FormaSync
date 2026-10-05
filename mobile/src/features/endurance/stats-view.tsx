@@ -41,7 +41,7 @@ export function EnduranceStats({ sport }: { sport: Sport }) {
       </View>
       <View style={styles.stats}>
         <Stat
-          label="Najlepsze tempo"
+          label="Najlepsze tempo pracy"
           value={summary.bestPace === null ? '—' : formatPace(summary.bestPace)}
         />
         <Stat label="Najdłuższy" value={formatDistance(summary.longestMeters)} />
@@ -85,7 +85,8 @@ export function EnduranceStats({ sport }: { sport: Sport }) {
                 formatDate(workout.startTime.slice(0, 10)),
                 workout.meters > 0 ? formatDistance(workout.meters) : null,
                 workout.seconds > 0 ? formatSeconds(workout.seconds) : null,
-                workout.pace === null ? null : formatPace(workout.pace),
+                workout.pace === null ? null : `całość ${formatPace(workout.pace)}`,
+                workout.workPace === null ? null : `praca ${formatPace(workout.workPace)}`,
               ]
                 .filter(Boolean)
                 .join(' · ')}

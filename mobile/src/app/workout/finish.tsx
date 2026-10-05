@@ -8,8 +8,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
-import { formatDistance, formatPace, paceFrom } from '@/features/endurance/format';
-import { loadEnduranceSession, sessionTotals } from '@/features/endurance/session';
+import { formatDistance, formatPace } from '@/features/endurance/format';
+import { loadEnduranceSession, paceBreakdown, sessionTotals } from '@/features/endurance/session';
 import { isEndurance } from '@/features/sports/sport';
 import { formatClock, summarize } from '@/features/workout/logic';
 import { cancelRestEnd } from '@/features/workout/notifications';
@@ -37,7 +37,7 @@ export default function FinishWorkoutScreen() {
   // Bieg podsumowujemy dystansem i tempem; serie i tonaż nic tu nie znaczą.
   const asEndurance = endurance !== null && isEndurance(endurance.sport) ? endurance : null;
   const totals = asEndurance === null ? null : sessionTotals(asEndurance.segments);
-  const donePace = totals === null ? null : paceFrom(totals.meters, totals.seconds);
+  const pace = asEndurance === null ? null : paceBreakdown(asEndurance.segments);
 
   const save = () => {
     finishSession(db, session.id, { userNotes: notes.trim() || null, rpeRating: rpe });
@@ -54,7 +54,13 @@ export default function FinishWorkoutScreen() {
               <View style={styles.stats}>
                 <Stat label="Czas" value={formatClock(summary.durationSeconds)} />
                 <Stat label="Dystans" value={formatDistance(totals.meters)} />
-                <Stat label="Tempo" value={donePace === null ? '—' : formatPace(donePace)} />
+              </View>
+              <View style={styles.stats}>
+                <Stat
+                  label="Tempo całości"
+                  value={pace?.overall == null ? '—' : formatPace(pace.overall)}
+                />
+                <Stat label="Tempo pracy" value={pace?.work == null ? '—' : formatPace(pace.work)} />
               </View>
               {totals.meters === 0 && totals.seconds === 0 && (
                 <ThemedText type="small" themeColor="textSecondary">
