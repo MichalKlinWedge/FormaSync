@@ -131,19 +131,6 @@ export default function BodyMeasurementsScreen() {
               formatValue={(value) => String(Math.round(value))}
               emptyMessage="Zapisz ciśnienie z co najmniej dwóch dni, aby zobaczyć wykres."
             />
-            <View style={styles.legend}>
-              {[
-                { label: 'Skurczowe', color: theme.chart1 },
-                { label: 'Rozkurczowe', color: theme.chart2 },
-              ].map((item) => (
-                <View key={item.label} style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: item.color }]} />
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {item.label}
-                  </ThemedText>
-                </View>
-              ))}
-            </View>
           </View>
 
           <View style={styles.section}>
@@ -252,9 +239,6 @@ const styles = StyleSheet.create({
   section: { gap: Spacing.two },
   dateRow: { flexDirection: 'row', gap: Spacing.two },
   fields: { gap: Spacing.two },
-  legend: { flexDirection: 'row', gap: Spacing.four },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
-  legendDot: { width: 10, height: 10, borderRadius: 5 },
   field: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   fieldLabel: { width: 108 },
   row: {
