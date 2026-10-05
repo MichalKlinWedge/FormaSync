@@ -145,6 +145,14 @@ function PlannedDetails({ entry, onAttached }: { entry: Entry; onAttached: () =>
         </View>
 
         <Button label="Rozpocznij trening" icon="play_arrow" onPress={begin} />
+        <Button
+          label="Przesuń termin"
+          icon="edit_calendar"
+          variant="secondary"
+          onPress={() =>
+            router.push({ pathname: '/calendar/schedule', params: { id: String(entry.id) } })
+          }
+        />
 
         <View style={styles.group}>
           <ThemedText type="smallBold" themeColor="textSecondary">

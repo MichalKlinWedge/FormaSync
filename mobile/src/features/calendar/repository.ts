@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, lte, ne, sql } from 'drizzle-orm';
 
 import * as schema from '@/db/schema';
 import type { Sport } from '@/db/schema';
@@ -222,6 +222,52 @@ export function scheduleWorkouts(db: SyncDb, input: ScheduleInput): number {
       )
       .run();
     return fresh.length;
+  });
+}
+
+export type ScheduleEdit = {
+  scheduledDate: string;
+  scheduledTime: string | null;
+  reminderOffsetMinutes: number | null;
+};
+
+/** Termin zajęty przez ten sam plan w innym dniu — przeniesienie na niego zlałoby dwa wpisy w jeden. */
+export class ScheduleConflictError extends Error {
+  constructor() {
+    super('Ten plan jest już zaplanowany na ten dzień.');
+  }
+}
+
+/**
+ * Przesuwa termin na inny dzień albo godzinę. Powiadomienie trzeba potem przeliczyć od nowa —
+ * jego identyfikator czyścimy, bo stare przypomnienie wskazuje nieaktualną porę.
+ */
+export function updateScheduled(db: SyncDb, id: number, edit: ScheduleEdit): void {
+  db.transaction((tx) => {
+    const entry = tx
+      .select({ planId: schema.scheduledWorkouts.planId })
+      .from(schema.scheduledWorkouts)
+      .where(eq(schema.scheduledWorkouts.id, id))
+      .get();
+    if (!entry) return;
+
+    const clash = tx
+      .select({ id: schema.scheduledWorkouts.id })
+      .from(schema.scheduledWorkouts)
+      .where(
+        and(
+          eq(schema.scheduledWorkouts.planId, entry.planId),
+          eq(schema.scheduledWorkouts.scheduledDate, edit.scheduledDate),
+          ne(schema.scheduledWorkouts.id, id),
+        ),
+      )
+      .get();
+    if (clash) throw new ScheduleConflictError();
+
+    tx.update(schema.scheduledWorkouts)
+      .set({ ...edit, notificationId: null })
+      .where(eq(schema.scheduledWorkouts.id, id))
+      .run();
   });
 }
 

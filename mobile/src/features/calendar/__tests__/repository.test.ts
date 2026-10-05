@@ -21,7 +21,9 @@ import {
   sessionsToAttach,
   reminderDate,
   scheduleStatus,
+  ScheduleConflictError,
   scheduleWorkouts,
+  updateScheduled,
 } from '../repository';
 
 function setup() {
@@ -316,5 +318,113 @@ describe('przypisywanie treningu do terminu', () => {
       isCompleted: false,
     });
     expect(listHistory(db).map((entry) => entry.id)).toContain(sessionId);
+  });
+});
+
+describe('updateScheduled', () => {
+  function withTermToMove() {
+    const { db, planId } = setup();
+    scheduleWorkouts(db, {
+      planId,
+      dates: ['2026-10-06'],
+      scheduledTime: '18:00',
+      reminderOffsetMinutes: 60,
+    });
+    const term = db.select().from(schema.scheduledWorkouts).get()!;
+    return { db, planId, term };
+  }
+
+  it('przesuwa termin na inny dzień', () => {
+    const { db, term } = withTermToMove();
+
+    updateScheduled(db, term.id, {
+      scheduledDate: '2026-10-08',
+      scheduledTime: '18:00',
+      reminderOffsetMinutes: 60,
+    });
+
+    expect(loadScheduled(db, term.id, '2026-10-05')).toMatchObject({
+      scheduledDate: '2026-10-08',
+      scheduledTime: '18:00',
+    });
+  });
+
+  it('zmienia godzinę i przypomnienie', () => {
+    const { db, term } = withTermToMove();
+
+    updateScheduled(db, term.id, {
+      scheduledDate: '2026-10-06',
+      scheduledTime: '07:30',
+      reminderOffsetMinutes: 15,
+    });
+
+    expect(loadScheduled(db, term.id, '2026-10-05')).toMatchObject({
+      scheduledTime: '07:30',
+      reminderOffsetMinutes: 15,
+    });
+  });
+
+  it('termin całodniowy traci godzinę', () => {
+    const { db, term } = withTermToMove();
+
+    updateScheduled(db, term.id, {
+      scheduledDate: '2026-10-06',
+      scheduledTime: null,
+      reminderOffsetMinutes: null,
+    });
+
+    expect(loadScheduled(db, term.id, '2026-10-05')?.scheduledTime).toBeNull();
+  });
+
+  it('stare przypomnienie przestaje obowiązywać po przesunięciu', () => {
+    const { db, term } = withTermToMove();
+    db.update(schema.scheduledWorkouts)
+      .set({ notificationId: 'stare-powiadomienie' })
+      .where(eq(schema.scheduledWorkouts.id, term.id))
+      .run();
+
+    updateScheduled(db, term.id, {
+      scheduledDate: '2026-10-09',
+      scheduledTime: '18:00',
+      reminderOffsetMinutes: 60,
+    });
+
+    // Identyfikator musi zniknąć, inaczej przypomnienie zostałoby na dawną porę.
+    expect(
+      db.select().from(schema.scheduledWorkouts).where(eq(schema.scheduledWorkouts.id, term.id)).get()
+        ?.notificationId,
+    ).toBeNull();
+  });
+
+  it('nie zlewa dwóch terminów tego samego planu w jeden dzień', () => {
+    const { db, planId, term } = withTermToMove();
+    scheduleWorkouts(db, {
+      planId,
+      dates: ['2026-10-07'],
+      scheduledTime: '18:00',
+      reminderOffsetMinutes: 60,
+    });
+
+    expect(() =>
+      updateScheduled(db, term.id, {
+        scheduledDate: '2026-10-07',
+        scheduledTime: '18:00',
+        reminderOffsetMinutes: 60,
+      }),
+    ).toThrow(ScheduleConflictError);
+
+    expect(loadScheduled(db, term.id, '2026-10-05')?.scheduledDate).toBe('2026-10-06');
+  });
+
+  it('zapis bez zmiany dnia nie jest konfliktem sam ze sobą', () => {
+    const { db, term } = withTermToMove();
+
+    expect(() =>
+      updateScheduled(db, term.id, {
+        scheduledDate: '2026-10-06',
+        scheduledTime: '19:00',
+        reminderOffsetMinutes: 60,
+      }),
+    ).not.toThrow();
   });
 });

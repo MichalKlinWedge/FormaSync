@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -11,7 +11,12 @@ import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
 import { sports } from '@/db/schema';
 import { syncWorkoutReminders } from '@/features/calendar/reminders';
-import { scheduleWorkouts } from '@/features/calendar/repository';
+import {
+  loadScheduled,
+  ScheduleConflictError,
+  scheduleWorkouts,
+  updateScheduled,
+} from '@/features/calendar/repository';
 import { toggleValue } from '@/features/exercises/filter';
 import { usePlanList } from '@/features/plans/use-plans';
 import { SPORT_LABELS } from '@/features/sports/sport';
@@ -30,7 +35,11 @@ const REMINDER_OPTIONS: { label: string; minutes: number | null }[] = [
 const WEEK_OPTIONS = [1, 2, 4, 8, 12];
 
 export default function ScheduleScreen() {
-  const params = useLocalSearchParams<{ date?: string }>();
+  const params = useLocalSearchParams<{ date?: string; id?: string }>();
+  // Z identyfikatorem ekran edytuje istniejący termin: te same pola, bez wyboru planu
+  // i bez cyklu — przesuwa się jeden wpis, a nie zakłada nowe.
+  const editedId = params.id === undefined ? null : Number(params.id);
+  const [edited] = useState(() => (editedId === null ? null : loadScheduled(db, editedId)));
   const activeSport = useActiveSport();
   const { own, templates } = usePlanList();
   const plans = [...own, ...templates];
@@ -42,7 +51,7 @@ export default function ScheduleScreen() {
     .map((sport) => ({ sport, items: plans.filter((plan) => plan.sport === sport) }))
     .filter((group) => group.items.length > 0);
 
-  const [startDate, setStartDate] = useState(params.date ?? todayKey());
+  const [startDate, setStartDate] = useState(edited?.scheduledDate ?? params.date ?? todayKey());
   // Plany dochodzą z zapytania na żywo, więc przy pierwszym rysowaniu lista jest pusta.
   // Wybór trzymamy jako „nic nie kliknięto” i dopiero wyliczamy z niego pierwszy plan.
   const [pickedPlanId, setPickedPlanId] = useState<number | null>(null);
@@ -50,15 +59,36 @@ export default function ScheduleScreen() {
   const [repeat, setRepeat] = useState(false);
   const [weekdays, setWeekdays] = useState<number[]>([]);
   const [weeks, setWeeks] = useState(4);
-  const [allDay, setAllDay] = useState(false);
-  const [hour, setHour] = useState<number | null>(18);
-  const [minute, setMinute] = useState<number | null>(0);
-  const [reminder, setReminder] = useState<number | null>(60);
+  const [allDay, setAllDay] = useState(edited !== null && edited.scheduledTime === null);
+  const [hour, setHour] = useState<number | null>(timePart(edited?.scheduledTime, 0) ?? 18);
+  const [minute, setMinute] = useState<number | null>(timePart(edited?.scheduledTime, 1) ?? 0);
+  const [reminder, setReminder] = useState<number | null>(
+    edited === null ? 60 : edited.reminderOffsetMinutes,
+  );
 
   const scheduledTime = allDay
     ? null
     : `${String(hour ?? 0).padStart(2, '0')}:${String(minute ?? 0).padStart(2, '0')}`;
   const dates = repeat ? generateRecurringDates(startDate, weekdays, weeks) : [startDate];
+
+  const saveEdit = () => {
+    if (editedId === null) return;
+    try {
+      updateScheduled(db, editedId, {
+        scheduledDate: startDate,
+        scheduledTime,
+        reminderOffsetMinutes: reminder,
+      });
+    } catch (e) {
+      if (e instanceof ScheduleConflictError) {
+        Alert.alert('Termin zajęty', e.message);
+        return;
+      }
+      throw e;
+    }
+    void syncWorkoutReminders();
+    router.back();
+  };
 
   const save = () => {
     if (planId === null) {
@@ -96,7 +126,19 @@ export default function ScheduleScreen() {
 
   return (
     <ThemedView style={styles.flex}>
+      <Stack.Screen options={{ title: edited === null ? 'Zaplanuj trening' : 'Przesuń termin' }} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {edited !== null && (
+          <ThemedView type="backgroundElement" style={styles.summary}>
+            <ThemedText type="smallBold">{edited.planTitle}</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              Przesuwasz istniejący termin. Plan zostaje ten sam — żeby zaplanować inny, dodaj
+              nowy termin.
+            </ThemedText>
+          </ThemedView>
+        )}
+
+        {edited === null && (
         <Field label="Plan">
           {groups.map((group) => (
             <View key={group.sport} style={styles.group}>
@@ -116,8 +158,9 @@ export default function ScheduleScreen() {
             </View>
           ))}
         </Field>
+        )}
 
-        <Field label={repeat ? 'Początek cyklu' : 'Dzień'}>
+        <Field label={edited === null && repeat ? 'Początek cyklu' : 'Dzień'}>
           <View style={styles.dateRow}>
             <Button label="−1 dzień" variant="secondary" onPress={() => setStartDate((d) => addDays(d, -1))} />
             <Button label="+1 dzień" variant="secondary" onPress={() => setStartDate((d) => addDays(d, 1))} />
@@ -128,14 +171,16 @@ export default function ScheduleScreen() {
           </ThemedText>
         </Field>
 
-        <Field label="Powtarzanie">
-          <View style={styles.chips}>
-            <Chip label="Jednorazowo" selected={!repeat} onPress={() => setRepeat(false)} />
-            <Chip label="Cyklicznie" selected={repeat} onPress={() => setRepeat(true)} />
-          </View>
-        </Field>
+        {edited === null && (
+          <Field label="Powtarzanie">
+            <View style={styles.chips}>
+              <Chip label="Jednorazowo" selected={!repeat} onPress={() => setRepeat(false)} />
+              <Chip label="Cyklicznie" selected={repeat} onPress={() => setRepeat(true)} />
+            </View>
+          </Field>
+        )}
 
-        {repeat && (
+        {edited === null && repeat && (
           <>
             <Field label="Dni tygodnia">
               <View style={styles.chips}>
@@ -190,22 +235,34 @@ export default function ScheduleScreen() {
           </View>
         </Field>
 
-        <ThemedView type="backgroundElement" style={styles.summary}>
-          <ThemedText type="small" themeColor="textSecondary">
-            {dates.length === 0
-              ? 'Zaznacz dni tygodnia, aby zobaczyć terminy.'
-              : `Zostanie dodanych terminów: ${dates.length}. Pierwszy: ${formatDate(dates[0])}${
-                  dates.length > 1 ? `, ostatni: ${formatDate(dates[dates.length - 1])}` : ''
-                }.`}
-          </ThemedText>
-        </ThemedView>
+        {edited === null && (
+          <ThemedView type="backgroundElement" style={styles.summary}>
+            <ThemedText type="small" themeColor="textSecondary">
+              {dates.length === 0
+                ? 'Zaznacz dni tygodnia, aby zobaczyć terminy.'
+                : `Zostanie dodanych terminów: ${dates.length}. Pierwszy: ${formatDate(dates[0])}${
+                    dates.length > 1 ? `, ostatni: ${formatDate(dates[dates.length - 1])}` : ''
+                  }.`}
+            </ThemedText>
+          </ThemedView>
+        )}
 
-        <Button label="Zaplanuj" icon="check" onPress={save} disabled={dates.length === 0} />
+        {edited === null ? (
+          <Button label="Zaplanuj" icon="check" onPress={save} disabled={dates.length === 0} />
+        ) : (
+          <Button label="Zapisz zmiany" icon="check" onPress={saveEdit} />
+        )}
         <Button label="Anuluj" variant="secondary" onPress={() => router.back()} />
       </ScrollView>
     </ThemedView>
   );
 }
+
+/** „18:30” → 18 albo 30; null, gdy termin jest całodniowy. */
+const timePart = (time: string | null | undefined, index: 0 | 1): number | null => {
+  const value = time?.split(':')[index];
+  return value === undefined ? null : Number(value);
+};
 
 const clamp = (value: number | null, max: number) => (value === null ? null : Math.min(Math.max(value, 0), max));
 
