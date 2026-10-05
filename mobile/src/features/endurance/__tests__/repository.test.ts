@@ -2,12 +2,19 @@
  * @jest-environment node
  */
 import { describe, expect, it } from '@jest/globals';
+import { eq } from 'drizzle-orm';
 
+import * as schema from '@/db/schema';
 import { createTestDb } from '@/db/test-utils';
 import { deletePlan } from '@/features/plans/repository';
 
 import { createRepeatBlock, createSegment, emptyEnduranceDraft, updateSegment } from '../draft';
-import { listPlanSegments, loadEnduranceDraft, saveEndurancePlan } from '../repository';
+import {
+  listPlanSegments,
+  loadEnduranceDraft,
+  saveEndurancePlan,
+  TemplateReadOnlyError,
+} from '../repository';
 
 function intervalDraft() {
   const [group, work, recovery] = createRepeatBlock();
@@ -65,5 +72,22 @@ describe('saveEndurancePlan', () => {
     deletePlan(db, planId);
 
     expect(listPlanSegments(db, planId)).toEqual([]);
+  });
+});
+
+describe('szablony wytrzymałościowe', () => {
+  it('nie dają się nadpisać — pracuje się na kopii', () => {
+    const db = createTestDb({ seed: true });
+    const template = db
+      .select()
+      .from(schema.workoutPlans)
+      .where(eq(schema.workoutPlans.title, 'Interwały 6×400 m'))
+      .get()!;
+
+    const draft = loadEnduranceDraft(db, template.id);
+
+    expect(() => saveEndurancePlan(db, draft)).toThrow(TemplateReadOnlyError);
+    // Kopia bez identyfikatora zapisuje się normalnie.
+    expect(() => saveEndurancePlan(db, { ...draft, id: undefined, title: 'Moja kopia' })).not.toThrow();
   });
 });

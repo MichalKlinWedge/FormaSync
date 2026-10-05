@@ -64,7 +64,7 @@ export function EndurancePlanDetails({ planId }: { planId: number }) {
 
   return (
     <ThemedView style={styles.flex}>
-      <Stack.Screen options={{ title: 'Plan' }} />
+      <Stack.Screen options={{ title: plan.isTemplate ? 'Szablon' : 'Plan' }} />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.titleBlock}>
           <ThemedText type="subtitle">{plan.title}</ThemedText>
@@ -112,9 +112,16 @@ export function EndurancePlanDetails({ planId }: { planId: number }) {
 
         <View style={styles.actions}>
           <Button label="Rozpocznij trening" icon="play_arrow" onPress={start} />
-          <Button label="Edytuj" icon="edit" variant="secondary" onPress={edit} />
-          <Button label="Duplikuj" icon="content_copy" variant="secondary" onPress={copy} />
-          <Button label="Usuń" icon="delete" variant="danger" onPress={confirmDelete} />
+          {/* Wbudowanego szablonu nie wolno zmienić ani usunąć — pracuje się na jego kopii. */}
+          {plan.isTemplate ? (
+            <Button label="Kopiuj do moich planów" icon="content_copy" variant="secondary" onPress={copy} />
+          ) : (
+            <>
+              <Button label="Edytuj" icon="edit" variant="secondary" onPress={edit} />
+              <Button label="Duplikuj" icon="content_copy" variant="secondary" onPress={copy} />
+              <Button label="Usuń" icon="delete" variant="danger" onPress={confirmDelete} />
+            </>
+          )}
         </View>
       </ScrollView>
     </ThemedView>
