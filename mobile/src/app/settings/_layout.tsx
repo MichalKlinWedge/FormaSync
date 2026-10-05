@@ -5,6 +5,7 @@ export default function SettingsLayout() {
     <Stack screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}>
       <Stack.Screen name="index" options={{ title: 'Ustawienia' }} />
       <Stack.Screen name="privacy" options={{ title: 'Prywatność' }} />
+      <Stack.Screen name="garmin" options={{ title: 'Konto Garmina' }} />
     </Stack>
   );
 }

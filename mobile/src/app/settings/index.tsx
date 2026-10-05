@@ -19,6 +19,7 @@ import {
 
 import { syncWorkoutReminders } from '@/features/calendar/reminders';
 import { HealthSection } from '@/features/health/health-section';
+import { GarminAccountSection } from '@/features/garmin/connect/account-section';
 import { findActiveSessionId } from '@/features/workout/repository';
 import { ExportCanceled, readPickedTextFile, saveToPickedDirectory } from '@/lib/file-export';
 import { formatNumber } from '@/lib/number';
@@ -121,6 +122,8 @@ export default function SettingsScreen() {
         </View>
 
         <HealthSection />
+
+        <GarminAccountSection />
 
         <View style={styles.section}>
           <ThemedText type="smallBold" themeColor="textSecondary">

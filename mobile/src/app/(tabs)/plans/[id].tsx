@@ -13,6 +13,7 @@ import { EndurancePlanDetails } from '@/features/endurance/plan-details';
 import { usePlanDetails } from '@/features/plans/use-plans';
 import { isEndurance } from '@/features/sports/sport';
 import { buildWorkoutFit, FitExportError, fitFileName } from '@/features/garmin/fit-workout';
+import { SendToGarminButton } from '@/features/garmin/connect/send-button';
 import { loadPlanForFit } from '@/features/garmin/repository';
 import { proposeProgression } from '@/features/progress/progression';
 import { ExportCanceled, saveToPickedDirectory } from '@/lib/file-export';
@@ -123,6 +124,7 @@ Podłącz zegarek kablem i skopiuj plik do folderu NewFiles — trening pojawi s
 
         <View style={styles.actions}>
           <Button label="Rozpocznij trening" icon="play_arrow" onPress={start} />
+          <SendToGarminButton planId={id} />
           <Button
             label="Eksportuj na zegarek (.FIT)"
             icon="watch"

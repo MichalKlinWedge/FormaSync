@@ -6,6 +6,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
+import { SendToGarminButton } from '@/features/garmin/connect/send-button';
 import { deletePlan } from '@/features/plans/repository';
 import { ensureNotificationPermission } from '@/features/workout/notifications';
 import { ActiveSessionExistsError, startSession } from '@/features/workout/repository';
@@ -84,6 +85,7 @@ export function EndurancePlanDetails({ planId }: { planId: number }) {
 
         <View style={styles.actions}>
           <Button label="Rozpocznij trening" icon="play_arrow" onPress={start} />
+          <SendToGarminButton planId={planId} />
           {/* Wbudowanego szablonu nie wolno zmienić ani usunąć — pracuje się na jego kopii. */}
           {plan.isTemplate ? (
             <Button label="Kopiuj do moich planów" icon="content_copy" variant="secondary" onPress={copy} />
