@@ -26,9 +26,9 @@ describe('formatKg', () => {
 
 describe('formatTonnage', () => {
   it('przechodzi na tony powyżej tysiąca', () => {
-    expect(formatTonnage(850)).toBe('850');
+    expect(formatTonnage(850)).toBe(`850${nbsp}kg`);
     expect(formatTonnage(12400)).toBe(`12,4${nbsp}t`);
-    expect(formatTonnage(0)).toBe('0');
+    expect(formatTonnage(0)).toBe(`0${nbsp}kg`);
   });
 });
 

@@ -23,6 +23,7 @@ import {
   sessionTonnage,
 } from '@/features/workout/logic';
 import { cancelRestEnd, scheduleRestEnd } from '@/features/workout/notifications';
+import { playRestEndSound, useRestCountdownSound } from '@/features/workout/rest-sound';
 import {
   abandonSession,
   activeSessionSport,
@@ -76,16 +77,21 @@ export default function ActiveWorkoutScreen() {
   const override = baseRest && restOverride?.baseEndsAt === baseRest.endsAt ? restOverride : null;
   const rest = applyOverride(baseRest, override, now);
 
-  // Wibracja w chwili, gdy przerwa dobiega końca przy otwartym ekranie (pominięcie nie wibruje).
+  // Wibracja i dźwięk w chwili, gdy przerwa dobiega końca przy otwartym ekranie
+  // (pominięcie nie wibruje i nie pika).
   const restActive = rest !== null;
   const skipped = override?.delta === 'skip';
   const wasActive = useRef(false);
   useEffect(() => {
     if (wasActive.current && !restActive && !skipped) {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      playRestEndSound();
     }
     wasActive.current = restActive;
   }, [restActive, skipped]);
+
+  // Ostatnie pięć sekund przerwy słychać: bip na każdą sekundę, dłuższy sygnał na zero.
+  useRestCountdownSound(skipped ? null : (rest?.remainingSeconds ?? null));
 
   // Trening wytrzymałościowy prowadzi się po odcinkach, nie po seriach — to osobny ekran.
   if (sessionId !== null && sessionSport !== null && isEndurance(sessionSport)) {

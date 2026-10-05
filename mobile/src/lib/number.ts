@@ -16,10 +16,13 @@ export function formatKg(value: number): string {
   return `${formatNumber(value, Number.isInteger(value) ? 0 : 1)}${NBSP}kg`;
 }
 
-/** Skrót dla osi i kafelków: 850 → „850”, 12 400 → „12,4 t”. */
+/**
+ * Skrót dla osi i kafelków: 850 → „850 kg”, 12 400 → „12,4 t”. Jednostka jest zawsze, bo
+ * te wartości stoją obok siebie na jednej liście — gołe „280” przy „1,6 t” czyta się jak tony.
+ */
 export function formatTonnage(value: number): string {
   if (value >= 1000) return `${formatNumber(value / 1000, 1)}${NBSP}t`;
-  return formatNumber(value);
+  return `${formatNumber(value)}${NBSP}kg`;
 }
 
 /**
