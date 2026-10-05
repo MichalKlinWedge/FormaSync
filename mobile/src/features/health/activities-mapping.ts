@@ -1,3 +1,5 @@
+import type { Sport } from '@/db/schema';
+
 import type { HeartRateSummary, Interval, Sample } from './mapping';
 import { caloriesInWindow, summarizeHeartRate } from './mapping';
 
@@ -14,6 +16,7 @@ export type WatchActivity = {
   /** Identyfikator rekordu w Health Connect — po nim poznajemy, że już go wczytaliśmy. */
   recordId: string;
   title: string;
+  sport: Sport;
   startTime: string;
   endTime: string;
   durationSeconds: number;
@@ -63,6 +66,29 @@ const EXERCISE_TYPE_NAMES: Record<number, string> = {
 
 export const exerciseTypeName = (type: number): string => EXERCISE_TYPE_NAMES[type] ?? 'Trening';
 
+/**
+ * Dyscyplina aktywności. Marsz i wędrówkę liczymy jako bieganie, bo mierzy się je tak samo —
+ * dystansem i tempem — a osobnego sportu dla chodzenia aplikacja nie ma. Czego nie rozpoznamy,
+ * trafia do siły: to macierzysta dyscyplina aplikacji i stamtąd najłatwiej wpis przenieść.
+ */
+const SPORT_BY_EXERCISE_TYPE: Record<number, Sport> = {
+  8: 'CYCLING',
+  9: 'CYCLING',
+  13: 'STRENGTH',
+  37: 'RUNNING',
+  53: 'CYCLING',
+  54: 'CYCLING',
+  56: 'RUNNING',
+  57: 'RUNNING',
+  70: 'STRENGTH',
+  73: 'SWIMMING',
+  74: 'SWIMMING',
+  79: 'RUNNING',
+  81: 'STRENGTH',
+};
+
+export const sportForExerciseType = (type: number): Sport => SPORT_BY_EXERCISE_TYPE[type] ?? 'STRENGTH';
+
 /** Trening z aplikacji, na który nachodzi aktywność — kandydat do połączenia. */
 export type SessionWindow = Interval & { id: number; title: string };
 
@@ -103,6 +129,7 @@ export function toWatchActivity(
   return {
     recordId,
     title: record.title?.trim() || exerciseTypeName(record.exerciseType),
+    sport: sportForExerciseType(record.exerciseType),
     startTime: record.startTime,
     endTime: record.endTime,
     durationSeconds: Math.max(seconds, 0),

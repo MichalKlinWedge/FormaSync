@@ -25,6 +25,7 @@ import {
   HISTORY_DAYS,
   requestExercisePermission,
 } from '@/features/health/sync';
+import { SPORT_LABELS } from '@/features/sports/sport';
 import { formatClock } from '@/features/workout/logic';
 import { formatDateTime } from '@/lib/date';
 import { formatNumber } from '@/lib/number';
@@ -207,7 +208,8 @@ function ActivityCard({ activity, busy, onAdd, onLink, onArchive }: ActivityCard
     <ThemedView type="backgroundElement" style={styles.card}>
       <ThemedText type="smallBold">{activity.title}</ThemedText>
       <ThemedText type="small" themeColor="textSecondary">
-        {formatDateTime(activity.startTime)} · {formatClock(activity.durationSeconds)}
+        {SPORT_LABELS[activity.sport]} · {formatDateTime(activity.startTime)} ·{' '}
+        {formatClock(activity.durationSeconds)}
       </ThemedText>
       <ThemedText type="small" themeColor="textSecondary">
         {describeMetrics(activity)}

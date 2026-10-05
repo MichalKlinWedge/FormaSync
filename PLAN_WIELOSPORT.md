@@ -39,13 +39,15 @@ tempo, czas w strefach tętna.
 
 ## Etapy
 
+Wszystkie etapy wykonane 4–5 października 2026.
+
 | # | Etap | Zakres |
 |---|------|--------|
 | 1 | **Sport jako wymiar aplikacji** | Kolumny `sport`, wybrany sport w ustawieniach, przełącznik w nagłówku, filtrowanie planów i historii. Istniejące dane to siła. |
 | 2 | **Plany wytrzymałościowe** | Tabele odcinków, kreator planu: odcinki, grupy powtórzeń, dystans albo czas, cel tempa lub tętna. |
 | 3 | **Trening wytrzymałościowy** | Prowadzenie treningu po odcinkach, zapis wykonania, przejście do następnego odcinka. |
 | 4 | **Historia i statystyki** | Podsumowanie treningu wytrzymałościowego, tygodniowy dystans, tempo w czasie. Statystyki siłowe pozostają przy sile. |
-| 5 | **Kalendarz wielosportowy** | Przełącznik „wszystkie / wybrany sport”, kolor kropki według sportu. |
+| 5 | **Kalendarz wielosportowy** | Przełącznik „wszystkie / wybrany sport”. Dyscyplinę pokazuje ikona, nie kolor: kolor niesie już status terminu. |
 | 6 | **Garmin** | Wysyłka treningów biegowych, rowerowych i pływackich narzędziem na komputerze; weryfikacja odczytem z konta. |
 | 7 | **Import z zegarka** | Aktywność z Health Connect dostaje sport z typu ćwiczenia, a nie zawsze siłę. |
 

@@ -266,6 +266,7 @@ export function restoreActivity(db: SyncDb, recordId: string): void {
 export type ImportedActivity = {
   recordId: string;
   title: string;
+  sport: schema.Sport;
   startTime: string;
   endTime: string;
   durationSeconds: number;
@@ -284,6 +285,7 @@ export function createSessionFromActivity(db: SyncDb, activity: ImportedActivity
       .insert(schema.workoutSessions)
       .values({
         title: activity.title,
+        sport: activity.sport,
         status: 'COMPLETED',
         startTime: activity.startTime,
         endTime: activity.endTime,

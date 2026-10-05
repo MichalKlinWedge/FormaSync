@@ -20,4 +20,5 @@ System wspomagania treningu siłowego z integracją Garmin.
 - [x] Etap 9 — plany na zegarek: wysyłka do biblioteki i kalendarza przez narzędzie na komputerze; eksport .FIT z aplikacji do skopiowania wprost na zegarek (Garmin Connect nie importuje plików treningowych)
 - [x] Etap 10 — analityka (tonaż, progresja, 1RM, rekordy, pomiary ciała)
 - [x] Etap 11 — RPE i auto-progresja (ocena serii, kalkulator 1RM, sugestie ciężaru)
+- [x] Wielosportowość — siła, bieganie, rower i pływanie: osobny model treningu wytrzymałościowego (odcinki, interwały, cel tempa i tętna), wspólny kalendarz z zawężaniem, wysyłka na zegarek (plan: PLAN_WIELOSPORT.md)
 - [ ] Etap 12 — stabilizacja i wydanie (kopia zapasowa i polityka prywatności gotowe; zostają testy na urządzeniu i wydanie)

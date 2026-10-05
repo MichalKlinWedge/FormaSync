@@ -4,6 +4,7 @@ import {
   exerciseTypeName,
   findOverlappingSession,
   selectImportable,
+  sportForExerciseType,
   toWatchActivity,
   type ExerciseSession,
   type WatchActivity,
@@ -50,6 +51,7 @@ describe('toWatchActivity', () => {
     expect(activity).toEqual({
       recordId: 'rec-1',
       title: 'Szybkie brzuszki',
+      sport: 'STRENGTH',
       startTime: '2026-10-02T14:00:00.000Z',
       endTime: '2026-10-02T14:30:00.000Z',
       durationSeconds: 1800,
@@ -103,6 +105,7 @@ describe('selectImportable', () => {
   const make = (recordId: string, startTime: string): WatchActivity => ({
     recordId,
     title: 'Trening',
+    sport: 'STRENGTH',
     startTime,
     endTime: startTime,
     durationSeconds: 0,
@@ -151,5 +154,24 @@ describe('selectImportable', () => {
   it('bez pokrycia nie podpowiada żadnego treningu', () => {
     const result = selectImportable([make('a', '2026-10-01T10:00:00.000Z')], new Set(), new Set(), []);
     expect(result[0].matchingSession).toBeNull();
+  });
+});
+
+describe('sportForExerciseType', () => {
+  it('rozpoznaje dyscypliny, które realnie przychodzą z zegarka', () => {
+    expect(sportForExerciseType(56)).toBe('RUNNING');
+    expect(sportForExerciseType(8)).toBe('CYCLING');
+    expect(sportForExerciseType(74)).toBe('SWIMMING');
+    expect(sportForExerciseType(70)).toBe('STRENGTH');
+  });
+
+  it('marsz i wędrówkę liczy jako bieganie, bo mierzy się je dystansem', () => {
+    expect(sportForExerciseType(79)).toBe('RUNNING');
+    expect(sportForExerciseType(37)).toBe('RUNNING');
+  });
+
+  it('nierozpoznaną aktywność zapisuje jako siłę, macierzystą dyscyplinę aplikacji', () => {
+    expect(sportForExerciseType(0)).toBe('STRENGTH');
+    expect(sportForExerciseType(9999)).toBe('STRENGTH');
   });
 });

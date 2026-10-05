@@ -23,6 +23,7 @@ import {
 const ACTIVITY = {
   recordId: 'rec-1',
   title: 'Szybkie brzuszki',
+  sport: 'STRENGTH' as const,
   startTime: '2026-10-02T12:08:44.000Z',
   endTime: '2026-10-02T12:13:47.000Z',
   durationSeconds: 303,
