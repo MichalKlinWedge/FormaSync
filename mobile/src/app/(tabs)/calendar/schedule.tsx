@@ -9,10 +9,13 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
+import { sports } from '@/db/schema';
 import { syncWorkoutReminders } from '@/features/calendar/reminders';
 import { scheduleWorkouts } from '@/features/calendar/repository';
 import { toggleValue } from '@/features/exercises/filter';
 import { usePlanList } from '@/features/plans/use-plans';
+import { SPORT_LABELS } from '@/features/sports/sport';
+import { useActiveSport } from '@/features/sports/sport-store';
 import { addDays, formatDate, formatDayWithWeekday, generateRecurringDates, todayKey, WEEKDAYS_SHORT } from '@/lib/date';
 
 const REMINDER_OPTIONS: { label: string; minutes: number | null }[] = [
@@ -28,14 +31,22 @@ const WEEK_OPTIONS = [1, 2, 4, 8, 12];
 
 export default function ScheduleScreen() {
   const params = useLocalSearchParams<{ date?: string }>();
+  const activeSport = useActiveSport();
   const { own, templates } = usePlanList();
   const plans = [...own, ...templates];
+  // Kalendarz jest wspólny dla dyscyplin, więc planów nie zawężamy — ale dzielimy je na grupy
+  // i aktywną dyscyplinę dajemy na górę. Bez tego lista to ściana nazw, z której nie widać,
+  // że bieg czy pływanie w ogóle da się zaplanować.
+  const groups = [...sports]
+    .sort((a, b) => Number(b === activeSport) - Number(a === activeSport))
+    .map((sport) => ({ sport, items: plans.filter((plan) => plan.sport === sport) }))
+    .filter((group) => group.items.length > 0);
 
   const [startDate, setStartDate] = useState(params.date ?? todayKey());
   // Plany dochodzą z zapytania na żywo, więc przy pierwszym rysowaniu lista jest pusta.
   // Wybór trzymamy jako „nic nie kliknięto” i dopiero wyliczamy z niego pierwszy plan.
   const [pickedPlanId, setPickedPlanId] = useState<number | null>(null);
-  const planId = pickedPlanId ?? plans[0]?.id ?? null;
+  const planId = pickedPlanId ?? groups[0]?.items[0]?.id ?? null;
   const [repeat, setRepeat] = useState(false);
   const [weekdays, setWeekdays] = useState<number[]>([]);
   const [weeks, setWeeks] = useState(4);
@@ -87,16 +98,23 @@ export default function ScheduleScreen() {
     <ThemedView style={styles.flex}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Field label="Plan">
-          <View style={styles.chips}>
-            {plans.map((plan) => (
-              <Chip
-                key={plan.id}
-                label={plan.title}
-                selected={planId === plan.id}
-                onPress={() => setPickedPlanId(plan.id)}
-              />
-            ))}
-          </View>
+          {groups.map((group) => (
+            <View key={group.sport} style={styles.group}>
+              <ThemedText type="small" themeColor="textSecondary">
+                {SPORT_LABELS[group.sport]}
+              </ThemedText>
+              <View style={styles.chips}>
+                {group.items.map((plan) => (
+                  <Chip
+                    key={plan.id}
+                    label={plan.title}
+                    selected={planId === plan.id}
+                    onPress={() => setPickedPlanId(plan.id)}
+                  />
+                ))}
+              </View>
+            </View>
+          ))}
         </Field>
 
         <Field label={repeat ? 'Początek cyklu' : 'Dzień'}>
@@ -208,6 +226,7 @@ const styles = StyleSheet.create({
   content: { padding: Spacing.four, gap: Spacing.four, paddingBottom: Spacing.six },
   field: { gap: Spacing.two },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  group: { gap: Spacing.one },
   dateRow: { flexDirection: 'row', gap: Spacing.two },
   timeRow: { flexDirection: 'row', gap: Spacing.three },
   summary: { borderRadius: 12, padding: Spacing.three },

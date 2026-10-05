@@ -15,7 +15,10 @@ import {
   type ScheduleStatus,
   sessionsToAttach,
 } from '@/features/calendar/repository';
+import { PlanSegmentList } from '@/features/endurance/plan-segments';
+import { useEndurancePlan } from '@/features/endurance/use-endurance-plan';
 import { SessionDetails } from '@/features/history/session-details';
+import { isEndurance } from '@/features/sports/sport';
 import { formatTarget } from '@/features/plans/draft';
 import { usePlanDetails } from '@/features/plans/use-plans';
 import { ensureNotificationPermission } from '@/features/workout/notifications';
@@ -81,6 +84,8 @@ export default function ScheduledDetailsScreen() {
 /** Termin bez przeprowadzonego treningu: skład planu, start i przypisanie treningu po fakcie. */
 function PlannedDetails({ entry, onAttached }: { entry: Entry; onAttached: () => void }) {
   const { items } = usePlanDetails(entry.planId);
+  // Bieg, rower i pływanie mają odcinki zamiast ćwiczeń — bez tego termin wyglądałby na pusty.
+  const endurancePlan = useEndurancePlan(entry.planId);
   // Kandydatów czytamy dopiero przy rozwinięciu — większość terminów ich nie potrzebuje.
   const [candidates, setCandidates] = useState<{ id: number; title: string; startTime: string }[] | null>(
     null,
@@ -119,7 +124,9 @@ function PlannedDetails({ entry, onAttached }: { entry: Entry; onAttached: () =>
           <ThemedText type="smallBold" themeColor="textSecondary">
             PLAN
           </ThemedText>
-          {items.length === 0 ? (
+          {isEndurance(entry.sport) ? (
+            <PlanSegmentList rows={endurancePlan?.rows ?? []} />
+          ) : items.length === 0 ? (
             <ThemedView type="backgroundElement" style={styles.card}>
               <ThemedText type="small" themeColor="textSecondary">
                 Ten plan nie ma jeszcze żadnego ćwiczenia.

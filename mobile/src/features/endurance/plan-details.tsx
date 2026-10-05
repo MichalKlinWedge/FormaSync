@@ -9,18 +9,16 @@ import { db } from '@/db/client';
 import { deletePlan } from '@/features/plans/repository';
 import { ensureNotificationPermission } from '@/features/workout/notifications';
 import { ActiveSessionExistsError, startSession } from '@/features/workout/repository';
-import { useTheme } from '@/hooks/use-theme';
 import { pluralWith } from '@/lib/number';
 
-import { SEGMENT_LABELS } from './draft';
 import { useEnduranceDraftStore } from './draft-store';
-import { describeDuration, describeTarget, formatDistance, formatSeconds } from './format';
+import { formatDistance, formatSeconds } from './format';
+import { PlanSegmentList } from './plan-segments';
 import { loadEnduranceDraft } from './repository';
 import { useEndurancePlan } from './use-endurance-plan';
 
 /** Podgląd planu wytrzymałościowego: odcinki w kolejności, z grupami powtórzeń. */
 export function EndurancePlanDetails({ planId }: { planId: number }) {
-  const theme = useTheme();
   const plan = useEndurancePlan(planId);
   const startDraft = useEnduranceDraftStore((s) => s.start);
 
@@ -82,33 +80,7 @@ export function EndurancePlanDetails({ planId }: { planId: number }) {
           </ThemedText>
         </View>
 
-        <View style={styles.items}>
-          {plan.rows.map((row) => (
-            <ThemedView
-              key={row.id}
-              type="backgroundElement"
-              style={[styles.item, row.nested && { marginLeft: Spacing.four }]}>
-              <View style={[styles.marker, { backgroundColor: theme.accent }]} />
-              <View style={styles.itemText}>
-                <ThemedText type="smallBold">
-                  {row.kind === 'REPEAT'
-                    ? pluralWith(row.repeatCount ?? 1, 'powtórzenie', 'powtórzenia', 'powtórzeń')
-                    : SEGMENT_LABELS[row.kind]}
-                </ThemedText>
-                {row.kind !== 'REPEAT' && (
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {[
-                      describeDuration(row.durationType, row.distanceMeters, row.durationSeconds),
-                      describeTarget(row.targetType, row.targetLow, row.targetHigh),
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </ThemedText>
-                )}
-              </View>
-            </ThemedView>
-          ))}
-        </View>
+        <PlanSegmentList rows={plan.rows} />
 
         <View style={styles.actions}>
           <Button label="Rozpocznij trening" icon="play_arrow" onPress={start} />
@@ -132,15 +104,5 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { padding: Spacing.four, gap: Spacing.four, paddingBottom: Spacing.six },
   titleBlock: { gap: Spacing.one },
-  items: { gap: Spacing.two },
-  item: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-    borderRadius: 12,
-    padding: Spacing.three,
-  },
-  marker: { width: 4, alignSelf: 'stretch', borderRadius: 2 },
-  itemText: { flex: 1, gap: Spacing.half },
   actions: { gap: Spacing.two },
 });
