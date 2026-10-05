@@ -109,12 +109,20 @@ export function saveMeasurement(db: SyncDb, input: MeasurementInput): number {
   const values = { ...input, notes: input.notes?.trim() || null };
   return db.transaction((tx) => {
     const existing = tx
-      .select({ id: schema.bodyMeasurements.id })
+      .select()
       .from(schema.bodyMeasurements)
       .where(eq(schema.bodyMeasurements.measuredOn, input.measuredOn))
       .get();
     if (existing) {
-      tx.update(schema.bodyMeasurements).set(values).where(eq(schema.bodyMeasurements.id, existing.id)).run();
+      // Dopisujemy, a nie zastępujemy. Ciśnienie mierzy się częściej niż obwody i prawie zawsze
+      // osobno — zapis samego ciśnienia nie może skasować wagi zmierzonej rano tego samego dnia.
+      const merged = Object.fromEntries(
+        Object.entries(values).map(([key, value]) => [
+          key,
+          value ?? existing[key as keyof typeof existing] ?? null,
+        ]),
+      );
+      tx.update(schema.bodyMeasurements).set(merged).where(eq(schema.bodyMeasurements.id, existing.id)).run();
       return existing.id;
     }
     return tx

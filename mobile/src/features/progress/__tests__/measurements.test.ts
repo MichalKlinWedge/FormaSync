@@ -70,7 +70,7 @@ describe('ciśnienie w pomiarach', () => {
     expect(() => saveMeasurement(db, input({ systolic: 200, diastolic: 130 }))).not.toThrow();
   });
 
-  it('pomiar z tą samą datą jest nadpisywany, a nie dublowany', () => {
+  it('pomiar z tą samą datą jest uzupełniany, a nie dublowany', () => {
     const db = createTestDb({ seed: true });
     saveMeasurement(db, input({ systolic: 124, diastolic: 78 }));
     saveMeasurement(db, input({ systolic: 118, diastolic: 74 }));
@@ -78,5 +78,36 @@ describe('ciśnienie w pomiarach', () => {
     const all = listMeasurements(db);
     expect(all).toHaveLength(1);
     expect(all[0]).toMatchObject({ systolic: 118, diastolic: 74 });
+  });
+});
+
+describe('zapis tego samego dnia', () => {
+  it('samo ciśnienie nie kasuje wagi zmierzonej rano', () => {
+    const db = createTestDb({ seed: true });
+    saveMeasurement(db, input({ weightKg: 77, waistCm: 90 }));
+    saveMeasurement(db, input({ systolic: 124, diastolic: 78 }));
+
+    expect(listMeasurements(db)[0]).toMatchObject({
+      weightKg: 77,
+      waistCm: 90,
+      systolic: 124,
+      diastolic: 78,
+    });
+  });
+
+  it('nowa wartość nadpisuje starą — poprawka wagi działa', () => {
+    const db = createTestDb({ seed: true });
+    saveMeasurement(db, input({ weightKg: 77 }));
+    saveMeasurement(db, input({ weightKg: 76.4 }));
+
+    expect(listMeasurements(db)[0].weightKg).toBe(76.4);
+  });
+
+  it('notatka z wcześniejszego zapisu zostaje', () => {
+    const db = createTestDb({ seed: true });
+    saveMeasurement(db, input({ weightKg: 77, notes: 'rano, na czczo' }));
+    saveMeasurement(db, input({ systolic: 124, diastolic: 78 }));
+
+    expect(listMeasurements(db)[0].notes).toBe('rano, na czczo');
   });
 });
