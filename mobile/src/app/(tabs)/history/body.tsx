@@ -63,6 +63,13 @@ export default function BodyMeasurementsScreen() {
     .filter((m) => m.weightKg !== null)
     .map((m) => ({ date: m.measuredOn, value: m.weightKg! }));
 
+  // Obie wartości rysujemy tylko z pomiarów, które mają parę — pojedyncza liczba nie trafia
+  // do bazy, ale kopia zapasowa z innego źródła mogłaby taką przynieść.
+  const pressurePoints = [...measurements]
+    .reverse()
+    .filter((m) => m.systolic !== null && m.diastolic !== null)
+    .map((m) => ({ date: m.measuredOn, systolic: m.systolic!, diastolic: m.diastolic! }));
+
   const changeDate = (delta: number) => {
     const next = addDays(date, delta);
     setDate(next);
@@ -101,6 +108,42 @@ export default function BodyMeasurementsScreen() {
               formatValue={(value) => formatNumber(value, 1)}
               emptyMessage="Zapisz wagę z co najmniej dwóch dni, aby zobaczyć wykres."
             />
+          </View>
+
+          <View style={styles.section}>
+            <ThemedText type="smallBold" themeColor="textSecondary">
+              CIŚNIENIE
+            </ThemedText>
+            <LineChart
+              labels={pressurePoints.map((p) => shortDate(p.date))}
+              series={[
+                {
+                  name: 'Skurczowe',
+                  color: theme.chart1,
+                  values: pressurePoints.map((p) => p.systolic),
+                },
+                {
+                  name: 'Rozkurczowe',
+                  color: theme.chart2,
+                  values: pressurePoints.map((p) => p.diastolic),
+                },
+              ]}
+              formatValue={(value) => String(Math.round(value))}
+              emptyMessage="Zapisz ciśnienie z co najmniej dwóch dni, aby zobaczyć wykres."
+            />
+            <View style={styles.legend}>
+              {[
+                { label: 'Skurczowe', color: theme.chart1 },
+                { label: 'Rozkurczowe', color: theme.chart2 },
+              ].map((item) => (
+                <View key={item.label} style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: item.color }]} />
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {item.label}
+                  </ThemedText>
+                </View>
+              ))}
+            </View>
           </View>
 
           <View style={styles.section}>
@@ -209,6 +252,9 @@ const styles = StyleSheet.create({
   section: { gap: Spacing.two },
   dateRow: { flexDirection: 'row', gap: Spacing.two },
   fields: { gap: Spacing.two },
+  legend: { flexDirection: 'row', gap: Spacing.four },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
+  legendDot: { width: 10, height: 10, borderRadius: 5 },
   field: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   fieldLabel: { width: 108 },
   row: {
