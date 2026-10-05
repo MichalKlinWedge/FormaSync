@@ -46,6 +46,8 @@ export type MeasurementInput = {
   hipsCm: number | null;
   armCm: number | null;
   thighCm: number | null;
+  systolic: number | null;
+  diastolic: number | null;
   notes: string | null;
 };
 
@@ -59,7 +61,27 @@ const MEASURED_FIELDS = [
   'hipsCm',
   'armCm',
   'thighCm',
+  'systolic',
+  'diastolic',
 ] as const;
+
+/**
+ * Ciśnienie ma sens wyłącznie jako para. Pojedyncza liczba nic nie mówi, a odwrócona para
+ * (rozkurczowe wyższe od skurczowego) to prawie zawsze pomyłka w przepisywaniu z ciśnieniomierza.
+ */
+function validatePressure(systolic: number | null, diastolic: number | null): void {
+  if (systolic === null && diastolic === null) return;
+  if (systolic === null || diastolic === null) {
+    throw new MeasurementValidationError('Podaj obie wartości ciśnienia — skurczowe i rozkurczowe.');
+  }
+  if (systolic <= diastolic) {
+    throw new MeasurementValidationError('Ciśnienie skurczowe musi być wyższe od rozkurczowego.');
+  }
+  // Zakres szeroki celowo: ma wyłapywać literówki, a nie oceniać, co jest zdrowe.
+  if (systolic > 300 || diastolic > 200) {
+    throw new MeasurementValidationError('Takie ciśnienie to pewnie literówka — sprawdź wpisane liczby.');
+  }
+}
 
 /** Pomiary od najnowszego. */
 export function listMeasurements(db: SyncDb): BodyMeasurement[] {
@@ -82,6 +104,7 @@ export function saveMeasurement(db: SyncDb, input: MeasurementInput): number {
   if (input.bodyFatPercent !== null && input.bodyFatPercent > 100) {
     throw new MeasurementValidationError('Poziom tkanki tłuszczowej nie może przekraczać 100%.');
   }
+  validatePressure(input.systolic, input.diastolic);
 
   const values = { ...input, notes: input.notes?.trim() || null };
   return db.transaction((tx) => {

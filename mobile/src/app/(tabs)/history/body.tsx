@@ -30,6 +30,12 @@ const FIELDS: { key: keyof MeasurementInput; label: string; suffix: string; deci
   { key: 'thighCm', label: 'Udo', suffix: 'cm', decimal: true },
 ];
 
+/** Ciśnienie stoi osobno: to para liczb całkowitych w innej jednostce niż reszta pomiarów. */
+const PRESSURE_FIELDS: { key: 'systolic' | 'diastolic'; label: string }[] = [
+  { key: 'systolic', label: 'Skurczowe' },
+  { key: 'diastolic', label: 'Rozkurczowe' },
+];
+
 const emptyInput = (date: string): MeasurementInput => ({
   measuredOn: date,
   weightKg: null,
@@ -39,6 +45,8 @@ const emptyInput = (date: string): MeasurementInput => ({
   hipsCm: null,
   armCm: null,
   thighCm: null,
+  systolic: null,
+  diastolic: null,
   notes: null,
 });
 
@@ -122,6 +130,25 @@ export default function BodyMeasurementsScreen() {
               ))}
             </View>
 
+            <ThemedText type="small" themeColor="textSecondary">
+              CIŚNIENIE
+            </ThemedText>
+            <View style={styles.fields}>
+              {PRESSURE_FIELDS.map((field) => (
+                <View key={`${field.key}-${formKey}`} style={styles.field}>
+                  <ThemedText type="small" themeColor="textSecondary" style={styles.fieldLabel} numberOfLines={1}>
+                    {field.label}
+                  </ThemedText>
+                  <CompactNumberInput
+                    value={input[field.key] as number | null}
+                    suffix="mmHg"
+                    placeholder="–"
+                    onChange={(value) => setInput((current) => ({ ...current, [field.key]: value }))}
+                  />
+                </View>
+              ))}
+            </View>
+
             <Button label="Zapisz pomiar" icon="check" onPress={save} />
           </View>
 
@@ -159,14 +186,16 @@ export default function BodyMeasurementsScreen() {
 }
 
 function describe(measurement: Record<string, unknown>): string {
-  return (
-    FIELDS.map((field) => {
-      const value = measurement[field.key];
-      return typeof value === 'number' ? `${field.label} ${formatNumber(value, 1)} ${field.suffix}` : null;
-    })
-      .filter(Boolean)
-      .join(' · ') || 'brak wartości'
-  );
+  const parts = FIELDS.map((field) => {
+    const value = measurement[field.key];
+    return typeof value === 'number' ? `${field.label} ${formatNumber(value, 1)} ${field.suffix}` : null;
+  });
+  // Ciśnienie czyta się jako jedną wartość „120/80”, a nie jako dwie osobne liczby.
+  const { systolic, diastolic } = measurement;
+  if (typeof systolic === 'number' && typeof diastolic === 'number') {
+    parts.push(`Ciśnienie ${systolic}/${diastolic}`);
+  }
+  return parts.filter(Boolean).join(' · ') || 'brak wartości';
 }
 
 function shortDate(dateKey: string): string {

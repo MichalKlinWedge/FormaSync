@@ -50,6 +50,13 @@
       "when": 1791223662285,
       "tag": "0006_plan_garmin_workout",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1791229663515,
+      "tag": "0007_body_pressure",
+      "breakpoints": true
     }
   ]
 }

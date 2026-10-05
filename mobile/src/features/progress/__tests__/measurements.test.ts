@@ -1,0 +1,82 @@
+/**
+ * @jest-environment node
+ */
+import { describe, expect, it } from '@jest/globals';
+
+import { createTestDb } from '@/db/test-utils';
+
+import {
+  listMeasurements,
+  type MeasurementInput,
+  MeasurementValidationError,
+  saveMeasurement,
+} from '../repository';
+
+const input = (over: Partial<MeasurementInput> = {}): MeasurementInput => ({
+  measuredOn: '2026-10-05',
+  weightKg: null,
+  bodyFatPercent: null,
+  chestCm: null,
+  waistCm: null,
+  hipsCm: null,
+  armCm: null,
+  thighCm: null,
+  systolic: null,
+  diastolic: null,
+  notes: null,
+  ...over,
+});
+
+describe('ciśnienie w pomiarach', () => {
+  it('zapisuje się jako para i wraca z listy', () => {
+    const db = createTestDb({ seed: true });
+    saveMeasurement(db, input({ systolic: 124, diastolic: 78 }));
+
+    expect(listMeasurements(db)[0]).toMatchObject({ systolic: 124, diastolic: 78 });
+  });
+
+  it('samo ciśnienie wystarczy — nie trzeba ważyć się przy okazji', () => {
+    const db = createTestDb({ seed: true });
+    expect(() => saveMeasurement(db, input({ systolic: 120, diastolic: 80 }))).not.toThrow();
+  });
+
+  it('pojedyncza wartość to za mało', () => {
+    const db = createTestDb({ seed: true });
+    expect(() => saveMeasurement(db, input({ systolic: 120 }))).toThrow(MeasurementValidationError);
+    expect(() => saveMeasurement(db, input({ diastolic: 80 }))).toThrow(MeasurementValidationError);
+  });
+
+  it('odwrócona para to pomyłka przy przepisywaniu', () => {
+    const db = createTestDb({ seed: true });
+    expect(() => saveMeasurement(db, input({ systolic: 80, diastolic: 120 }))).toThrow(
+      /wyższe od rozkurczowego/,
+    );
+  });
+
+  it('równe wartości też nie mają sensu', () => {
+    const db = createTestDb({ seed: true });
+    expect(() => saveMeasurement(db, input({ systolic: 100, diastolic: 100 }))).toThrow(
+      MeasurementValidationError,
+    );
+  });
+
+  it('literówka w rzędzie wielkości jest zatrzymywana', () => {
+    const db = createTestDb({ seed: true });
+    expect(() => saveMeasurement(db, input({ systolic: 1200, diastolic: 80 }))).toThrow(/literówka/);
+  });
+
+  it('wartości skrajne, ale możliwe, przechodzą — to nie jest ocena zdrowia', () => {
+    const db = createTestDb({ seed: true });
+    expect(() => saveMeasurement(db, input({ systolic: 200, diastolic: 130 }))).not.toThrow();
+  });
+
+  it('pomiar z tą samą datą jest nadpisywany, a nie dublowany', () => {
+    const db = createTestDb({ seed: true });
+    saveMeasurement(db, input({ systolic: 124, diastolic: 78 }));
+    saveMeasurement(db, input({ systolic: 118, diastolic: 74 }));
+
+    const all = listMeasurements(db);
+    expect(all).toHaveLength(1);
+    expect(all[0]).toMatchObject({ systolic: 118, diastolic: 74 });
+  });
+});

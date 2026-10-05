@@ -329,6 +329,9 @@ export const bodyMeasurements = sqliteTable('body_measurements', {
   hipsCm: real('hips_cm'),
   armCm: real('arm_cm'),
   thighCm: real('thigh_cm'),
+  /** Ciśnienie mierzone własnym ciśnieniomierzem — osobno od odczytów z Health Connect. */
+  systolic: integer('systolic'),
+  diastolic: integer('diastolic'),
   notes: text('notes'),
 });
 

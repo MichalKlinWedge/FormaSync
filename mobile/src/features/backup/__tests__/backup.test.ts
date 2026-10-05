@@ -72,6 +72,8 @@ function populated() {
     hipsCm: null,
     armCm: null,
     thighCm: null,
+    systolic: 118,
+    diastolic: 76,
     notes: 'rano',
   });
 
