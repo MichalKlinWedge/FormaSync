@@ -3,6 +3,8 @@
  */
 import { describe, expect, it } from '@jest/globals';
 
+import type { Sport } from '@/db/schema';
+
 import {
   buildWorkoutPayload,
   EmptyPlanError,
@@ -178,11 +180,12 @@ describe('warunek końca odcinka', () => {
 });
 
 describe('dyscyplina', () => {
-  it.each([
+  const cases: [Sport, string][] = [
     ['RUNNING', 'running'],
     ['CYCLING', 'cycling'],
     ['SWIMMING', 'swimming'],
-  ] as const)('%s jedzie jako %s', (sport, key) => {
+  ];
+  it.each(cases)('%s jedzie jako %s', (sport, key) => {
     const payload = buildWorkoutPayload(
       plan({ sport, segments: [segment({ durationType: 'DISTANCE', distanceMeters: 100 })] }),
     ) as { sportType: { sportTypeKey: string } };

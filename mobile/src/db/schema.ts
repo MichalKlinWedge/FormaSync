@@ -81,6 +81,8 @@ export const workoutPlans = sqliteTable('workout_plans', {
   isTemplate: integer('is_template', { mode: 'boolean' }).notNull().default(false),
   // Szablon, z którego skopiowano plan (null dla planów tworzonych od zera).
   sourceTemplateId: integer('source_template_id'),
+  /** Identyfikator treningu w bibliotece Garmin Connect; null, gdy plan tam nie trafił. */
+  garminWorkoutId: text('garmin_workout_id'),
   createdAt: createdAt(),
   updatedAt: text('updated_at'),
 });

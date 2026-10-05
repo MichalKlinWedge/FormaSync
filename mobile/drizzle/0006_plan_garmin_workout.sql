@@ -1,0 +1,1 @@
+ALTER TABLE `workout_plans` ADD `garmin_workout_id` text;

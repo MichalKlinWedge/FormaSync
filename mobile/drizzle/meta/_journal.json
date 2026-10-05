@@ -43,6 +43,13 @@
       "when": 1791141770203,
       "tag": "0005_segments",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1791223662285,
+      "tag": "0006_plan_garmin_workout",
+      "breakpoints": true
     }
   ]
 }
