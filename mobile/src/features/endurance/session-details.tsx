@@ -3,7 +3,8 @@ import { type ReactNode, useState } from 'react';
 import { Alert, KeyboardAvoidingView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/button';
-import { RpeField } from '@/components/rpe-field';
+import { Chip } from '@/components/chip';
+import { RPE_VALUES } from '@/components/rpe-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -15,7 +16,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { formatDateTime } from '@/lib/date';
 
 import { SEGMENT_LABELS } from './draft';
-import { describeDuration, describeTarget, formatDistance, formatPace, formatSeconds, paceFrom } from './format';
+import { describeTarget, formatDistance, formatPace, formatSeconds, paceFrom } from './format';
 import { loadEnduranceSession, sessionTotals } from './session';
 
 type Props = { id: number; footer?: ReactNode };
@@ -99,19 +100,12 @@ export function EnduranceSessionDetails({ id, footer }: Props) {
                         .filter(Boolean)
                         .join(' · ')}
                     </ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary">
-                      cel:{' '}
-                      {[
-                        describeDuration(
-                          segment.durationType,
-                          segment.targetDistanceMeters,
-                          segment.targetDurationSeconds,
-                        ),
-                        describeTarget(segment.targetType, segment.targetLow, segment.targetHigh),
-                      ]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </ThemedText>
+                    {describeTarget(segment.targetType, segment.targetLow, segment.targetHigh) !==
+                      null && (
+                      <ThemedText type="small" themeColor="textSecondary">
+                        cel: {describeTarget(segment.targetType, segment.targetLow, segment.targetHigh)}
+                      </ThemedText>
+                    )}
                   </ThemedView>
                 );
               })
@@ -120,13 +114,25 @@ export function EnduranceSessionDetails({ id, footer }: Props) {
 
           <SessionHealth sessionId={id} startTime={session.startTime} />
 
-          <RpeField
-            value={rpe}
-            onChange={(value) => {
-              setRpe(value);
-              saveMeta({ rpeRating: value });
-            }}
-          />
+          <View style={styles.group}>
+            <ThemedText type="smallBold" themeColor="textSecondary">
+              OCENA RPE
+            </ThemedText>
+            <View style={styles.chips}>
+              {RPE_VALUES.map((value) => (
+                <Chip
+                  key={value}
+                  label={String(value)}
+                  selected={rpe === value}
+                  onPress={() => {
+                    const next = rpe === value ? null : value;
+                    setRpe(next);
+                    saveMeta({ rpeRating: next });
+                  }}
+                />
+              ))}
+            </View>
+          </View>
 
           <View style={styles.group}>
             <ThemedText type="smallBold" themeColor="textSecondary">
@@ -169,6 +175,7 @@ const styles = StyleSheet.create({
   stats: { flexDirection: 'row', gap: Spacing.two },
   stat: { flex: 1, borderRadius: 12, padding: Spacing.three, gap: Spacing.half },
   group: { gap: Spacing.two },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   card: { borderRadius: 12, padding: Spacing.three, gap: Spacing.half },
   input: { borderRadius: 12, padding: Spacing.three, minHeight: 90, textAlignVertical: 'top', fontSize: 16 },
 });

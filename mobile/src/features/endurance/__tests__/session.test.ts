@@ -9,6 +9,7 @@ import { abandonSession, finishSession, startSession } from '@/features/workout/
 
 import { createRepeatBlock, createSegment, emptyEnduranceDraft, updateSegment } from '../draft';
 import { saveEndurancePlan } from '../repository';
+import { paceFrom } from '../format';
 import { completeSegment, loadEnduranceSession, sessionTotals, uncompleteSegment } from '../session';
 
 function planWithIntervals(db: ReturnType<typeof createTestDb>, repeats = 3) {
@@ -68,6 +69,48 @@ describe('zapis odcinka', () => {
     const saved = loadEnduranceSession(db, sessionId)!.segments.find((s) => s.id === work.id)!;
     expect(saved.distanceMeters).toBe(420);
     expect(saved.durationSeconds).toBe(95);
+  });
+
+  it('mierzy czas odcinka zegarem, gdy plan go nie narzuca', () => {
+    const db = createTestDb({ seed: true });
+    const planId = planWithIntervals(db, 1);
+    const start = '2026-10-05T08:00:00.000Z';
+    const sessionId = startSession(db, { kind: 'plan', planId }, start);
+    const session = loadEnduranceSession(db, sessionId)!;
+    const [warmup, work] = session.segments;
+
+    // Rozgrzewka zatwierdzona po dziesięciu minutach od startu treningu.
+    completeSegment(db, warmup.id, {}, '2026-10-05T08:10:00.000Z');
+    // Odcinek na dystans zatwierdzony po kolejnych stu sekundach.
+    completeSegment(db, work.id, {}, '2026-10-05T08:11:40.000Z');
+
+    const saved = loadEnduranceSession(db, sessionId)!.segments;
+    expect(saved.find((s) => s.id === warmup.id)?.durationSeconds).toBe(600);
+    expect(saved.find((s) => s.id === work.id)?.durationSeconds).toBe(100);
+  });
+
+  it('zmierzony czas pozwala policzyć tempo odcinka na dystans', () => {
+    const db = createTestDb({ seed: true });
+    const sessionId = startSession(db, { kind: 'plan', planId: planWithIntervals(db, 1) }, '2026-10-05T08:00:00.000Z');
+    const work = loadEnduranceSession(db, sessionId)!.segments.find((s) => s.kind === 'WORK')!;
+
+    completeSegment(db, work.id, {}, '2026-10-05T08:01:36.000Z');
+
+    const saved = loadEnduranceSession(db, sessionId)!.segments.find((s) => s.id === work.id)!;
+    // 400 m w 96 s to 4:00 na kilometr.
+    expect(paceFrom(saved.distanceMeters, saved.durationSeconds)).toBe(240);
+  });
+
+  it('podany czas ma pierwszeństwo przed zmierzonym', () => {
+    const db = createTestDb({ seed: true });
+    const sessionId = startSession(db, { kind: 'plan', planId: planWithIntervals(db, 1) }, '2026-10-05T08:00:00.000Z');
+    const work = loadEnduranceSession(db, sessionId)!.segments.find((s) => s.kind === 'WORK')!;
+
+    completeSegment(db, work.id, { durationSeconds: 88 }, '2026-10-05T08:05:00.000Z');
+
+    expect(
+      loadEnduranceSession(db, sessionId)!.segments.find((s) => s.id === work.id)?.durationSeconds,
+    ).toBe(88);
   });
 
   it('cofnięcie zapisu zwalnia odcinek z powrotem', () => {

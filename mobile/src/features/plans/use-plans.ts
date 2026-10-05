@@ -2,7 +2,7 @@ import { asc, count, desc, eq } from 'drizzle-orm';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 
 import { db } from '@/db/client';
-import { exercises, planExercises, type Sport, workoutPlans } from '@/db/schema';
+import { exercises, planExercises, planSegments, type Sport, workoutPlans } from '@/db/schema';
 
 /** Plany i szablony wybranego sportu (szablony w kolejności seeda, własne od najnowszych). */
 export function usePlanList(sport?: Sport) {
@@ -21,7 +21,20 @@ export function usePlanList(sport?: Sport) {
       .groupBy(workoutPlans.id)
       .orderBy(desc(workoutPlans.isTemplate), asc(workoutPlans.id)),
   );
-  const ofSport = sport === undefined ? data : data.filter((p) => p.sport === sport);
+  // Plan wytrzymałościowy nie ma ćwiczeń, tylko odcinki — liczymy je osobno, bo złączenie
+  // dwóch tabel potomnych zwielokrotniłoby wiersze.
+  const { data: segmentCounts } = useLiveQuery(
+    db
+      .select({ planId: planSegments.planId, segmentCount: count(planSegments.id) })
+      .from(planSegments)
+      .groupBy(planSegments.planId),
+  );
+  const segmentsByPlan = new Map(segmentCounts.map((row) => [row.planId, row.segmentCount]));
+  const withCounts = data.map((plan) => ({
+    ...plan,
+    segmentCount: segmentsByPlan.get(plan.id) ?? 0,
+  }));
+  const ofSport = sport === undefined ? withCounts : withCounts.filter((p) => p.sport === sport);
   return {
     templates: ofSport.filter((p) => p.isTemplate),
     // Najnowsze własne plany na górze.

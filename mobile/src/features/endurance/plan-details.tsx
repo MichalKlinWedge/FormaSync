@@ -92,7 +92,7 @@ export function EndurancePlanDetails({ planId }: { planId: number }) {
               <View style={styles.itemText}>
                 <ThemedText type="smallBold">
                   {row.kind === 'REPEAT'
-                    ? `${row.repeatCount ?? 1}× powtórzeń`
+                    ? pluralWith(row.repeatCount ?? 1, 'powtórzenie', 'powtórzenia', 'powtórzeń')
                     : SEGMENT_LABELS[row.kind]}
                 </ThemedText>
                 {row.kind !== 'REPEAT' && (

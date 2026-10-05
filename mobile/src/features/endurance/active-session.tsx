@@ -182,7 +182,9 @@ function SegmentRow({ segment, current, onToggle, onChange }: SegmentRowProps) {
       </View>
 
       {(current || completed) && (
-        <View style={styles.pair}>
+        // Pola trzymają własny tekst, więc po zatwierdzeniu odcinka trzeba je przemontować —
+        // inaczej pokazywałyby pustkę, choć w zapisie jest już wartość z planu albo z zegara.
+        <View style={styles.pair} key={completed ? 'zapisany' : 'otwarty'}>
           <NumberField
             label="Dystans (m)"
             value={segment.distanceMeters}

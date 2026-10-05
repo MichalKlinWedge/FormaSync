@@ -6,7 +6,7 @@ import { count, eq } from 'drizzle-orm';
 
 import * as schema from '../schema';
 import { seedDatabase } from '../seed';
-import { seedExercises, seedTemplates } from '../seed-data';
+import { seedEnduranceTemplates, seedExercises, seedTemplates } from '../seed-data';
 import { createTestDb as createDb } from '../test-utils';
 
 describe('seedDatabase', () => {
@@ -16,10 +16,39 @@ describe('seedDatabase', () => {
 
     expect(db.select({ n: count() }).from(schema.exercises).get()?.n).toBe(seedExercises.length);
     const templates = db.select().from(schema.workoutPlans).where(eq(schema.workoutPlans.isTemplate, true)).all();
-    expect(templates.map((t) => t.title).sort()).toEqual(seedTemplates.map((t) => t.title).sort());
+    expect(templates.map((t) => t.title).sort()).toEqual(
+      [...seedTemplates, ...seedEnduranceTemplates].map((t) => t.title).sort(),
+    );
 
     const expectedPlanRows = seedTemplates.reduce((n, t) => n + t.exercises.length, 0);
     expect(db.select({ n: count() }).from(schema.planExercises).get()?.n).toBe(expectedPlanRows);
+
+    const expectedSegments = seedEnduranceTemplates.reduce((n, t) => n + t.segments.length, 0);
+    expect(db.select({ n: count() }).from(schema.planSegments).get()?.n).toBe(expectedSegments);
+  });
+
+  it('wiąże odcinki szablonu z jego grupą powtórzeń', () => {
+    const db = createDb();
+    seedDatabase(db);
+
+    const plan = db
+      .select()
+      .from(schema.workoutPlans)
+      .where(eq(schema.workoutPlans.title, 'Interwały 6×400 m'))
+      .get()!;
+    const segments = db
+      .select()
+      .from(schema.planSegments)
+      .where(eq(schema.planSegments.planId, plan.id))
+      .all();
+    const group = segments.find((segment) => segment.kind === 'REPEAT')!;
+
+    expect(plan.sport).toBe('RUNNING');
+    expect(group.repeatCount).toBe(6);
+    expect(segments.filter((segment) => segment.parentId === group.id).map((s) => s.kind).sort()).toEqual([
+      'RECOVERY',
+      'WORK',
+    ]);
   });
 
   it('jest idempotentne', () => {
@@ -35,6 +64,8 @@ describe('seedDatabase', () => {
     db.update(schema.appSettings).set({ value: '0' }).where(eq(schema.appSettings.key, 'seed_version')).run();
     expect(seedDatabase(db)).toBe(true);
     expect(db.select({ n: count() }).from(schema.exercises).get()?.n).toBe(seedExercises.length);
-    expect(db.select({ n: count() }).from(schema.workoutPlans).get()?.n).toBe(seedTemplates.length);
+    expect(db.select({ n: count() }).from(schema.workoutPlans).get()?.n).toBe(
+      seedTemplates.length + seedEnduranceTemplates.length,
+    );
   });
 });

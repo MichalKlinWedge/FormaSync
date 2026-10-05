@@ -4,6 +4,7 @@ import * as schema from './schema';
 import {
   SEED_VERSION,
   seedCategories,
+  seedEnduranceTemplates,
   seedEquipment,
   seedExercises,
   seedTemplates,
@@ -105,6 +106,38 @@ export function seedDatabase(db: SyncDb): boolean {
         })),
         )
         .run();
+    }
+
+    for (const t of seedEnduranceTemplates) {
+      if (existingTemplates.has(t.title)) continue;
+      const plan = tx
+        .insert(schema.workoutPlans)
+        .values({ sport: t.sport, title: t.title, description: t.description, isTemplate: true })
+        .returning({ id: schema.workoutPlans.id })
+        .get();
+
+      // Odcinek z `inRepeat` należy do ostatnio wstawionej grupy — tak samo jak w kreatorze.
+      let groupId: number | null = null;
+      t.segments.forEach((segment, orderIndex) => {
+        const row = tx
+          .insert(schema.planSegments)
+          .values({
+            planId: plan.id,
+            parentId: segment.inRepeat ? groupId : null,
+            orderIndex,
+            kind: segment.kind,
+            repeatCount: segment.repeatCount ?? null,
+            durationType: segment.durationType,
+            distanceMeters: segment.distanceMeters ?? null,
+            durationSeconds: segment.durationSeconds ?? null,
+            targetType: segment.targetType ?? 'NONE',
+            targetLow: segment.targetLow ?? null,
+            targetHigh: segment.targetHigh ?? null,
+          })
+          .returning({ id: schema.planSegments.id })
+          .get();
+        if (segment.kind === 'REPEAT') groupId = row.id;
+      });
     }
 
     tx.insert(schema.appSettings)

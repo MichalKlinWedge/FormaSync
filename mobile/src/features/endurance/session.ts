@@ -1,4 +1,4 @@
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq, isNotNull } from 'drizzle-orm';
 
 import * as schema from '@/db/schema';
 import type { SyncDb } from '@/db/types';
@@ -96,7 +96,11 @@ export type SegmentValues = {
   avgHeartRate?: number | null;
 };
 
-/** Zapisuje wykonanie odcinka. Puste pola uzupełniamy celem z planu — tak zwykle wychodzi. */
+/**
+ * Zapisuje wykonanie odcinka. Dystans bierzemy z planu, jeśli nikt go nie poprawił, a czas
+ * mierzymy zegarem — od zatwierdzenia poprzedniego odcinka, a dla pierwszego od startu treningu.
+ * Bez tego odcinek na dystans nie miałby czasu, a więc i tempa, czyli głównej liczby w bieganiu.
+ */
 export function completeSegment(
   db: SyncDb,
   loggedSegmentId: number,
@@ -119,12 +123,42 @@ export function completeSegment(
   db.update(schema.loggedSegments)
     .set({
       distanceMeters: values.distanceMeters ?? row.distanceMeters ?? segment?.distanceMeters ?? null,
-      durationSeconds: values.durationSeconds ?? row.durationSeconds ?? segment?.durationSeconds ?? null,
+      durationSeconds:
+        values.durationSeconds ??
+        row.durationSeconds ??
+        measuredSeconds(db, row.sessionId, now) ??
+        segment?.durationSeconds ??
+        null,
       avgHeartRate: values.avgHeartRate ?? row.avgHeartRate ?? null,
       completedAt: now,
     })
     .where(eq(schema.loggedSegments.id, loggedSegmentId))
     .run();
+}
+
+/** Czas od zatwierdzenia poprzedniego odcinka; dla pierwszego — od startu treningu. */
+function measuredSeconds(db: SyncDb, sessionId: number, now: string): number | null {
+  const session = db
+    .select({ startTime: schema.workoutSessions.startTime })
+    .from(schema.workoutSessions)
+    .where(eq(schema.workoutSessions.id, sessionId))
+    .get();
+  if (!session) return null;
+
+  const previous = db
+    .select({ completedAt: schema.loggedSegments.completedAt })
+    .from(schema.loggedSegments)
+    .where(and(eq(schema.loggedSegments.sessionId, sessionId), isNotNull(schema.loggedSegments.completedAt)))
+    .all()
+    .map((item) => item.completedAt)
+    .filter((at): at is string => at !== null)
+    .sort()
+    .at(-1);
+
+  const from = Date.parse(previous ?? session.startTime);
+  const seconds = Math.round((Date.parse(now) - from) / 1000);
+  // Dwa dotknięcia w tej samej sekundzie dałyby zero, co popsułoby tempo.
+  return seconds > 0 ? seconds : null;
 }
 
 /** Cofa zapis odcinka — pomyłka przy szybkim klikaniu w biegu zdarza się często. */

@@ -1,9 +1,9 @@
-import type { DifficultyLevel, TrackingType } from './schema';
+import type { DifficultyLevel, DurationType, SegmentKind, Sport, TargetType, TrackingType } from './schema';
 
 // Dane startowe: słowniki, katalog ćwiczeń i wbudowane szablony.
 // Zmiana zawartości wymaga podbicia SEED_VERSION (seed.ts dograje brakujące rekordy).
 
-export const SEED_VERSION = 1;
+export const SEED_VERSION = 2;
 
 export const seedCategories: { name: string; description: string }[] = [
   { name: 'Klatka piersiowa', description: 'Mięsień piersiowy większy i mniejszy' },
@@ -583,6 +583,88 @@ export type SeedTemplate = {
   description: string;
   exercises: SeedTemplateExercise[];
 };
+
+/**
+ * Szablony wytrzymałościowe. Odcinki opisujemy płasko; odcinki należące do grupy powtórzeń
+ * idą zaraz po niej i mają `inRepeat: true`, bo dwa poziomy zagnieżdżenia wystarczą.
+ */
+export type SeedSegment = {
+  kind: SegmentKind;
+  inRepeat?: boolean;
+  repeatCount?: number;
+  durationType: DurationType;
+  distanceMeters?: number;
+  durationSeconds?: number;
+  targetType?: TargetType;
+  targetLow?: number;
+  targetHigh?: number;
+};
+
+export type SeedEnduranceTemplate = {
+  sport: Sport;
+  title: string;
+  description: string;
+  segments: SeedSegment[];
+};
+
+export const seedEnduranceTemplates: SeedEnduranceTemplate[] = [
+  {
+    sport: 'RUNNING',
+    title: 'Wybieganie spokojne',
+    description: 'Bieg ciągły w tempie konwersacyjnym. Podstawa objętości w każdym planie.',
+    segments: [
+      { kind: 'WARMUP', durationType: 'TIME', durationSeconds: 600 },
+      { kind: 'WORK', durationType: 'DISTANCE', distanceMeters: 8000, targetType: 'HEART_RATE', targetLow: 120, targetHigh: 145 },
+      { kind: 'COOLDOWN', durationType: 'TIME', durationSeconds: 300 },
+    ],
+  },
+  {
+    sport: 'RUNNING',
+    title: 'Interwały 6×400 m',
+    description: 'Akcent szybkościowy. Odcinki mocno, przerwy truchtem — nie na stojąco.',
+    segments: [
+      { kind: 'WARMUP', durationType: 'TIME', durationSeconds: 900 },
+      { kind: 'REPEAT', repeatCount: 6, durationType: 'OPEN' },
+      { kind: 'WORK', inRepeat: true, durationType: 'DISTANCE', distanceMeters: 400, targetType: 'PACE', targetLow: 240, targetHigh: 270 },
+      { kind: 'RECOVERY', inRepeat: true, durationType: 'TIME', durationSeconds: 120 },
+      { kind: 'COOLDOWN', durationType: 'TIME', durationSeconds: 600 },
+    ],
+  },
+  {
+    sport: 'RUNNING',
+    title: 'Podbiegi 8×30 s',
+    description: 'Siła biegowa. Pod górę mocno, z powrotem spokojnym truchtem.',
+    segments: [
+      { kind: 'WARMUP', durationType: 'TIME', durationSeconds: 900 },
+      { kind: 'REPEAT', repeatCount: 8, durationType: 'OPEN' },
+      { kind: 'WORK', inRepeat: true, durationType: 'TIME', durationSeconds: 30 },
+      { kind: 'RECOVERY', inRepeat: true, durationType: 'TIME', durationSeconds: 120 },
+      { kind: 'COOLDOWN', durationType: 'TIME', durationSeconds: 600 },
+    ],
+  },
+  {
+    sport: 'CYCLING',
+    title: 'Rower — jazda ciągła',
+    description: 'Spokojna jazda w drugiej strefie tętna. Buduje bazę tlenową.',
+    segments: [
+      { kind: 'WARMUP', durationType: 'TIME', durationSeconds: 600 },
+      { kind: 'WORK', durationType: 'TIME', durationSeconds: 3600, targetType: 'HEART_RATE', targetLow: 120, targetHigh: 150 },
+      { kind: 'COOLDOWN', durationType: 'TIME', durationSeconds: 300 },
+    ],
+  },
+  {
+    sport: 'SWIMMING',
+    title: 'Pływanie 10×100 m',
+    description: 'Odcinki na basenie z krótką przerwą na ścianie.',
+    segments: [
+      { kind: 'WARMUP', durationType: 'DISTANCE', distanceMeters: 400 },
+      { kind: 'REPEAT', repeatCount: 10, durationType: 'OPEN' },
+      { kind: 'WORK', inRepeat: true, durationType: 'DISTANCE', distanceMeters: 100 },
+      { kind: 'RECOVERY', inRepeat: true, durationType: 'TIME', durationSeconds: 30 },
+      { kind: 'COOLDOWN', durationType: 'DISTANCE', distanceMeters: 200 },
+    ],
+  },
+];
 
 export const seedTemplates: SeedTemplate[] = [
   {

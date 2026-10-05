@@ -136,7 +136,7 @@ export default function EnduranceEditorScreen() {
               onPress={() => setSegments((s) => [...s, createSegment('WARMUP')])}
             />
             <Chip
-              label="+ Interwały"
+              label="+ Powtórzenia"
               selected={false}
               onPress={() => setSegments((s) => [...s, ...createRepeatBlock()])}
             />

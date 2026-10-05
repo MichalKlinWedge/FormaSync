@@ -63,11 +63,14 @@ export default function PlansScreen() {
             )}
           </Section>
 
-          <Section title="Szablony">
-            {templates.map((plan) => (
-              <PlanCard key={plan.id} plan={plan} />
-            ))}
-          </Section>
+          {/* Dyscyplina bez szablonów nie potrzebuje pustego nagłówka. */}
+          {templates.length > 0 && (
+            <Section title="Szablony">
+              {templates.map((plan) => (
+                <PlanCard key={plan.id} plan={plan} />
+              ))}
+            </Section>
+          )}
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -99,7 +102,9 @@ function PlanCard({ plan }: { plan: PlanSummary }) {
           </ThemedText>
         )}
         <ThemedText type="small" themeColor="textSecondary">
-          {pluralWith(plan.exerciseCount, 'ćwiczenie', 'ćwiczenia', 'ćwiczeń')}
+          {isEndurance(plan.sport)
+            ? pluralWith(plan.segmentCount, 'odcinek', 'odcinki', 'odcinków')
+            : pluralWith(plan.exerciseCount, 'ćwiczenie', 'ćwiczenia', 'ćwiczeń')}
         </ThemedText>
       </View>
       <Icon name="chevron_right" size={20} color={theme.textSecondary} />

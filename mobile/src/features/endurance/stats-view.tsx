@@ -54,7 +54,7 @@ export function EnduranceStats({ sport }: { sport: Sport }) {
         {weeks.map((week) => (
           <View key={week.weekKey} style={styles.barRow}>
             <ThemedText type="small" themeColor="textSecondary" style={styles.barLabel}>
-              {formatDate(week.weekKey).slice(0, 5)}
+              {shortDay(week.weekKey)}
             </ThemedText>
             <View style={[styles.barTrack, { backgroundColor: theme.backgroundElement }]}>
               <View
@@ -100,6 +100,12 @@ export function EnduranceStats({ sport }: { sport: Sport }) {
   );
 }
 
+/** „2026-09-28” → „28.09”: krótko, bez skracanej nazwy miesiąca, która się nie mieści. */
+function shortDay(dayKey: string): string {
+  const [, month, day] = dayKey.split('-');
+  return `${day}.${month}`;
+}
+
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <ThemedView type="backgroundElement" style={styles.stat}>
@@ -119,7 +125,7 @@ const styles = StyleSheet.create({
   group: { gap: Spacing.two },
   card: { borderRadius: 12, padding: Spacing.three, gap: Spacing.half },
   barRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  barLabel: { width: 42 },
+  barLabel: { width: 52 },
   barTrack: { flex: 1, height: 14, borderRadius: 7, overflow: 'hidden' },
   barFill: { height: '100%', borderRadius: 7 },
   barValue: { width: 64, textAlign: 'right' },
