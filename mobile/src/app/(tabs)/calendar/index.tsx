@@ -66,21 +66,24 @@ export default function CalendarScreen() {
           </View>
 
           {/* Pełny wybór dyscypliny, a nie tylko „ta wybrana gdzie indziej” — do kalendarza
-              zagląda się po to, żeby zobaczyć sam rower albo samo pływanie. */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chips}>
+              zagląda się po to, żeby zobaczyć sam rower albo samo pływanie. „Wszystkie” stoi
+              poza przewijaniem, bo to powrót do pełnego widoku i musi być zawsze pod ręką. */}
+          <View style={styles.filterRow}>
             <Chip label="Wszystkie" selected={filter === null} onPress={() => setFilter(null)} />
-            {sports.map((item) => (
-              <Chip
-                key={item}
-                label={SPORT_LABELS[item]}
-                selected={filter === item}
-                onPress={() => setFilter(item)}
-              />
-            ))}
-          </ScrollView>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.chips}>
+              {sports.map((item) => (
+                <Chip
+                  key={item}
+                  label={SPORT_LABELS[item]}
+                  selected={filter === item}
+                  onPress={() => setFilter(item)}
+                />
+              ))}
+            </ScrollView>
+          </View>
 
           <View style={styles.monthBar}>
             <Pressable
@@ -240,7 +243,8 @@ const styles = StyleSheet.create({
   content: { padding: Spacing.four, gap: Spacing.three, paddingBottom: BottomTabInset + Spacing.four },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   monthBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  chips: { flexDirection: 'row', gap: Spacing.two },
+  filterRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  chips: { flexDirection: 'row', gap: Spacing.two, paddingRight: Spacing.four },
   weekdays: { flexDirection: 'row' },
   weekdayCell: { flex: 1, textAlign: 'center' },
   grid: { gap: Spacing.one },
