@@ -18,11 +18,12 @@ function getActiveSport(): Sport {
 
 type SportState = {
   sport: Sport;
-  /** Czy kalendarz pokazuje wszystkie sporty, czy tylko wybrany. Nie zapisujemy tego
-   *  w ustawieniach — to wybór na chwilę, inny przy przeglądaniu niż przy planowaniu. */
-  calendarShowsAll: boolean;
+  /** Dyscyplina pokazywana w kalendarzu; null to wszystkie. Nie zapisujemy tego w ustawieniach —
+   *  to wybór na chwilę, inny przy przeglądaniu niż przy planowaniu, i niezależny od tego,
+   *  na jakiej dyscyplinie stoją pozostałe zakładki. */
+  calendarSport: Sport | null;
   select: (sport: Sport) => void;
-  setCalendarShowsAll: (all: boolean) => void;
+  setCalendarSport: (sport: Sport | null) => void;
   /** Wczytuje zapisany wybór po migracjach — przy starcie modułu bazy jeszcze nie ma. */
   hydrate: () => void;
 };
@@ -33,12 +34,12 @@ type SportState = {
  */
 export const useSportStore = create<SportState>((set) => ({
   sport: getActiveSport(),
-  calendarShowsAll: true,
+  calendarSport: null,
   select: (sport) => {
     setSetting(db, ACTIVE_SPORT_KEY, sport);
     set({ sport });
   },
-  setCalendarShowsAll: (calendarShowsAll) => set({ calendarShowsAll }),
+  setCalendarSport: (calendarSport) => set({ calendarSport }),
   hydrate: () => set({ sport: getActiveSport() }),
 }));
 

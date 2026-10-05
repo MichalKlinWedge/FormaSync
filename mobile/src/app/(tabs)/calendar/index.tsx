@@ -10,11 +10,12 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
+import { sports } from '@/db/schema';
 import { syncWorkoutReminders } from '@/features/calendar/reminders';
 import { deleteScheduled, type ScheduledEntry, type ScheduleStatus } from '@/features/calendar/repository';
 import { groupByDay, useScheduledRange } from '@/features/calendar/use-calendar';
 import { SPORT_ICONS, SPORT_LABELS } from '@/features/sports/sport';
-import { useActiveSport, useSportStore } from '@/features/sports/sport-store';
+import { useSportStore } from '@/features/sports/sport-store';
 import { ensureNotificationPermission } from '@/features/workout/notifications';
 import { ActiveSessionExistsError, startSession } from '@/features/workout/repository';
 import { useTheme } from '@/hooks/use-theme';
@@ -33,9 +34,8 @@ export default function CalendarScreen() {
   const theme = useTheme();
   const today = todayKey();
   const [selected, setSelected] = useState(today);
-  const sport = useActiveSport();
-  const showsAll = useSportStore((state) => state.calendarShowsAll);
-  const setShowsAll = useSportStore((state) => state.setCalendarShowsAll);
+  const filter = useSportStore((state) => state.calendarSport);
+  const setFilter = useSportStore((state) => state.setCalendarSport);
   const [view, setView] = useState(() => {
     const d = fromDateKey(today);
     return { year: d.getFullYear(), month: d.getMonth() };
@@ -44,7 +44,7 @@ export default function CalendarScreen() {
   const weeks = monthGrid(view.year, view.month);
   const all = useScheduledRange(weeks[0][0], weeks.at(-1)![6]);
   // Kalendarz jest wspólny dla wszystkich dyscyplin; zawężenie to wybór na chwilę, nie ustawienie.
-  const entries = showsAll ? all : all.filter((entry) => entry.sport === sport);
+  const entries = filter === null ? all : all.filter((entry) => entry.sport === filter);
   const byDay = groupByDay(entries);
   const selectedEntries = byDay.get(selected) ?? [];
 
@@ -65,10 +65,22 @@ export default function CalendarScreen() {
             </Pressable>
           </View>
 
-          <View style={styles.chips}>
-            <Chip label="Wszystkie sporty" selected={showsAll} onPress={() => setShowsAll(true)} />
-            <Chip label={SPORT_LABELS[sport]} selected={!showsAll} onPress={() => setShowsAll(false)} />
-          </View>
+          {/* Pełny wybór dyscypliny, a nie tylko „ta wybrana gdzie indziej” — do kalendarza
+              zagląda się po to, żeby zobaczyć sam rower albo samo pływanie. */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chips}>
+            <Chip label="Wszystkie" selected={filter === null} onPress={() => setFilter(null)} />
+            {sports.map((item) => (
+              <Chip
+                key={item}
+                label={SPORT_LABELS[item]}
+                selected={filter === item}
+                onPress={() => setFilter(item)}
+              />
+            ))}
+          </ScrollView>
 
           <View style={styles.monthBar}>
             <Pressable
