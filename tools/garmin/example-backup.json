@@ -27,12 +27,24 @@
       {
         "id": 10,
         "title": "Mój plan",
-        "isTemplate": false
+        "isTemplate": false,
+        "sport": "STRENGTH"
       },
       {
         "id": 11,
         "title": "FBW",
-        "isTemplate": true
+        "isTemplate": true,
+        "sport": "STRENGTH"
+      },
+      {
+        "id": 12,
+        "sport": "RUNNING",
+        "title": "Interwały 5×400",
+        "description": "Wtorkowy akcent",
+        "isTemplate": false,
+        "sourceTemplateId": null,
+        "createdAt": "2026-10-04T18:00:00.000Z",
+        "updatedAt": null
       }
     ],
     "plan_exercises": [
@@ -92,6 +104,85 @@
         "planId": 10,
         "scheduledDate": "2026-10-07"
       }
-    ]
+    ],
+    "plan_segments": [
+      {
+        "id": 1,
+        "planId": 12,
+        "parentId": null,
+        "orderIndex": 0,
+        "kind": "WARMUP",
+        "repeatCount": null,
+        "durationType": "TIME",
+        "distanceMeters": null,
+        "durationSeconds": 600,
+        "targetType": "NONE",
+        "targetLow": null,
+        "targetHigh": null,
+        "notes": null
+      },
+      {
+        "id": 2,
+        "planId": 12,
+        "parentId": null,
+        "orderIndex": 1,
+        "kind": "REPEAT",
+        "repeatCount": 5,
+        "durationType": "OPEN",
+        "distanceMeters": null,
+        "durationSeconds": null,
+        "targetType": "NONE",
+        "targetLow": null,
+        "targetHigh": null,
+        "notes": null
+      },
+      {
+        "id": 3,
+        "planId": 12,
+        "parentId": 2,
+        "orderIndex": 2,
+        "kind": "WORK",
+        "repeatCount": null,
+        "durationType": "DISTANCE",
+        "distanceMeters": 400,
+        "durationSeconds": null,
+        "targetType": "PACE",
+        "targetLow": 240,
+        "targetHigh": 255,
+        "notes": null
+      },
+      {
+        "id": 4,
+        "planId": 12,
+        "parentId": 2,
+        "orderIndex": 3,
+        "kind": "RECOVERY",
+        "repeatCount": null,
+        "durationType": "TIME",
+        "distanceMeters": null,
+        "durationSeconds": 90,
+        "targetType": "NONE",
+        "targetLow": null,
+        "targetHigh": null,
+        "notes": null
+      },
+      {
+        "id": 5,
+        "planId": 12,
+        "parentId": null,
+        "orderIndex": 4,
+        "kind": "COOLDOWN",
+        "repeatCount": null,
+        "durationType": "TIME",
+        "distanceMeters": null,
+        "durationSeconds": 600,
+        "targetType": "HEART_RATE",
+        "targetLow": 120,
+        "targetHigh": 140,
+        "notes": null
+      }
+    ],
+    "session_segments": [],
+    "logged_segments": []
   }
 }

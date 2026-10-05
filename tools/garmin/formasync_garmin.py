@@ -27,9 +27,12 @@ try:
     from garminconnect import Garmin
     from garminconnect.workout import (
         ConditionType,
+        CyclingWorkout,
         ExecutableStep,
+        RunningWorkout,
         StepType,
         StrengthWorkout,
+        SwimmingWorkout,
         TargetType,
         WEIGHT_UNIT_KILOGRAM,
         WorkoutSegment,
@@ -66,7 +69,9 @@ class PlanExercise:
 class Plan:
     plan_id: int
     title: str
+    sport: str
     exercises: list[PlanExercise]
+    segments: list["Segment"]
     """Daty z kalendarza aplikacji (YYYY-MM-DD), na które plan jest zaplanowany."""
     scheduled_dates: list[str]
 
@@ -95,6 +100,10 @@ def load_backup(path: Path) -> list[Plan]:
     for row in tables.get("plan_exercises", []):
         by_plan[field(row, "planId", "plan_id")].append(row)
 
+    segments_by_plan: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    for row in tables.get("plan_segments", []):
+        segments_by_plan[field(row, "planId", "plan_id")].append(row)
+
     schedule: dict[int, list[str]] = defaultdict(list)
     for row in tables.get("scheduled_workouts", []):
         schedule[field(row, "planId", "plan_id")].append(field(row, "scheduledDate", "scheduled_date"))
@@ -104,18 +113,46 @@ def load_backup(path: Path) -> list[Plan]:
         # Szablony wbudowane pomijamy — do Garmina trafiają tylko własne plany.
         if field(plan_row, "isTemplate", "is_template"):
             continue
+        sport = field(plan_row, "sport", default="STRENGTH") or "STRENGTH"
         items = sorted(by_plan.get(plan_row["id"], []), key=lambda r: field(r, "orderIndex", "order_index", default=0))
-        if not items:
+        segments = _to_segments(segments_by_plan.get(plan_row["id"], []))
+        # Plan bez treści nie ma czego wysłać.
+        if not items and not segments:
             continue
         plans.append(
             Plan(
                 plan_id=plan_row["id"],
                 title=plan_row["title"],
+                sport=sport,
                 exercises=[_to_exercise(item, exercises) for item in items],
+                segments=segments,
                 scheduled_dates=sorted(set(schedule.get(plan_row["id"], []))),
             )
         )
     return plans
+
+
+def _to_segments(rows: list[dict[str, Any]]) -> list[Segment]:
+    """Płaska lista z kopii zapasowej z powrotem w drzewo: grupa i jej wnętrze."""
+    ordered = sorted(rows, key=lambda r: field(r, "orderIndex", "order_index", default=0))
+    by_parent: dict[Any, list[dict[str, Any]]] = defaultdict(list)
+    for row in ordered:
+        by_parent[field(row, "parentId", "parent_id")].append(row)
+
+    def build(row: dict[str, Any]) -> Segment:
+        return Segment(
+            kind=field(row, "kind", default="WORK"),
+            repeat_count=field(row, "repeatCount", "repeat_count"),
+            duration_type=field(row, "durationType", "duration_type", default="OPEN"),
+            distance_meters=field(row, "distanceMeters", "distance_meters"),
+            duration_seconds=field(row, "durationSeconds", "duration_seconds"),
+            target_type=field(row, "targetType", "target_type", default="NONE"),
+            target_low=field(row, "targetLow", "target_low"),
+            target_high=field(row, "targetHigh", "target_high"),
+            children=[build(child) for child in by_parent.get(row["id"], [])],
+        )
+
+    return [build(row) for row in by_parent.get(None, [])]
 
 
 def _to_exercise(item: dict[str, Any], exercises: dict[int, dict[str, Any]]) -> PlanExercise:
@@ -130,6 +167,172 @@ def _to_exercise(item: dict[str, Any], exercises: dict[int, dict[str, Any]]) -> 
         duration_seconds=field(item, "targetDurationSeconds", "target_duration_seconds"),
         rest_seconds=field(item, "restDurationSeconds", "rest_duration_seconds", default=0) or 0,
     )
+
+
+@dataclass
+class Segment:
+    """Odcinek planu wytrzymałościowego. Grupa powtórzeń trzyma swoje wnętrze w `children`."""
+
+    kind: str
+    repeat_count: int | None
+    duration_type: str
+    distance_meters: float | None
+    duration_seconds: int | None
+    target_type: str
+    target_low: float | None
+    target_high: float | None
+    children: list["Segment"]
+
+
+SPORT_RUNNING = {"sportTypeId": 1, "sportTypeKey": "running", "displayOrder": 1}
+SPORT_CYCLING = {"sportTypeId": 2, "sportTypeKey": "cycling", "displayOrder": 2}
+SPORT_SWIMMING = {"sportTypeId": 4, "sportTypeKey": "swimming", "displayOrder": 5}
+
+ENDURANCE_SPORTS = {
+    "RUNNING": (SPORT_RUNNING, RunningWorkout),
+    "CYCLING": (SPORT_CYCLING, CyclingWorkout),
+    "SWIMMING": (SPORT_SWIMMING, SwimmingWorkout),
+}
+
+NO_TARGET = {"workoutTargetTypeId": 1, "workoutTargetTypeKey": "no.target", "displayOrder": 1}
+PACE_TARGET = {"workoutTargetTypeId": 6, "workoutTargetTypeKey": "pace.zone", "displayOrder": 6}
+HR_TARGET = {"workoutTargetTypeId": 4, "workoutTargetTypeKey": "heart.rate.zone", "displayOrder": 4}
+
+
+def target_fields(segment: Segment) -> dict[str, Any]:
+    """
+    Cel odcinka w zapisie Garmina. Tempo podajemy mu jako prędkość w metrach na sekundę,
+    a nie jako sekundy na kilometr — pomylenie tych dwóch daje trening bez sensu, bo zakres
+    wychodzi wtedy setki razy za duży.
+    """
+    if segment.target_type == "PACE" and segment.target_low and segment.target_high:
+        return {
+            "targetType": dict(PACE_TARGET),
+            # Wyższa liczba sekund to wolniejszy bieg, więc dolna granica prędkości bierze się
+            # z górnej granicy tempa.
+            "targetValueOne": round(1000 / segment.target_high, 4),
+            "targetValueTwo": round(1000 / segment.target_low, 4),
+        }
+    if segment.target_type == "HEART_RATE" and segment.target_low and segment.target_high:
+        return {
+            "targetType": dict(HR_TARGET),
+            "targetValueOne": segment.target_low,
+            "targetValueTwo": segment.target_high,
+        }
+    return {"targetType": dict(NO_TARGET)}
+
+
+STEP_TYPES = {
+    "WARMUP": {"stepTypeId": 1, "stepTypeKey": "warmup", "displayOrder": 1},
+    "COOLDOWN": {"stepTypeId": 2, "stepTypeKey": "cooldown", "displayOrder": 2},
+    "WORK": {"stepTypeId": 3, "stepTypeKey": "interval", "displayOrder": 3},
+    "RECOVERY": {"stepTypeId": 4, "stepTypeKey": "recovery", "displayOrder": 4},
+}
+
+END_DISTANCE = {"conditionTypeId": 3, "conditionTypeKey": "distance", "displayOrder": 3, "displayable": True}
+END_TIME = {"conditionTypeId": 2, "conditionTypeKey": "time", "displayOrder": 2, "displayable": True}
+END_OPEN = {"conditionTypeId": 1, "conditionTypeKey": "lap.button", "displayOrder": 1, "displayable": True}
+
+
+def endurance_step(segment: Segment, step_order: int) -> ExecutableStep:
+    """Pojedynczy odcinek jako krok treningu. Odcinek otwarty kończy przycisk na zegarku."""
+    if segment.duration_type == "DISTANCE" and segment.distance_meters:
+        end, value = END_DISTANCE, float(segment.distance_meters)
+    elif segment.duration_type == "TIME" and segment.duration_seconds:
+        end, value = END_TIME, float(segment.duration_seconds)
+    else:
+        end, value = END_OPEN, 0.0
+
+    return ExecutableStep(
+        stepOrder=step_order,
+        stepType=dict(STEP_TYPES.get(segment.kind, STEP_TYPES["WORK"])),
+        endCondition=dict(end),
+        endConditionValue=value,
+        **target_fields(segment),
+    )
+
+
+def build_endurance_workout(plan: Plan) -> Any:
+    sport_type, workout_class = ENDURANCE_SPORTS[plan.sport]
+    steps: list[Any] = []
+    order = 1
+    for segment in plan.segments:
+        if segment.kind == "REPEAT":
+            inside = []
+            group_order = order
+            order += 1
+            for child in segment.children:
+                inside.append(endurance_step(child, order))
+                order += 1
+            steps.append(create_repeat_group(max(segment.repeat_count or 1, 1), inside, group_order))
+        else:
+            steps.append(endurance_step(segment, order))
+            order += 1
+
+    return workout_class(
+        workoutName=plan.title[:80],
+        estimatedDurationInSecs=0,
+        workoutSegments=[
+            WorkoutSegment(segmentOrder=1, sportType=dict(sport_type), workoutSteps=steps)
+        ],
+    )
+
+
+def format_pace(seconds_per_km: float) -> str:
+    minutes, seconds = divmod(int(round(seconds_per_km)), 60)
+    return f"{minutes}:{seconds:02d}/km"
+
+
+def describe_segment(segment: Segment) -> str:
+    if segment.duration_type == "DISTANCE" and segment.distance_meters:
+        what = f"{int(segment.distance_meters)} m"
+    elif segment.duration_type == "TIME" and segment.duration_seconds:
+        what = f"{segment.duration_seconds} s"
+    else:
+        what = "do decyzji"
+
+    if segment.target_type == "PACE" and segment.target_low and segment.target_high:
+        target = f", tempo {format_pace(segment.target_low)}–{format_pace(segment.target_high)}"
+    elif segment.target_type == "HEART_RATE" and segment.target_low and segment.target_high:
+        target = f", tętno {int(segment.target_low)}–{int(segment.target_high)}"
+    else:
+        target = ""
+
+    return f"{SEGMENT_LABELS.get(segment.kind, segment.kind)}: {what}{target}"
+
+
+SEGMENT_LABELS = {
+    "WARMUP": "Rozgrzewka",
+    "WORK": "Praca",
+    "RECOVERY": "Przerwa",
+    "COOLDOWN": "Schłodzenie",
+    "REPEAT": "Powtórzenia",
+}
+
+SPORT_LABELS = {
+    "STRENGTH": "siła",
+    "RUNNING": "bieganie",
+    "CYCLING": "rower",
+    "SWIMMING": "pływanie",
+}
+
+
+def describe_endurance(plan: Plan) -> str:
+    count = len(plan.segments)
+    lines = [
+        f"{plan.title}  [{SPORT_LABELS.get(plan.sport, plan.sport)}, "
+        f"{count} {plural(count, 'odcinek', 'odcinki', 'odcinków')}]"
+    ]
+    for segment in plan.segments:
+        if segment.kind == "REPEAT":
+            lines.append(f"   - ×{segment.repeat_count or 1}:")
+            for child in segment.children:
+                lines.append(f"        {describe_segment(child)}")
+        else:
+            lines.append(f"   - {describe_segment(segment)}")
+    if plan.scheduled_dates:
+        lines.append(f"   terminy: {', '.join(plan.scheduled_dates)}")
+    return "\n".join(lines)
 
 
 # --- Budowa treningu ----------------------------------------------------------
@@ -167,7 +370,11 @@ def timed_exercise_step(
     )
 
 
-def build_workout(plan: Plan) -> StrengthWorkout:
+def build_workout(plan: Plan) -> Any:
+    """Trening w zapisie Garmina. Siła ma serie i ciężar, reszta — odcinki dystansu i czasu."""
+    if plan.sport in ENDURANCE_SPORTS:
+        return build_endurance_workout(plan)
+
     steps: list[Any] = []
     order = 1
     for exercise in plan.exercises:
@@ -199,6 +406,41 @@ def build_workout(plan: Plan) -> StrengthWorkout:
     )
 
 
+def describe_saved_step(step: dict[str, Any]) -> str:
+    """Krok odczytany z Garmina. Odpowiedź serwera mówi, co zapisał, a nie co wysłaliśmy."""
+    kind = (step.get("stepType") or {}).get("stepTypeKey", "?")
+    end = (step.get("endCondition") or {}).get("conditionTypeKey", "?")
+    value = step.get("endConditionValue") or 0
+    if end == "distance":
+        what = f"{int(value)} m"
+    elif end == "time":
+        what = f"{int(value)} s"
+    elif end == "reps":
+        what = f"{int(value)} powt."
+    else:
+        what = end
+
+    extras = []
+    category = step.get("category")
+    if category:
+        extras.append(str(category))
+    weight = step.get("weightValue")
+    if weight:
+        extras.append(f"{weight / 1000:g} kg")
+    target = (step.get("targetType") or {}).get("workoutTargetTypeKey")
+    if target and target != "no.target":
+        one, two = step.get("targetValueOne"), step.get("targetValueTwo")
+        if target == "pace.zone" and one and two:
+            # Garmin oddaje prędkość w metrach na sekundę — wracamy do tempa.
+            extras.append(f"tempo {format_pace(1000 / two)}–{format_pace(1000 / one)}")
+        elif one and two:
+            extras.append(f"{target} {int(one)}–{int(two)}")
+        else:
+            extras.append(str(target))
+
+    return f"{kind} {what}" + (", " + ", ".join(extras) if extras else "")
+
+
 def plural(count: int, one: str, few: str, many: str) -> str:
     """Polska odmiana: 1 ćwiczenie, 2 ćwiczenia, 5 ćwiczeń."""
     last_two, last = count % 100, count % 10
@@ -210,6 +452,9 @@ def plural(count: int, one: str, few: str, many: str) -> str:
 
 
 def describe(plan: Plan) -> str:
+    if plan.sport in ENDURANCE_SPORTS:
+        return describe_endurance(plan)
+
     count = len(plan.exercises)
     lines = [f"{plan.title}  ({count} {plural(count, 'ćwiczenie', 'ćwiczenia', 'ćwiczeń')})"]
     for exercise in plan.exercises:
@@ -327,7 +572,7 @@ def cmd_upload(args: argparse.Namespace) -> None:
         print(describe(plan))
         print()
 
-    missing = [e.name for plan in plans for e in plan.exercises if not e.category]
+    missing = [e.name for plan in plans if plan.sport == "STRENGTH" for e in plan.exercises if not e.category]
     if missing:
         print(f"Uwaga: bez kategorii Garmin ({len(missing)}): {', '.join(sorted(set(missing)))}")
         print("Takie ćwiczenia trafią na zegarek jako nieokreślone.\n")
@@ -352,17 +597,15 @@ def cmd_upload(args: argparse.Namespace) -> None:
         saved = api.get_workout_by_id(workout_id)
         groups = (saved.get("workoutSegments") or [{}])[0].get("workoutSteps", [])
         inner = sum(len(g.get("workoutSteps", []) or []) for g in groups)
-        print(f"   weryfikacja: grup {len(groups)}, kroków w środku {inner}")
-        for group in groups:
-            work = (group.get("workoutSteps") or [{}])[0]
-            weight = work.get("weightValue")
-            print(
-                f"      ×{group.get('numberOfIterations')} "
-                f"{work.get('category') or 'bez kategorii'} "
-                f"{work.get('endCondition', {}).get('conditionTypeKey')}="
-                f"{int(work.get('endConditionValue') or 0)}"
-                + (f", {weight / 1000:g} kg" if weight else "")
-            )
+        print(f"   weryfikacja: kroków {len(groups)}, w tym w grupach {inner}")
+        for step in groups:
+            if step.get("numberOfIterations"):
+                inner_steps = step.get("workoutSteps") or []
+                print(f"      ×{step.get('numberOfIterations')}:")
+                for inner in inner_steps:
+                    print(f"         {describe_saved_step(inner)}")
+            else:
+                print(f"      {describe_saved_step(step)}")
 
 
 def main() -> None:

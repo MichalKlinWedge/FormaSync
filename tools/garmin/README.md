@@ -79,6 +79,30 @@ python formasync_garmin.py upload --backup example-backup.json
 
 ## Jak budowany jest trening
 
+Narzędzie rozpoznaje rodzaj planu po jego sporcie. Siła dostaje serie, powtórzenia i ciężar;
+bieganie, rower i pływanie — odcinki z dystansem albo czasem.
+
+### Treningi wytrzymałościowe
+
+| Pole w aplikacji | Odpowiednik w Garmin Connect |
+|---|---|
+| `plan_segments.kind` | typ kroku: `warmup`, `interval`, `recovery`, `cooldown` |
+| `REPEAT` z `repeat_count` | grupa powtórzeń |
+| `duration_type = DISTANCE` | warunek końca `distance`, w metrach |
+| `duration_type = TIME` | warunek końca `time`, w sekundach |
+| `duration_type = OPEN` | warunek końca `lap.button` — odcinek kończy przycisk na zegarku |
+| cel `PACE` | `pace.zone`, **prędkość w metrach na sekundę** |
+| cel `HEART_RATE` | `heart.rate.zone`, uderzenia na minutę |
+
+Tempo trzeba przeliczyć: Garmin przyjmuje prędkość w metrach na sekundę, a nie sekundy na
+kilometr. Pomylenie tych dwóch daje zakres setki razy za duży i trening bez sensu. Wyższa liczba
+sekund to wolniejszy bieg, więc dolna granica prędkości bierze się z górnej granicy tempa.
+
+Sprawdzone na prawdziwym koncie 5 października 2026: trening biegowy z grupą powtórzeń, celem
+tempa 4:00–4:15/km i celem tętna odczytany z powrotem bez zniekształceń.
+
+### Treningi siłowe
+
 Struktury nie składamy ręcznie — buduje ją `garminconnect.workout`, która zna wymagane identyfikatory. Każde ćwiczenie staje się grupą powtórzeń (`RepeatGroup`) z krokiem roboczym i przerwą w środku:
 
 | Pole w aplikacji | Odpowiednik w Garmin Connect |
