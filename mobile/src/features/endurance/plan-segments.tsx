@@ -11,7 +11,7 @@ import type { Sport } from '@/db/schema';
 import { SEGMENT_LABELS } from './draft';
 import { describeDuration, describeTarget, formatDistance } from './format';
 import { usePoolLength } from './pool-store';
-import { describeSwimDistance, STROKE_LABELS } from './swim';
+import { describeSwimDistance, DRILL_LABELS, EQUIPMENT_LABELS, STROKE_LABELS } from './swim';
 import type { SegmentRow } from './use-endurance-plan';
 
 /**
@@ -55,6 +55,8 @@ export function PlanSegmentList({ rows, sport }: { rows: SegmentRow[]; sport?: S
                     ? describeSwimDistance(row.distanceMeters, poolLength, formatDistance)
                     : describeDuration(row.durationType, row.distanceMeters, row.durationSeconds),
                   row.stroke === null || row.stroke === 'ANY' ? null : STROKE_LABELS[row.stroke],
+                  row.drill === null ? null : DRILL_LABELS[row.drill],
+                  row.equipment === null ? null : EQUIPMENT_LABELS[row.equipment],
                   describeTarget(row.targetType, row.targetLow, row.targetHigh),
                 ]
                   .filter(Boolean)

@@ -8,7 +8,15 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
-import { type DurationType, type SegmentKind, type Sport, strokes, type TargetType } from '@/db/schema';
+import {
+  drills,
+  type DurationType,
+  type SegmentKind,
+  type Sport,
+  strokes,
+  swimEquipment,
+  type TargetType,
+} from '@/db/schema';
 import {
   childrenOf,
   createRepeatBlock,
@@ -24,7 +32,13 @@ import {
 import { useEnduranceDraftStore } from '@/features/endurance/draft-store';
 import { formatDistance, formatSeconds } from '@/features/endurance/format';
 import { usePoolLength, usePoolStore } from '@/features/endurance/pool-store';
-import { COMMON_POOL_LENGTHS, lengths, STROKE_LABELS } from '@/features/endurance/swim';
+import {
+  COMMON_POOL_LENGTHS,
+  DRILL_LABELS,
+  EQUIPMENT_LABELS,
+  lengths,
+  STROKE_LABELS,
+} from '@/features/endurance/swim';
 import { saveEndurancePlan } from '@/features/endurance/repository';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -328,6 +342,35 @@ function SegmentCard({ segment, sport, nested, onChange, onRemove }: SegmentCard
                 label={STROKE_LABELS[stroke]}
                 selected={(segment.stroke ?? 'ANY') === stroke}
                 onPress={() => onChange({ stroke })}
+              />
+            ))}
+          </View>
+
+          <ThemedText type="small" themeColor="textSecondary">
+            Sprzęt
+          </ThemedText>
+          <View style={styles.chips}>
+            {/* Kliknięcie w wybrany sprzęt go zdejmuje — odcinek bez sprzętu to stan normalny. */}
+            {swimEquipment.map((item) => (
+              <Chip
+                key={item}
+                label={EQUIPMENT_LABELS[item]}
+                selected={segment.equipment === item}
+                onPress={() => onChange({ equipment: segment.equipment === item ? null : item })}
+              />
+            ))}
+          </View>
+
+          <ThemedText type="small" themeColor="textSecondary">
+            Technika
+          </ThemedText>
+          <View style={styles.chips}>
+            {drills.map((item) => (
+              <Chip
+                key={item}
+                label={DRILL_LABELS[item]}
+                selected={segment.drill === item}
+                onPress={() => onChange({ drill: segment.drill === item ? null : item })}
               />
             ))}
           </View>

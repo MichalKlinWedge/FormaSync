@@ -5,7 +5,16 @@ import { describe, expect, it } from '@jest/globals';
 
 import { buildWorkoutPayload } from '@/features/garmin/connect/payload';
 
-import { describeSwimDistance, GARMIN_STROKES, lengths, STROKE_LABELS } from '../swim';
+import {
+  describeSwimDistance,
+  DRILL_LABELS,
+  EQUIPMENT_LABELS,
+  GARMIN_DRILLS,
+  GARMIN_EQUIPMENT,
+  GARMIN_STROKES,
+  lengths,
+  STROKE_LABELS,
+} from '../swim';
 
 describe('lengths', () => {
   it('przelicza dystans na długości basenu', () => {
@@ -38,7 +47,14 @@ describe('describeSwimDistance', () => {
 });
 
 describe('styl w treści dla Garmina', () => {
-  const build = (stroke: keyof typeof GARMIN_STROKES | null, poolLength: number | null = 25) =>
+  const build = (
+    stroke: keyof typeof GARMIN_STROKES | null,
+    poolLength: number | null = 25,
+    extra: {
+      equipment?: keyof typeof GARMIN_EQUIPMENT | null;
+      drill?: keyof typeof GARMIN_DRILLS | null;
+    } = {},
+  ) =>
     buildWorkoutPayload({
       title: 'Basen',
       sport: 'SWIMMING',
@@ -54,6 +70,8 @@ describe('styl w treści dla Garmina', () => {
           targetLow: null,
           targetHigh: null,
           stroke,
+          equipment: extra.equipment ?? null,
+          drill: extra.drill ?? null,
           repeatCount: null,
           children: [],
         },
@@ -87,6 +105,40 @@ describe('styl w treści dla Garmina', () => {
 
   it('bez ustawionego basenu pole nie leci — zegarek użyje własnego ustawienia', () => {
     expect(build('FREE', null).poolLength).toBeUndefined();
+  });
+
+  it('sprzęt jedzie osobnym polem, z identyfikatorem ze słownika konta', () => {
+    const step = build('FREE', 25, { equipment: 'PADDLES' }).workoutSegments[0].workoutSteps[0];
+    expect(step.equipmentType).toEqual({ equipmentTypeId: 3, equipmentTypeKey: 'paddles' });
+  });
+
+  it('technika jedzie osobnym polem', () => {
+    const step = build('FREE', 25, { drill: 'KICK' }).workoutSegments[0].workoutSteps[0];
+    expect(step.drillType).toEqual({ drillTypeId: 1, drillTypeKey: 'kick' });
+  });
+
+  it('sprzęt i technika da się złożyć na jednym odcinku', () => {
+    const step = build('FREE', 25, { equipment: 'KICKBOARD', drill: 'KICK' }).workoutSegments[0]
+      .workoutSteps[0];
+    expect(step).toMatchObject({
+      equipmentType: { equipmentTypeKey: 'kickboard' },
+      drillType: { drillTypeKey: 'kick' },
+    });
+  });
+
+  it('bez sprzętu i techniki pól nie wysyłamy', () => {
+    const step = build('FREE').workoutSegments[0].workoutSteps[0];
+    expect(step.equipmentType).toBeUndefined();
+    expect(step.drillType).toBeUndefined();
+  });
+
+  it('każdy sprzęt i każda technika mają etykietę po polsku', () => {
+    for (const item of Object.keys(GARMIN_EQUIPMENT) as (keyof typeof GARMIN_EQUIPMENT)[]) {
+      expect(EQUIPMENT_LABELS[item]).toBeTruthy();
+    }
+    for (const item of Object.keys(GARMIN_DRILLS) as (keyof typeof GARMIN_DRILLS)[]) {
+      expect(DRILL_LABELS[item]).toBeTruthy();
+    }
   });
 
   it('każdy styl ma etykietę po polsku', () => {

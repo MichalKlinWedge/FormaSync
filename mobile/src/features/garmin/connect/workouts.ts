@@ -64,6 +64,8 @@ export function loadGarminPlan(db: SyncDb, planId: number): GarminPlan | null {
     targetLow: row.targetLow,
     targetHigh: row.targetHigh,
     stroke: row.stroke,
+    equipment: row.equipment,
+    drill: row.drill,
     repeatCount: row.repeatCount,
     children: rows.filter((child) => child.parentId === row.id).map(toSegment),
   });

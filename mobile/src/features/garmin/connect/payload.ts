@@ -1,5 +1,5 @@
-import type { DurationType, SegmentKind, Sport, Stroke, TargetType } from '@/db/schema';
-import { GARMIN_STROKES } from '@/features/endurance/swim';
+import type { Drill, DurationType, SegmentKind, Sport, Stroke, SwimEquipment, TargetType } from '@/db/schema';
+import { GARMIN_DRILLS, GARMIN_EQUIPMENT, GARMIN_STROKES } from '@/features/endurance/swim';
 
 /**
  * Trening w zapisie, jakiego oczekuje Garmin Connect. Kształt jest przepisany jeden do jednego
@@ -56,6 +56,8 @@ export type GarminSegment = {
   targetLow: number | null;
   targetHigh: number | null;
   stroke: Stroke | null;
+  equipment: SwimEquipment | null;
+  drill: Drill | null;
   repeatCount: number | null;
   children: GarminSegment[];
 };
@@ -124,8 +126,13 @@ function enduranceStep(segment: GarminSegment, stepOrder: number): Named {
     endCondition: { ...endCondition },
     endConditionValue: value,
     ...targetFields(segment),
-    // Styl dotyczy wyłącznie pływania; w biegu i na rowerze Garmin nie wie, co z nim zrobić.
+    // Styl, sprzęt i technika dotyczą wyłącznie pływania; w biegu i na rowerze Garmin nie wie,
+    // co z nimi zrobić.
     ...(segment.stroke === null ? {} : { strokeType: { ...GARMIN_STROKES[segment.stroke] } }),
+    ...(segment.equipment === null
+      ? {}
+      : { equipmentType: { ...GARMIN_EQUIPMENT[segment.equipment] } }),
+    ...(segment.drill === null ? {} : { drillType: { ...GARMIN_DRILLS[segment.drill] } }),
   };
 }
 

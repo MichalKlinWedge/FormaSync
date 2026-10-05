@@ -18,7 +18,7 @@ import { useNow } from '@/hooks/use-now';
 import { useTheme } from '@/hooks/use-theme';
 
 import { SEGMENT_LABELS } from './draft';
-import { STROKE_LABELS } from './swim';
+import { DRILL_LABELS, EQUIPMENT_LABELS, STROKE_LABELS } from './swim';
 import { describeDuration, describeTarget, formatDistance, formatSeconds, paceFrom, formatPace } from './format';
 import {
   type ActiveSegment,
@@ -153,6 +153,8 @@ function SegmentRow({ segment, current, onToggle, onChange }: SegmentRowProps) {
             {SEGMENT_LABELS[segment.kind]}
             {segment.totalIterations > 1 ? ` ${segment.iteration}/${segment.totalIterations}` : ''}
             {segment.stroke === null || segment.stroke === 'ANY' ? '' : ` · ${STROKE_LABELS[segment.stroke]}`}
+            {segment.drill === null ? '' : ` · ${DRILL_LABELS[segment.drill]}`}
+            {segment.equipment === null ? '' : ` · ${EQUIPMENT_LABELS[segment.equipment]}`}
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             {target}

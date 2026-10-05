@@ -129,6 +129,15 @@ export type TargetType = (typeof targetTypes)[number];
 export const strokes = ['ANY', 'FREE', 'BACKSTROKE', 'BREASTSTROKE', 'FLY', 'MEDLEY', 'DRILL'] as const;
 export type Stroke = (typeof strokes)[number];
 
+/** Sprzęt pływacki użyty na odcinku. Nazwa z przedrostkiem, bo `equipment` to już tabela
+ *  sprzętu siłowni — to dwie różne rzeczy i nie wolno ich pomylić. */
+export const swimEquipment = ['FINS', 'KICKBOARD', 'PADDLES', 'PULL_BUOY', 'SNORKEL'] as const;
+export type SwimEquipment = (typeof swimEquipment)[number];
+
+/** Instrukcja techniczna odcinka: same nogi, same ręce albo ćwiczenie techniczne. */
+export const drills = ['KICK', 'PULL', 'DRILL'] as const;
+export type Drill = (typeof drills)[number];
+
 const segmentColumns = {
   parentId: integer('parent_id'),
   orderIndex: integer('order_index').notNull(),
@@ -142,6 +151,8 @@ const segmentColumns = {
   targetHigh: real('target_high'),
   /** Tylko pływanie; null w pozostałych dyscyplinach. */
   stroke: text('stroke', { enum: strokes }),
+  equipment: text('equipment', { enum: swimEquipment }),
+  drill: text('drill', { enum: drills }),
   notes: text('notes'),
 };
 

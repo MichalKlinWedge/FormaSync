@@ -1,4 +1,4 @@
-import type { Stroke } from '@/db/schema';
+import type { Drill, Stroke, SwimEquipment } from '@/db/schema';
 
 /**
  * Rzeczy właściwe wyłącznie pływaniu: długość basenu i styl. Dystans na basenie liczy się
@@ -57,3 +57,33 @@ export function describeSwimDistance(
   const count = lengths(meters, poolLength);
   return count === null ? formatDistance(meters) : `${formatDistance(meters)} · ${count}×`;
 }
+
+export const EQUIPMENT_LABELS: Record<SwimEquipment, string> = {
+  FINS: 'płetwy',
+  KICKBOARD: 'deska',
+  PADDLES: 'wiosełka',
+  PULL_BUOY: 'ósemka',
+  SNORKEL: 'fajka',
+};
+
+export const DRILL_LABELS: Record<Drill, string> = {
+  KICK: 'same nogi',
+  PULL: 'same ręce',
+  DRILL: 'ćwiczenie techniczne',
+};
+
+/** Identyfikatory sprzętu, odczytane z `/workout-service/workout/types` na żywym koncie. */
+export const GARMIN_EQUIPMENT: Record<SwimEquipment, { equipmentTypeId: number; equipmentTypeKey: string }> = {
+  FINS: { equipmentTypeId: 1, equipmentTypeKey: 'fins' },
+  KICKBOARD: { equipmentTypeId: 2, equipmentTypeKey: 'kickboard' },
+  PADDLES: { equipmentTypeId: 3, equipmentTypeKey: 'paddles' },
+  PULL_BUOY: { equipmentTypeId: 4, equipmentTypeKey: 'pull_buoy' },
+  SNORKEL: { equipmentTypeId: 5, equipmentTypeKey: 'snorkel' },
+};
+
+/** Identyfikatory ćwiczeń technicznych, z tego samego słownika. */
+export const GARMIN_DRILLS: Record<Drill, { drillTypeId: number; drillTypeKey: string }> = {
+  KICK: { drillTypeId: 1, drillTypeKey: 'kick' },
+  PULL: { drillTypeId: 2, drillTypeKey: 'pull' },
+  DRILL: { drillTypeId: 3, drillTypeKey: 'drill' },
+};

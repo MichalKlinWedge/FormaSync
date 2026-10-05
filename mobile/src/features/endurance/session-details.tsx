@@ -18,7 +18,7 @@ import { formatDateTime } from '@/lib/date';
 import { useFlushNotes } from '@/features/history/use-flush-notes';
 
 import { SEGMENT_LABELS } from './draft';
-import { STROKE_LABELS } from './swim';
+import { DRILL_LABELS, EQUIPMENT_LABELS, STROKE_LABELS } from './swim';
 import { describeTarget, formatDistance, formatPace, formatSeconds, paceFrom } from './format';
 import { loadEnduranceSession, paceBreakdown, sessionTotals } from './session';
 
@@ -100,6 +100,8 @@ export function EnduranceSessionDetails({ id, footer }: Props) {
                       {segment.stroke === null || segment.stroke === 'ANY'
                         ? ''
                         : ` · ${STROKE_LABELS[segment.stroke]}`}
+                      {segment.drill === null ? '' : ` · ${DRILL_LABELS[segment.drill]}`}
+                      {segment.equipment === null ? '' : ` · ${EQUIPMENT_LABELS[segment.equipment]}`}
                     </ThemedText>
                     <ThemedText type="small" themeColor="textSecondary">
                       {[
