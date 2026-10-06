@@ -95,6 +95,8 @@ function PlannedDetails({ entry, onAttached }: { entry: Entry; onAttached: () =>
   const [candidates, setCandidates] = useState<{ id: number; title: string; startTime: string }[] | null>(
     null,
   );
+  // Trening mógł dojść z zegarka, gdy ekran stał w tle; zwinięta lista każe przeczytać ją na nowo.
+  useFocusEffect(useCallback(() => setCandidates(null), []));
 
   const begin = () => {
     try {
