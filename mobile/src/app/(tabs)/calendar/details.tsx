@@ -1,5 +1,5 @@
-import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
@@ -41,11 +41,15 @@ type Entry = NonNullable<ReturnType<typeof loadScheduled>>;
  */
 export default function ScheduledDetailsScreen() {
   const id = Number(useLocalSearchParams<{ id: string }>().id);
-  // Przypięcie i odpięcie zmieniają to, co ekran pokazuje, więc czytamy termin na nowo.
-  const [reads, setReads] = useState(0);
-  const entry = loadScheduled(db, id);
-  void reads;
-  const reload = () => setReads((value) => value + 1);
+  /**
+   * Termin trzymamy w stanie, a nie czytamy przy każdym rysowaniu. Odczyt w ciele komponentu
+   * kompilator Reacta zapamiętywał po `db` i `id` — a te się nie zmieniają, więc ekran pokazywał
+   * dane sprzed zapisu aż do ponownego uruchomienia aplikacji.
+   */
+  const [entry, setEntry] = useState(() => loadScheduled(db, id));
+  const reload = useCallback(() => setEntry(loadScheduled(db, id)), [id]);
+  // Przesunięcie terminu dzieje się na osobnym ekranie, więc po powrocie czytamy go na nowo.
+  useFocusEffect(reload);
 
   if (!entry) return <ThemedView style={styles.flex} />;
 
