@@ -14,10 +14,21 @@ export default function PrivacyScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <Section title="Gdzie trafiają Twoje dane">
           <Paragraph>
-            Nigdzie. Wszystko, co zapiszesz w FormaSync — plany, historia treningów, pomiary ciała, własne
-            ćwiczenia i odczytane dane zdrowotne — pozostaje w pamięci tego telefonu. Aplikacja nie ma konta,
-            nie wysyła danych na żaden serwer i nie udostępnia ich nikomu.
+            Domyślnie nigdzie. Wszystko, co zapiszesz w FormaSync — plany, historia treningów, pomiary
+            ciała, własne ćwiczenia i odczytane dane zdrowotne — pozostaje w pamięci tego telefonu.
+            Aplikacja nie ma konta i nie udostępnia danych nikomu.
           </Paragraph>
+          <Paragraph>
+            Dane opuszczają telefon wyłącznie wtedy, gdy sam o to poprosisz, i tylko tam, gdzie wskażesz:
+          </Paragraph>
+          <Bullet>
+            Kopia na serwerze — jeśli ją ustawisz, raz na dobę leci na Twój serwer kopia całej bazy,
+            zaszyfrowana Twoim hasłem. Serwer nie zna hasła i nie potrafi jej odczytać.
+          </Bullet>
+          <Bullet>
+            Garmin Connect — jeśli połączysz konto, do Garmina trafiają wysyłane przez Ciebie plany
+            treningowe i terminy w kalendarzu. Historia, pomiary ciała ani notatki nigdy tam nie idą.
+          </Bullet>
         </Section>
 
         <Section title="Dane zdrowotne z Health Connect">
@@ -44,8 +55,13 @@ export default function PrivacyScreen() {
 
         <Section title="Kopie zapasowe">
           <Paragraph>
-            Kopia zapasowa to plik, który sam zapisujesz we wskazanym przez siebie miejscu. Od tej chwili
-            odpowiadasz za niego Ty — jeśli trafi na dysk w chmurze, obowiązują zasady tej usługi.
+            Kopia zapisana do pliku trafia we wskazane przez Ciebie miejsce i od tej chwili odpowiadasz
+            za nią Ty — jeśli trafi na dysk w chmurze, obowiązują zasady tej usługi. Taki plik nie jest
+            zaszyfrowany.
+          </Paragraph>
+          <Paragraph>
+            Kopia wysyłana na Twój serwer jest zaszyfrowana hasłem znanym tylko Tobie i temu telefonowi.
+            Hasła nie da się odzyskać — bez niego kopie są bezużyteczne także dla Ciebie.
           </Paragraph>
         </Section>
 

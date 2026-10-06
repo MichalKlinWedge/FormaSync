@@ -17,6 +17,7 @@ import {
   serializeBackup,
 } from '@/features/backup/backup';
 
+import { RemoteBackupSection } from '@/features/backup/remote-section';
 import { syncWorkoutReminders } from '@/features/calendar/reminders';
 import { HealthSection } from '@/features/health/health-section';
 import { GarminAccountSection } from '@/features/garmin/connect/account-section';
@@ -94,8 +95,8 @@ export default function SettingsScreen() {
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             Wszystkie dane — plany, historia treningów, pomiary ciała i własne ćwiczenia — są zapisane
-            wyłącznie w tym telefonie. Rób kopię co jakiś czas i trzymaj ją poza telefonem, na przykład na
-            Dysku Google.
+            wyłącznie w tym telefonie. Kopia do pliku przydaje się, gdy chcesz mieć ją pod ręką;
+            o kopię codzienną dba skrytka na serwerze poniżej.
           </ThemedText>
 
           <Button
@@ -121,6 +122,8 @@ export default function SettingsScreen() {
           )}
         </View>
 
+        <RemoteBackupSection />
+
         <HealthSection />
 
         <GarminAccountSection />
@@ -130,8 +133,8 @@ export default function SettingsScreen() {
             O APLIKACJI
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            FormaSync 1.0.0 — dziennik treningu siłowego. Aplikacja działa bez internetu, a dane nie
-            opuszczają telefonu.
+            FormaSync 1.0.0 — dziennik treningu siłowego. Aplikacja działa bez internetu, a dane
+            opuszczają telefon tylko tam, gdzie sam je wyślesz.
           </ThemedText>
           <Button
             label="Prywatność"

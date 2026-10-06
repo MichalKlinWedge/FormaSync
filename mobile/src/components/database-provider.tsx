@@ -8,6 +8,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
 import { seedDatabase } from '@/db/seed';
+import { backUpInBackground } from '@/features/backup/remote-backup';
 import { syncWorkoutReminders } from '@/features/calendar/reminders';
 import { usePoolStore } from '@/features/endurance/pool-store';
 import { useSportStore } from '@/features/sports/sport-store';
@@ -25,6 +26,10 @@ function initDatabase() {
     // Android kasuje zaplanowane alarmy przy aktualizacji aplikacji — odtwarzamy je przy starcie.
     // Ewentualny błąd powiadomień nie może zablokować uruchomienia aplikacji.
     void syncWorkoutReminders().catch(() => {});
+    // Kopia na serwer raz na dobę. Idzie w tle i po cichu: szyfrowanie trwa chwilę, a brak
+    // internetu przy starcie to rzecz zwyczajna, nie powód do komunikatu. O nieudanych kopiach
+    // mówi data ostatniej udanej w Ustawieniach, która przestaje się zmieniać.
+    void backUpInBackground().catch(() => false);
   });
   return initPromise;
 }
