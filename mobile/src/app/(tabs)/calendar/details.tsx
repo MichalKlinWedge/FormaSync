@@ -16,6 +16,7 @@ import {
   sessionsToAttach,
 } from '@/features/calendar/repository';
 import { PlanSegmentList } from '@/features/endurance/plan-segments';
+import { GarminScheduleButton } from '@/features/garmin/connect/schedule-button';
 import { useEndurancePlan } from '@/features/endurance/use-endurance-plan';
 import { SessionDetails } from '@/features/history/session-details';
 import { isEndurance } from '@/features/sports/sport';
@@ -152,6 +153,13 @@ function PlannedDetails({ entry, onAttached }: { entry: Entry; onAttached: () =>
           onPress={() =>
             router.push({ pathname: '/calendar/schedule', params: { id: String(entry.id) } })
           }
+        />
+        <GarminScheduleButton
+          scheduledId={entry.id}
+          planId={entry.planId}
+          scheduledDate={entry.scheduledDate}
+          garminScheduleId={entry.garminScheduleId}
+          onChanged={onAttached}
         />
 
         <View style={styles.group}>

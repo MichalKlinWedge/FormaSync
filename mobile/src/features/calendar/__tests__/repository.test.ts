@@ -21,8 +21,10 @@ import {
   sessionsToAttach,
   reminderDate,
   scheduleStatus,
+  clearGarminSchedule,
   ScheduleConflictError,
   scheduleWorkouts,
+  setGarminSchedule,
   updateScheduled,
 } from '../repository';
 
@@ -426,5 +428,66 @@ describe('updateScheduled', () => {
         reminderOffsetMinutes: 60,
       }),
     ).not.toThrow();
+  });
+});
+
+describe('ślad po kalendarzu Garmina', () => {
+  function withTerm() {
+    const { db, planId } = setup();
+    scheduleWorkouts(db, {
+      planId,
+      dates: ['2026-10-08'],
+      scheduledTime: '18:00',
+      reminderOffsetMinutes: 60,
+    });
+    return { db, term: db.select().from(schema.scheduledWorkouts).get()! };
+  }
+
+  it('zapisuje identyfikatory wpisu i treningu', () => {
+    const { db, term } = withTerm();
+
+    setGarminSchedule(db, term.id, { workoutId: 1716637940, scheduleId: 42 });
+
+    const row = db
+      .select()
+      .from(schema.scheduledWorkouts)
+      .where(eq(schema.scheduledWorkouts.id, term.id))
+      .get()!;
+    expect(row).toMatchObject({
+      garminSynced: true,
+      garminWorkoutId: '1716637940',
+      garminScheduleId: '42',
+    });
+    expect(loadScheduled(db, term.id, '2026-10-05')?.garminScheduleId).toBe('42');
+  });
+
+  it('zdjęcie z kalendarza czyści ślad, ale zostawia trening w bibliotece', () => {
+    const { db, term } = withTerm();
+    setGarminSchedule(db, term.id, { workoutId: 123, scheduleId: 42 });
+
+    clearGarminSchedule(db, term.id);
+
+    const row = db
+      .select()
+      .from(schema.scheduledWorkouts)
+      .where(eq(schema.scheduledWorkouts.id, term.id))
+      .get()!;
+    expect(row).toMatchObject({ garminSynced: false, garminScheduleId: null });
+    // Identyfikator treningu zostaje: trening nadal jest w bibliotece Garmina.
+    expect(row.garminWorkoutId).toBe('123');
+  });
+
+  it('przesunięcie terminu unieważnia wpis w kalendarzu Garmina', () => {
+    const { db, term } = withTerm();
+    setGarminSchedule(db, term.id, { workoutId: 123, scheduleId: 42 });
+
+    updateScheduled(db, term.id, {
+      scheduledDate: '2026-10-09',
+      scheduledTime: '18:00',
+      reminderOffsetMinutes: 60,
+    });
+
+    // Wpis u Garmina dotyczy starej daty — nie wolno udawać, że przeniesiony termin tam stoi.
+    expect(loadScheduled(db, term.id, '2026-10-05')?.garminScheduleId).toBeNull();
   });
 });

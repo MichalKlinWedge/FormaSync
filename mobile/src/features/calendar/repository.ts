@@ -17,6 +17,8 @@ export type ScheduledEntry = {
   reminderOffsetMinutes: number | null;
   isCompleted: boolean;
   status: ScheduleStatus;
+  /** Identyfikator wpisu w kalendarzu Garmina; null, gdy termin tam nie trafił. */
+  garminScheduleId: string | null;
   /** Trening przeprowadzony z tego terminu, jeśli już się odbył — prowadzi do jego szczegółów. */
   sessionId: number | null;
 };
@@ -52,6 +54,7 @@ export function listScheduled(db: SyncDb, fromKey: string, toKey: string, today 
       scheduledTime: schema.scheduledWorkouts.scheduledTime,
       reminderOffsetMinutes: schema.scheduledWorkouts.reminderOffsetMinutes,
       isCompleted: schema.scheduledWorkouts.isCompleted,
+      garminScheduleId: schema.scheduledWorkouts.garminScheduleId,
       // Z jednego terminu może zostać kilka podejść; prowadzimy do ostatniego.
       sessionId: sql<number | null>`max(${schema.workoutSessions.id})`,
     })
@@ -85,6 +88,7 @@ export function loadScheduled(db: SyncDb, id: number, today = todayKey()): Sched
       scheduledTime: schema.scheduledWorkouts.scheduledTime,
       reminderOffsetMinutes: schema.scheduledWorkouts.reminderOffsetMinutes,
       isCompleted: schema.scheduledWorkouts.isCompleted,
+      garminScheduleId: schema.scheduledWorkouts.garminScheduleId,
       sessionId: sql<number | null>`max(${schema.workoutSessions.id})`,
     })
     .from(schema.scheduledWorkouts)
@@ -265,10 +269,36 @@ export function updateScheduled(db: SyncDb, id: number, edit: ScheduleEdit): voi
     if (clash) throw new ScheduleConflictError();
 
     tx.update(schema.scheduledWorkouts)
-      .set({ ...edit, notificationId: null })
+      // Wpis w kalendarzu Garmina dotyczy starej daty; zdejmujemy ślad, żeby nie udawać,
+      // że przeniesiony termin nadal tam stoi. Ponowna wysyłka zakłada go na nowo.
+      .set({ ...edit, notificationId: null, garminSynced: false, garminScheduleId: null })
       .where(eq(schema.scheduledWorkouts.id, id))
       .run();
   });
+}
+
+/** Zapamiętuje, że termin trafił do kalendarza Garmina — po tym poznajemy, co tam zdjąć. */
+export function setGarminSchedule(
+  db: SyncDb,
+  id: number,
+  garmin: { workoutId: number; scheduleId: number | null },
+): void {
+  db.update(schema.scheduledWorkouts)
+    .set({
+      garminSynced: true,
+      garminWorkoutId: String(garmin.workoutId),
+      garminScheduleId: garmin.scheduleId === null ? null : String(garmin.scheduleId),
+    })
+    .where(eq(schema.scheduledWorkouts.id, id))
+    .run();
+}
+
+/** Zdejmuje ślad po kalendarzu Garmina; sam trening zostaje w jego bibliotece. */
+export function clearGarminSchedule(db: SyncDb, id: number): void {
+  db.update(schema.scheduledWorkouts)
+    .set({ garminSynced: false, garminScheduleId: null })
+    .where(eq(schema.scheduledWorkouts.id, id))
+    .run();
 }
 
 export function deleteScheduled(db: SyncDb, id: number): void {
