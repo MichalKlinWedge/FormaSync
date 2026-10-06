@@ -71,6 +71,13 @@
       "when": 1791233675278,
       "tag": "0009_swim_equipment",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1791264674409,
+      "tag": "0010_swim_template_strokes",
+      "breakpoints": true
     }
   ]
 }

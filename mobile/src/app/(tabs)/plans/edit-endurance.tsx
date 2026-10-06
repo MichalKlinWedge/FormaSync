@@ -361,8 +361,10 @@ function SegmentCard({ segment, sport, nested, onChange, onRemove }: SegmentCard
             ))}
           </View>
 
+          {/* Nie „Technika”: tak nazywa się już jeden ze stylów i dwie sąsiednie kontrolki
+              o tej samej nazwie myliłyby się nawzajem. */}
           <ThemedText type="small" themeColor="textSecondary">
-            Technika
+            Rodzaj pracy
           </ThemedText>
           <View style={styles.chips}>
             {drills.map((item) => (

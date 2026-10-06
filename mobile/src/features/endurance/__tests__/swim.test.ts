@@ -3,6 +3,10 @@
  */
 import { describe, expect, it } from '@jest/globals';
 
+import { eq } from 'drizzle-orm';
+
+import * as schema from '@/db/schema';
+import { createTestDb } from '@/db/test-utils';
 import { buildWorkoutPayload } from '@/features/garmin/connect/payload';
 
 import {
@@ -145,5 +149,26 @@ describe('styl w treści dla Garmina', () => {
     for (const stroke of Object.keys(GARMIN_STROKES) as (keyof typeof GARMIN_STROKES)[]) {
       expect(STROKE_LABELS[stroke]).toBeTruthy();
     }
+  });
+});
+
+describe('wbudowany szablon pływacki', () => {
+  it('ma style na odcinkach, mimo że powstał przed ich wprowadzeniem', () => {
+    const db = createTestDb({ seed: true });
+    const plan = db
+      .select()
+      .from(schema.workoutPlans)
+      .where(eq(schema.workoutPlans.sport, 'SWIMMING'))
+      .get()!;
+    const segments = db
+      .select()
+      .from(schema.planSegments)
+      .where(eq(schema.planSegments.planId, plan.id))
+      .all();
+
+    const strokeOf = (kind: string) => segments.find((s) => s.kind === kind)?.stroke;
+    expect(strokeOf('WARMUP')).toBe('ANY');
+    expect(strokeOf('WORK')).toBe('FREE');
+    expect(strokeOf('COOLDOWN')).toBe('BACKSTROKE');
   });
 });
