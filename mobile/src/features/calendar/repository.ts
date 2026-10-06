@@ -281,15 +281,21 @@ export class ScheduleConflictError extends Error {
 /**
  * Przesuwa termin na inny dzień albo godzinę. Powiadomienie trzeba potem przeliczyć od nowa —
  * jego identyfikator czyścimy, bo stare przypomnienie wskazuje nieaktualną porę.
+ *
+ * Zwraca poprzedni dzień terminu, żeby wywołujący wiedział, czy wpis w kalendarzu Garmina
+ * wymaga przeniesienia. `null`, gdy terminu nie było.
  */
-export function updateScheduled(db: SyncDb, id: number, edit: ScheduleEdit): void {
-  db.transaction((tx) => {
+export function updateScheduled(db: SyncDb, id: number, edit: ScheduleEdit): string | null {
+  return db.transaction((tx) => {
     const entry = tx
-      .select({ planId: schema.scheduledWorkouts.planId })
+      .select({
+        planId: schema.scheduledWorkouts.planId,
+        scheduledDate: schema.scheduledWorkouts.scheduledDate,
+      })
       .from(schema.scheduledWorkouts)
       .where(eq(schema.scheduledWorkouts.id, id))
       .get();
-    if (!entry) return;
+    if (!entry) return null;
 
     const clash = tx
       .select({ id: schema.scheduledWorkouts.id })
@@ -304,12 +310,19 @@ export function updateScheduled(db: SyncDb, id: number, edit: ScheduleEdit): voi
       .get();
     if (clash) throw new ScheduleConflictError();
 
+    // Kalendarz Garmina zna tylko dzień, więc sama zmiana godziny go nie dotyczy i ślad zostaje.
+    // Przy zmianie dnia stary wpis przestaje pasować: ślad zdejmujemy tutaj, a przeniesienie
+    // u Garmina robi osobny krok, który po udanej wysyłce zapisze nowy numer.
+    const movedDay = entry.scheduledDate !== edit.scheduledDate;
     tx.update(schema.scheduledWorkouts)
-      // Wpis w kalendarzu Garmina dotyczy starej daty; zdejmujemy ślad, żeby nie udawać,
-      // że przeniesiony termin nadal tam stoi. Ponowna wysyłka zakłada go na nowo.
-      .set({ ...edit, notificationId: null, garminSynced: false, garminScheduleId: null })
+      .set({
+        ...edit,
+        notificationId: null,
+        ...(movedDay ? { garminSynced: false, garminScheduleId: null } : {}),
+      })
       .where(eq(schema.scheduledWorkouts.id, id))
       .run();
+    return entry.scheduledDate;
   });
 }
 

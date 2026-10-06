@@ -506,11 +506,11 @@ describe('ślad po kalendarzu Garmina', () => {
     expect(row.garminWorkoutId).toBe('123');
   });
 
-  it('przesunięcie terminu unieważnia wpis w kalendarzu Garmina', () => {
+  it('przeniesienie na inny dzień unieważnia wpis w kalendarzu Garmina', () => {
     const { db, term } = withTerm();
     setGarminSchedule(db, term.id, { workoutId: 123, scheduleId: 42 });
 
-    updateScheduled(db, term.id, {
+    const previous = updateScheduled(db, term.id, {
       scheduledDate: '2026-10-09',
       scheduledTime: '18:00',
       reminderOffsetMinutes: 60,
@@ -518,5 +518,23 @@ describe('ślad po kalendarzu Garmina', () => {
 
     // Wpis u Garmina dotyczy starej daty — nie wolno udawać, że przeniesiony termin tam stoi.
     expect(loadScheduled(db, term.id, '2026-10-05')?.garminScheduleId).toBeNull();
+    // Poprzedni dzień wraca, bo bez niego nie dałoby się zdjąć starego wpisu u Garmina.
+    expect(previous).toBe(term.scheduledDate);
+  });
+
+  it('sama zmiana godziny zostawia wpis u Garmina w spokoju', () => {
+    // Kalendarz Garmina zna tylko dzień, więc przesunięcie godziny niczego tam nie zmienia.
+    // Zdjęcie śladu kazałoby wpisywać termin od nowa bez żadnego powodu.
+    const { db, term } = withTerm();
+    setGarminSchedule(db, term.id, { workoutId: 123, scheduleId: 42 });
+
+    const previous = updateScheduled(db, term.id, {
+      scheduledDate: term.scheduledDate,
+      scheduledTime: '07:30',
+      reminderOffsetMinutes: null,
+    });
+
+    expect(previous).toBe(term.scheduledDate);
+    expect(loadScheduled(db, term.id, '2026-10-05')?.garminScheduleId).toBe('42');
   });
 });

@@ -18,6 +18,7 @@ import {
   updateScheduled,
 } from '@/features/calendar/repository';
 import { toggleValue } from '@/features/exercises/filter';
+import { moveGarminSchedule, type MoveOutcome } from '@/features/garmin/connect/move-schedule';
 import { usePlanList } from '@/features/plans/use-plans';
 import { SPORT_LABELS } from '@/features/sports/sport';
 import { useActiveSport } from '@/features/sports/sport-store';
@@ -72,9 +73,10 @@ export default function ScheduleScreen() {
   const dates = repeat ? generateRecurringDates(startDate, weekdays, weeks) : [startDate];
 
   const saveEdit = () => {
-    if (editedId === null) return;
+    if (editedId === null || edited === null) return;
+    let previousDate: string | null;
     try {
-      updateScheduled(db, editedId, {
+      previousDate = updateScheduled(db, editedId, {
         scheduledDate: startDate,
         scheduledTime,
         reminderOffsetMinutes: reminder,
@@ -87,6 +89,19 @@ export default function ScheduleScreen() {
       throw e;
     }
     void syncWorkoutReminders();
+
+    // Termin wpisany do kalendarza Garmina przenosimy i tam. Rozmowa z Garminem trwa, a
+    // kalendarz w telefonie jest już przesunięty, więc nie zatrzymujemy na niej ekranu.
+    const scheduleId = edited.garminScheduleId;
+    if (scheduleId !== null && previousDate !== null && previousDate !== startDate) {
+      void moveGarminSchedule({
+        scheduledId: editedId,
+        planId: edited.planId,
+        scheduleId,
+        fromDate: previousDate,
+        toDate: startDate,
+      }).then(reportMove);
+    }
     router.back();
   };
 
@@ -256,6 +271,26 @@ export default function ScheduleScreen() {
       </ScrollView>
     </ThemedView>
   );
+}
+
+/** Co powiedzieć o kalendarzu Garmina po przesunięciu terminu. Milczymy tylko wtedy, gdy się udało. */
+function reportMove(outcome: MoveOutcome): void {
+  switch (outcome.kind) {
+    case 'MOVED':
+    case 'NOT_CONNECTED':
+      return;
+    case 'REMOVED_ONLY':
+      Alert.alert(
+        'Kalendarz Garmina niepełny',
+        `Stary wpis zdjęliśmy, ale nowego nie udało się założyć. ${outcome.reason} Wpisz termin ponownie w jego szczegółach.`,
+      );
+      return;
+    case 'LEFT_BEHIND':
+      Alert.alert(
+        'Wpis został u Garmina',
+        `Termin przesunęliśmy w aplikacji, ale w kalendarzu Garmina trening nadal stoi na ${formatDate(outcome.date)}. ${outcome.reason}`,
+      );
+  }
 }
 
 /** „18:30” → 18 albo 30; null, gdy termin jest całodniowy. */
