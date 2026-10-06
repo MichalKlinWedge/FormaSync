@@ -19,6 +19,7 @@ import {
   detachSession,
   listScheduled,
   loadScheduled,
+  openTermsOn,
   sessionsToAttach,
   reminderDate,
   scheduleStatus,
@@ -286,6 +287,19 @@ describe('przypisywanie treningu do terminu', () => {
     const zajety = addSession(db, 'Zajęty', '2026-10-02T10:00:00.000Z');
     attachSession(db, term.id, zajety);
     expect(sessionsToAttach(db, term.scheduledDate, term.sport)).toEqual([]);
+  });
+
+  it('wolne terminy dnia dotyczą tylko tej dyscypliny', () => {
+    const { db, term } = withTerm();
+    expect(openTermsOn(db, '2026-10-02', 'STRENGTH').map((t) => t.id)).toEqual([term.id]);
+    expect(openTermsOn(db, '2026-10-02', 'SWIMMING')).toEqual([]);
+    expect(openTermsOn(db, '2026-10-03', 'STRENGTH')).toEqual([]);
+  });
+
+  it('termin z już przypisanym treningiem nie jest wolny', () => {
+    const { db, term } = withTerm();
+    attachSession(db, term.id, addSession(db, 'Nogi', '2026-10-02T10:00:00.000Z'));
+    expect(openTermsOn(db, '2026-10-02', 'STRENGTH')).toEqual([]);
   });
 
   it('przypisanie ukończonego treningu oznacza termin jako wykonany', () => {

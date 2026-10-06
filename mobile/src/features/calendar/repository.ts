@@ -147,6 +147,36 @@ export function sessionsToAttach(
 }
 
 /**
+ * Wolne terminy danego dnia w danej dyscyplinie — te, do których można przypisać trening
+ * przychodzący z zegarka. Termin z już przypisanym treningiem pomijamy, żeby jedno kliknięcie
+ * nie podmieniło cudzego wpisu.
+ */
+export function openTermsOn(
+  db: SyncDb,
+  dateKey: string,
+  sport: Sport,
+): { id: number; title: string; scheduledTime: string | null }[] {
+  return db
+    .select({
+      id: schema.scheduledWorkouts.id,
+      title: schema.workoutPlans.title,
+      scheduledTime: schema.scheduledWorkouts.scheduledTime,
+      sessionId: sql<number | null>`max(${schema.workoutSessions.id})`,
+    })
+    .from(schema.scheduledWorkouts)
+    .innerJoin(schema.workoutPlans, eq(schema.scheduledWorkouts.planId, schema.workoutPlans.id))
+    .leftJoin(schema.workoutSessions, eq(schema.workoutSessions.scheduledId, schema.scheduledWorkouts.id))
+    .where(
+      and(eq(schema.scheduledWorkouts.scheduledDate, dateKey), eq(schema.workoutPlans.sport, sport)),
+    )
+    .groupBy(schema.scheduledWorkouts.id)
+    .orderBy(asc(schema.scheduledWorkouts.scheduledTime))
+    .all()
+    .filter((row) => row.sessionId === null)
+    .map(({ sessionId: _s, ...rest }) => rest);
+}
+
+/**
  * Przypisuje przeprowadzony trening do terminu. Termin zrealizowany ukończonym treningiem
  * oznaczamy jako wykonany — tak samo, jak robi to zakończenie treningu startowanego z kalendarza.
  */

@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
@@ -12,11 +12,13 @@ import type { ImportCandidate } from '@/features/health/activities';
 import {
   archiveWatchActivity,
   importWatchActivity,
+  importWatchActivityToTerm,
   linkWatchActivity,
   listArchived,
   listWatchActivities,
   restoreWatchActivity,
   sessionsToLink,
+  termsForActivity,
 } from '@/features/health/activities';
 import {
   ExercisePermissionError,
@@ -101,6 +103,13 @@ export default function ImportActivitiesScreen() {
       router.replace({ pathname: '/history/[id]', params: { id: sessionId } });
     });
 
+  const addToTerm = (activity: ImportCandidate, scheduledId: number) =>
+    run('Nie udało się przypisać', () => {
+      const sessionId = importWatchActivityToTerm(scheduledId, activity);
+      drop(activity.recordId);
+      router.replace({ pathname: '/history/[id]', params: { id: sessionId } });
+    });
+
   const link = (activity: ImportCandidate, sessionId: number) =>
     run('Nie udało się połączyć', () => {
       linkWatchActivity(sessionId, activity);
@@ -175,6 +184,7 @@ export default function ImportActivitiesScreen() {
             activity={activity}
             busy={busy}
             onAdd={() => add(activity)}
+            onAddToTerm={(scheduledId) => addToTerm(activity, scheduledId)}
             onLink={(sessionId) => link(activity, sessionId)}
             onArchive={() => archive(activity)}
           />
@@ -211,11 +221,14 @@ type ActivityCardProps = {
   activity: ImportCandidate;
   busy: boolean;
   onAdd: () => void;
+  onAddToTerm: (scheduledId: number) => void;
   onLink: (sessionId: number) => void;
   onArchive: () => void;
 };
 
-function ActivityCard({ activity, busy, onAdd, onLink, onArchive }: ActivityCardProps) {
+function ActivityCard({ activity, busy, onAdd, onAddToTerm, onLink, onArchive }: ActivityCardProps) {
+  // Terminy czytamy od razu: jest ich najwyżej kilka w dniu, a od nich zależy, co karta proponuje.
+  const terms = useMemo(() => termsForActivity(activity), [activity]);
   // Listę treningów do połączenia czytamy dopiero przy rozwinięciu — nie potrzebuje jej
   // większość kart, a zapytanie trafia do bazy za każdym razem od nowa.
   const [candidates, setCandidates] = useState<{ id: number; title: string; startTime: string }[] | null>(
@@ -250,6 +263,23 @@ function ActivityCard({ activity, busy, onAdd, onLink, onArchive }: ActivityCard
       {match !== null ? (
         <Button label={`Połącz z „${match.title}”`} icon="link" onPress={() => onLink(match.id)} disabled={busy} />
       ) : null}
+
+      {terms.length > 0 && (
+        <ThemedText type="small" themeColor="textSecondary">
+          {terms.length === 1
+            ? 'Na ten dzień czeka zaplanowany termin tej dyscypliny.'
+            : 'Na ten dzień czekają zaplanowane terminy tej dyscypliny.'}
+        </ThemedText>
+      )}
+      {terms.map((term) => (
+        <Button
+          key={term.id}
+          label={`Przypisz do „${term.title}”${term.scheduledTime === null ? '' : ` · ${term.scheduledTime}`}`}
+          icon="event_available"
+          onPress={() => onAddToTerm(term.id)}
+          disabled={busy}
+        />
+      ))}
 
       <Button
         label="Dodaj jako osobny trening"

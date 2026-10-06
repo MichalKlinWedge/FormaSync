@@ -1,6 +1,8 @@
 import { getGrantedPermissions, initialize, readRecords } from 'react-native-health-connect';
 
 import { db } from '@/db/client';
+import { attachSession, openTermsOn } from '@/features/calendar/repository';
+import { toDateKey } from '@/lib/date';
 
 import type { ImportCandidate, WatchActivity } from './activities-mapping';
 import { selectImportable, toWatchActivity } from './activities-mapping';
@@ -99,6 +101,25 @@ export const importWatchActivity = (activity: WatchActivity): number =>
 /** Dopina pomiary z zegarka do treningu już zapisanego w aplikacji. */
 export const linkWatchActivity = (sessionId: number, activity: WatchActivity): void =>
   linkActivityToSession(db, sessionId, activity);
+
+/**
+ * Zaplanowane terminy tego samego dnia i tej samej dyscypliny, czekające na trening. Aktywność
+ * z zegarka prawie zawsze jest właśnie tym zaplanowanym treningiem, więc nie każemy użytkownika
+ * najpierw dopisywać jej do historii, a potem szukać terminu w kalendarzu.
+ */
+export const termsForActivity = (activity: WatchActivity) =>
+  openTermsOn(db, toDateKey(new Date(activity.startTime)), activity.sport);
+
+/**
+ * Dopisuje aktywność do historii i od razu przypina ją do terminu. Dwa kroki w jednym, bo
+ * osobno nie mają sensu: trening bez terminu zostawiłby go pustym, a termin bez treningu nie ma
+ * czego pokazać.
+ */
+export function importWatchActivityToTerm(scheduledId: number, activity: WatchActivity): number {
+  const sessionId = createSessionFromActivity(db, activity);
+  attachSession(db, scheduledId, sessionId);
+  return sessionId;
+}
 
 /** Treningi z okolic daty aktywności, z którymi można ją połączyć. */
 export const sessionsToLink = (activity: WatchActivity) => linkCandidates(db, activity.startTime);

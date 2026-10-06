@@ -10,6 +10,7 @@ import { createSegment, emptyEnduranceDraft } from '@/features/endurance/draft';
 import { saveEndurancePlan } from '@/features/endurance/repository';
 import { completeSegment, loadEnduranceSession } from '@/features/endurance/session';
 import { loadEnduranceWorkouts } from '@/features/endurance/stats';
+import { attachSession, openTermsOn, scheduleWorkouts } from '@/features/calendar/repository';
 import { listHistory } from '@/features/history/repository';
 import { finishSession, startSession } from '@/features/workout/repository';
 
@@ -230,5 +231,44 @@ describe('archiwum aktywności', () => {
     archiveActivity(db, ITEM);
     restoreActivity(db, ITEM.recordId);
     expect(archivedActivityIds(db)).toEqual(new Set());
+  });
+});
+
+describe('aktywność z zegarka wprost do terminu', () => {
+  it('przypisanie jednym krokiem zamyka termin i wiąże go z treningiem', () => {
+    const db = createTestDb({ seed: true });
+    const plan = db.select().from(schema.workoutPlans).all().find((p) => p.sport === 'SWIMMING')!;
+    scheduleWorkouts(db, {
+      planId: plan.id,
+      dates: ['2026-10-06'],
+      scheduledTime: '15:00',
+      reminderOffsetMinutes: null,
+    });
+
+    const [term] = openTermsOn(db, '2026-10-06', 'SWIMMING');
+    expect(term).toBeDefined();
+
+    const sessionId = createSessionFromActivity(db, {
+      recordId: 'basen-1',
+      title: 'Pływanie na basenie',
+      sport: 'SWIMMING',
+      startTime: '2026-10-06T13:45:00.000Z',
+      endTime: '2026-10-06T14:17:40.000Z',
+      durationSeconds: 1960,
+      distanceMeters: 1000,
+      avgHeartRate: null,
+      maxHeartRate: null,
+      caloriesBurned: 172,
+    });
+    attachSession(db, term.id, sessionId);
+
+    const stored = db
+      .select()
+      .from(schema.scheduledWorkouts)
+      .where(eq(schema.scheduledWorkouts.id, term.id))
+      .get()!;
+    expect(stored.isCompleted).toBe(true);
+    // Termin przestaje być wolny, więc drugiej aktywności nie da się na niego nałożyć.
+    expect(openTermsOn(db, '2026-10-06', 'SWIMMING')).toEqual([]);
   });
 });
