@@ -101,13 +101,17 @@ export function loadScheduled(db: SyncDb, id: number, today = todayKey()): Sched
 }
 
 /**
- * Treningi, które można przypisać do terminu: zakończone, jeszcze nieprzypisane do żadnego
- * terminu i z okolic jego daty. Bliżej w czasie znaczy bardziej prawdopodobnie ten sam trening,
- * więc tak je porządkujemy.
+ * Treningi, które można przypisać do terminu: tej samej dyscypliny, zakończone, jeszcze
+ * nieprzypisane do żadnego terminu i z okolic jego daty. Bliżej w czasie znaczy bardziej
+ * prawdopodobnie ten sam trening, więc tak je porządkujemy.
+ *
+ * Dyscyplina jest wymagana, a nie opcjonalna: bieg nigdy nie jest tym samym treningiem co
+ * pływanie, a pomyłka podstawia pod termin cudzy trening i oznacza go jako wykonany.
  */
 export function sessionsToAttach(
   db: SyncDb,
   scheduledDate: string,
+  sport: Sport,
   days = 3,
 ): { id: number; title: string; startTime: string }[] {
   const around = Date.parse(combineDateAndTime(scheduledDate, null).toISOString());
@@ -120,6 +124,7 @@ export function sessionsToAttach(
       startTime: schema.workoutSessions.startTime,
       scheduledId: schema.workoutSessions.scheduledId,
       status: schema.workoutSessions.status,
+      sport: schema.workoutSessions.sport,
     })
     .from(schema.workoutSessions)
     .leftJoin(schema.workoutPlans, eq(schema.workoutSessions.planId, schema.workoutPlans.id))
@@ -128,13 +133,14 @@ export function sessionsToAttach(
       (row) =>
         row.scheduledId === null &&
         row.status !== 'IN_PROGRESS' &&
+        row.sport === sport &&
         Math.abs(Date.parse(row.startTime) - around) <= span,
     )
     .sort(
       (a, b) =>
         Math.abs(Date.parse(a.startTime) - around) - Math.abs(Date.parse(b.startTime) - around),
     )
-    .map(({ title, planTitle, scheduledId: _s, status: _st, ...rest }) => ({
+    .map(({ title, planTitle, scheduledId: _s, status: _st, sport: _sp, ...rest }) => ({
       ...rest,
       title: title ?? planTitle ?? 'Trening',
     }));

@@ -7,7 +7,7 @@ import { isEndurance } from '@/features/sports/sport';
 import { DEFAULT_POOL_LENGTH, POOL_LENGTH_KEY } from '@/features/endurance/swim';
 import { getSetting } from '@/db/settings';
 
-import { connectApi } from './client';
+import { connectApi, GarminError } from './client';
 import { buildWorkoutPayload, type GarminPlan, type GarminSegment } from './payload';
 
 /** Wysyłka planu do biblioteki Garmin Connect i wpisywanie go do kalendarza Garmina. */
@@ -140,13 +140,45 @@ function rememberWorkoutId(db: SyncDb, planId: number, workoutId: number): void 
     .run();
 }
 
-/** Wpisuje trening do kalendarza Garmina i zwraca identyfikator wpisu. */
-export async function scheduleOnGarmin(workoutId: number, dateKey: string): Promise<number | null> {
+type CalendarItem = { id: number; date: string; itemType: string; workoutId: number | null };
+
+/**
+ * Numer wpisu odczytany z kalendarza Garmina. Potrzebny, gdy odpowiedź na wpisanie go nie
+ * przyniosła — bez niego nie da się potem niczego zdjąć, a API jest nieoficjalne i jego
+ * odpowiedzi potrafią się zmienić bez zapowiedzi.
+ */
+async function findScheduleId(workoutId: number, dateKey: string): Promise<number | null> {
+  const [year, month] = dateKey.split('-').map(Number);
+  // Miesiące w kalendarzu Garmina liczą się od zera.
+  const calendar = await connectApi<{ calendarItems?: CalendarItem[] }>(
+    `/calendar-service/year/${year}/month/${month - 1}`,
+  );
+  const ids = (calendar?.calendarItems ?? [])
+    .filter(
+      (item) => item.itemType === 'workout' && item.date === dateKey && item.workoutId === workoutId,
+    )
+    .map((item) => item.id);
+  // Przy kilku wpisach bierzemy najnowszy — to ten, który właśnie powstał.
+  return ids.length === 0 ? null : Math.max(...ids);
+}
+
+/**
+ * Wpisuje trening do kalendarza Garmina i zwraca numer wpisu. Gdy numeru nie da się ustalić,
+ * zgłaszamy błąd zamiast milczeć: wpis bez numeru wygląda w aplikacji jak brak wpisu, a wtedy
+ * kolejne kliknięcie dokłada w kalendarzu Garmina drugi taki sam trening.
+ */
+export async function scheduleOnGarmin(workoutId: number, dateKey: string): Promise<number> {
   const scheduled = await connectApi<{ workoutScheduleId?: number }>(
     `${WORKOUTS}/schedule/${workoutId}`,
     { method: 'POST', body: { date: dateKey } },
   );
-  return scheduled?.workoutScheduleId ?? null;
+  const id = scheduled?.workoutScheduleId ?? (await findScheduleId(workoutId, dateKey));
+  if (id === null) {
+    throw new GarminError(
+      'Garmin przyjął trening, ale nie podał numeru wpisu w kalendarzu. Sprawdź kalendarz w Garmin Connect.',
+    );
+  }
+  return id;
 }
 
 /** Zdejmuje wpis z kalendarza Garmina. Sam trening zostaje w bibliotece. */

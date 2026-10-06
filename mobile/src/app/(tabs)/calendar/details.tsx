@@ -175,7 +175,7 @@ function PlannedDetails({ entry, onAttached }: { entry: Entry; onAttached: () =>
               label="Przypisz wykonany trening"
               icon="link"
               variant="secondary"
-              onPress={() => setCandidates(sessionsToAttach(db, entry.scheduledDate))}
+              onPress={() => setCandidates(sessionsToAttach(db, entry.scheduledDate, entry.sport))}
             />
           ) : candidates.length === 0 ? (
             <ThemedText type="small" themeColor="textSecondary">

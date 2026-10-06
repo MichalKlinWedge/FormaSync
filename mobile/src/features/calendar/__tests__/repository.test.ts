@@ -5,6 +5,7 @@ import { describe, expect, it } from '@jest/globals';
 import { eq } from 'drizzle-orm';
 
 import * as schema from '@/db/schema';
+import type { Sport } from '@/db/schema';
 import { createTestDb } from '@/db/test-utils';
 import { savePlan } from '@/features/plans/repository';
 import { listHistory } from '@/features/history/repository';
@@ -239,10 +240,15 @@ describe('listPendingReminders', () => {
 
 describe('przypisywanie treningu do terminu', () => {
   /** Zakończony trening bez terminu — taki, który da się przypisać. */
-  const addSession = (db: ReturnType<typeof createTestDb>, title: string, startTime: string) =>
+  const addSession = (
+    db: ReturnType<typeof createTestDb>,
+    title: string,
+    startTime: string,
+    sport: Sport = 'STRENGTH',
+  ) =>
     db
       .insert(schema.workoutSessions)
-      .values({ title, status: 'COMPLETED', startTime, endTime: startTime })
+      .values({ title, sport, status: 'COMPLETED', startTime, endTime: startTime })
       .returning({ id: schema.workoutSessions.id })
       .get().id;
 
@@ -262,7 +268,16 @@ describe('przypisywanie treningu do terminu', () => {
     const { db, term } = withTerm();
     addSession(db, 'Daleki', '2026-10-04T10:00:00.000Z');
     addSession(db, 'Bliski', '2026-10-02T10:00:00.000Z');
-    expect(sessionsToAttach(db, term.scheduledDate).map((s) => s.title)).toEqual(['Bliski', 'Daleki']);
+    expect(sessionsToAttach(db, term.scheduledDate, term.sport).map((s) => s.title)).toEqual(['Bliski', 'Daleki']);
+  });
+
+  it('nie proponuje treningu z innej dyscypliny', () => {
+    // Termin siłowy nie ma nic wspólnego z przepłyniętymi kilometrami; podstawienie go
+    // oznaczyłoby termin jako wykonany cudzym treningiem.
+    const { db, term } = withTerm();
+    addSession(db, 'Basen', '2026-10-02T10:00:00.000Z', 'SWIMMING');
+    addSession(db, 'Nogi', '2026-10-02T11:00:00.000Z', 'STRENGTH');
+    expect(sessionsToAttach(db, term.scheduledDate, term.sport).map((s) => s.title)).toEqual(['Nogi']);
   });
 
   it('pomija treningi spoza okna i już przypisane do innego terminu', () => {
@@ -270,7 +285,7 @@ describe('przypisywanie treningu do terminu', () => {
     addSession(db, 'Za stary', '2026-09-01T10:00:00.000Z');
     const zajety = addSession(db, 'Zajęty', '2026-10-02T10:00:00.000Z');
     attachSession(db, term.id, zajety);
-    expect(sessionsToAttach(db, term.scheduledDate)).toEqual([]);
+    expect(sessionsToAttach(db, term.scheduledDate, term.sport)).toEqual([]);
   });
 
   it('przypisanie ukończonego treningu oznacza termin jako wykonany', () => {
