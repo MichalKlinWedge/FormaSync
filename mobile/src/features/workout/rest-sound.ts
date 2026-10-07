@@ -11,8 +11,26 @@ import { useEffect, useRef } from 'react';
  */
 
 const COUNTDOWN_FROM = 5;
+/**
+ * Dzwonek na dziesiątej sekundzie. Ostatnie pięć piknięć to już sam start serii — za późno,
+ * żeby odstawić telefon, dopiąć pas i stanąć pod sztangą. Dziesięć sekund wcześniej na to starcza.
+ */
+const WARNING_AT = 10;
+
+export type RestCue = 'warning' | 'tick';
+
+/**
+ * Jaki sygnał należy się tej sekundzie odliczania — osobno od odtwarzania, żeby regułę dawało
+ * się sprawdzić bez dźwięku i bez urządzenia.
+ */
+export function restCue(remainingSeconds: number): RestCue | null {
+  if (remainingSeconds === WARNING_AT) return 'warning';
+  if (remainingSeconds >= 1 && remainingSeconds <= COUNTDOWN_FROM) return 'tick';
+  return null;
+}
 
 type Player = { seekTo: (seconds: number) => void; play: () => void };
+type Players = { tick: Player; final: Player; warning: Player };
 type AudioModule = {
   createAudioPlayer: (source: unknown) => Player;
   setAudioModeAsync: (mode: Record<string, boolean>) => Promise<void>;
@@ -20,10 +38,10 @@ type AudioModule = {
 
 // Odtwarzacze zakładamy raz na proces: tworzenie ich przy każdym piknięciu dawałoby
 // opóźnienie rzędu dziesiątek milisekund, a przy odliczaniu sekund to słychać.
-let players: { tick: Player; final: Player } | null = null;
+let players: Players | null = null;
 let unavailable = false;
 
-function sounds(): { tick: Player; final: Player } | null {
+function sounds(): Players | null {
   if (players || unavailable) return players;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -31,6 +49,7 @@ function sounds(): { tick: Player; final: Player } | null {
     players = {
       tick: audio.createAudioPlayer(require('../../../assets/sounds/beep.wav')),
       final: audio.createAudioPlayer(require('../../../assets/sounds/beep-end.wav')),
+      warning: audio.createAudioPlayer(require('../../../assets/sounds/bell.wav')),
     };
     // Pikanie nie ma uciszać muzyki, z którą się trenuje — ma się w nią wmieszać.
     void audio
@@ -42,7 +61,7 @@ function sounds(): { tick: Player; final: Player } | null {
   return players;
 }
 
-function play(pick: (all: { tick: Player; final: Player }) => Player): void {
+function play(pick: (all: Players) => Player): void {
   const all = sounds();
   if (!all) return;
   try {
@@ -55,8 +74,8 @@ function play(pick: (all: { tick: Player; final: Player }) => Player): void {
 }
 
 /**
- * Pika w ostatnich pięciu sekundach przerwy, raz na sekundę. `remainingSeconds` to null,
- * gdy przerwa nie trwa; pominięcie przerwy nie pika.
+ * Dzwoni na dziesięć sekund przed końcem przerwy, potem pika w ostatnich pięciu, raz na sekundę.
+ * `remainingSeconds` to null, gdy przerwa nie trwa; pominięcie przerwy nie pika.
  */
 export function useRestCountdownSound(remainingSeconds: number | null, enabled = true): void {
   // Pamiętamy ostatnią odegraną sekundę, żeby przerysowanie ekranu nie piknęło drugi raz.
@@ -67,10 +86,11 @@ export function useRestCountdownSound(remainingSeconds: number | null, enabled =
       lastPlayed.current = null;
       return;
     }
-    if (remainingSeconds > COUNTDOWN_FROM || remainingSeconds < 1) return;
+    const cue = restCue(remainingSeconds);
+    if (cue === null) return;
     if (lastPlayed.current === remainingSeconds) return;
     lastPlayed.current = remainingSeconds;
-    play((all) => all.tick);
+    play((all) => (cue === 'warning' ? all.warning : all.tick));
   }, [remainingSeconds, enabled]);
 }
 
