@@ -15,9 +15,9 @@ const snapshot = (overrides: Partial<BundleSnapshot> = {}): BundleSnapshot => ({
 });
 
 describe('opis wgranej paczki', () => {
-  it('pokazuje skrót identyfikatora, datę i kanał', () => {
+  it('skraca identyfikator od końca, bo prefiks UUIDv7 powtarza się między wydaniami', () => {
     expect(describeBundle(snapshot({ createdAt: new Date(2026, 9, 7, 21, 48) }))).toBe(
-      'aktualizacja 01a117e5, z 7 października 2026, 21:48, kanał preview.',
+      'aktualizacja …7a3167d5, z 7 października 2026, 21:48, kanał preview.',
     );
   });
 
@@ -36,7 +36,7 @@ describe('opis wgranej paczki', () => {
 
   it('radzi sobie bez daty i kanału', () => {
     expect(describeBundle(snapshot({ createdAt: null, channel: null }))).toBe(
-      'aktualizacja 01a117e5.',
+      'aktualizacja …7a3167d5.',
     );
   });
 });

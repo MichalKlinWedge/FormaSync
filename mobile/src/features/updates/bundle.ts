@@ -25,7 +25,9 @@ export function describeBundle(snapshot: BundleSnapshot): string {
     return 'Paczka wbudowana w aplikację — żadna aktualizacja jeszcze się nie wgrała.';
   }
 
-  const parts = [`aktualizacja ${snapshot.updateId.slice(0, 8)}`];
+  // Końcówka, nie początek: identyfikatory Expo to UUIDv7, więc paczki wydane tego samego dnia
+  // mają wspólny prefiks z zakodowanym czasem i na skrócie z przodu wyglądałyby identycznie.
+  const parts = [`aktualizacja …${snapshot.updateId.slice(-8)}`];
   if (snapshot.createdAt !== null) parts.push(`z ${formatDateTime(snapshot.createdAt.toISOString())}`);
   if (snapshot.channel !== null) parts.push(`kanał ${snapshot.channel}`);
   return `${parts.join(', ')}.`;
