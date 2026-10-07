@@ -191,7 +191,8 @@ export default function RemoteBackupScreen() {
             <>
               <ThemedText type="small" themeColor="textSecondary">
                 Kopia całej bazy leci raz na dobę na Twój serwer — zaszyfrowana hasłem, którego
-                serwer nie zna. Potrzebny jest plik `backup.php` z katalogu `server` w repozytorium.
+                serwer nie zna. Na serwerze musi stać plik backup.php z katalogu server
+                w repozytorium; adres i token znajdziesz w jego konfiguracji.
               </ThemedText>
 
               <Field label="ADRES SKRYTKI">
