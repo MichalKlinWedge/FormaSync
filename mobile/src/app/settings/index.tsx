@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import * as Updates from 'expo-updates';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -21,12 +22,21 @@ import { RemoteBackupSection } from '@/features/backup/remote-section';
 import { syncWorkoutReminders } from '@/features/calendar/reminders';
 import { HealthSection } from '@/features/health/health-section';
 import { GarminAccountSection } from '@/features/garmin/connect/account-section';
+import { describeBundle } from '@/features/updates/bundle';
 import { findActiveSessionId } from '@/features/workout/repository';
 import { ExportCanceled, readPickedTextFile, saveToPickedDirectory } from '@/lib/file-export';
 import { formatNumber } from '@/lib/number';
 
 export default function SettingsScreen() {
   const [busy, setBusy] = useState<null | 'export' | 'import'>(null);
+  // Stałe expo-updates są ustalane przy starcie aplikacji — czytamy je raz, bez stanu.
+  const bundle = describeBundle({
+    isEnabled: Updates.isEnabled,
+    isEmbeddedLaunch: Updates.isEmbeddedLaunch,
+    updateId: Updates.updateId,
+    createdAt: Updates.createdAt,
+    channel: Updates.channel,
+  });
 
   const exportData = async () => {
     setBusy('export');
@@ -135,6 +145,9 @@ export default function SettingsScreen() {
           <ThemedText type="small" themeColor="textSecondary">
             FormaSync 1.0.0 — dziennik treningu siłowego. Aplikacja działa bez internetu, a dane
             opuszczają telefon tylko tam, gdzie sam je wyślesz.
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            {bundle}
           </ThemedText>
           <Button
             label="Prywatność"
