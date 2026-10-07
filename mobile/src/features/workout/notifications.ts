@@ -4,12 +4,16 @@ import { Platform } from 'react-native';
 import { db } from '@/db/client';
 import { getSetting, setSetting } from '@/db/settings';
 
-// Sygnał końca przerwy musi zadziałać także przy wygaszonym ekranie, gdy Android wstrzymuje
-// liczniki JS (R5 w planie). Dlatego planujemy lokalne powiadomienie z wyprzedzeniem,
-// a identyfikator trzymamy w bazie — przeżywa zamknięcie i ponowne uruchomienie aplikacji.
+import { restNotificationPlan, type RestNotification } from './rest-cues';
+
+// Sygnały przerwy muszą zadziałać także przy wygaszonym ekranie, gdy Android wstrzymuje
+// liczniki JS (R5 w planie) — dzwonek i pikanie z ekranu trwającego treningu wtedy nie zabrzmią.
+// Dlatego planujemy lokalne powiadomienia z wyprzedzeniem, a ich identyfikatory trzymamy
+// w bazie — przeżywają zamknięcie i ponowne uruchomienie aplikacji.
 
 const REST_NOTIFICATION_KEY = 'rest_notification_id';
 const CHANNEL_ID = 'rest-timer';
+const WARNING_CHANNEL_ID = 'rest-warning';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -22,7 +26,7 @@ Notifications.setNotificationHandler({
 
 let permissionChecked = false;
 
-/** Pyta o zgodę na powiadomienia (Android 13+) i tworzy kanał. Zwraca true, gdy zgoda jest. */
+/** Pyta o zgodę na powiadomienia (Android 13+) i tworzy kanały. Zwraca true, gdy zgoda jest. */
 export async function ensureNotificationPermission(): Promise<boolean> {
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
@@ -30,6 +34,13 @@ export async function ensureNotificationPermission(): Promise<boolean> {
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#E5484D',
+    });
+    await Notifications.setNotificationChannelAsync(WARNING_CHANNEL_ID, {
+      name: 'Dziesięć sekund do końca przerwy',
+      importance: Notifications.AndroidImportance.HIGH,
+      // Krótsze i pojedyncze drgnięcie: to jeszcze nie wezwanie pod sztangę, tylko zapowiedź.
+      vibrationPattern: [0, 200],
+      lightColor: '#F5A524',
     });
   }
   const current = await Notifications.getPermissionsAsync();
@@ -40,32 +51,55 @@ export async function ensureNotificationPermission(): Promise<boolean> {
   return requested.granted;
 }
 
-/** Planuje sygnał na koniec przerwy, zastępując poprzedni. */
+const CONTENT: Record<
+  RestNotification['kind'],
+  { title: string; body: (exerciseName: string) => string; channelId: string }
+> = {
+  warning: {
+    title: 'Jeszcze 10 sekund',
+    body: (exerciseName) => `Zaraz kolejna seria — ${exerciseName}.`,
+    channelId: WARNING_CHANNEL_ID,
+  },
+  end: {
+    title: 'Koniec przerwy',
+    body: (exerciseName) => `Czas na kolejną serię — ${exerciseName}.`,
+    channelId: CHANNEL_ID,
+  },
+};
+
+/** Planuje ostrzeżenie i koniec przerwy, zastępując poprzednią parę. */
 export async function scheduleRestEnd(seconds: number, exerciseName: string): Promise<void> {
   await cancelRestEnd();
-  if (seconds <= 0) return;
+  const plan = restNotificationPlan(seconds);
+  if (plan.length === 0) return;
   if (!(await ensureNotificationPermission())) return;
 
-  const id = await Notifications.scheduleNotificationAsync({
-    content: {
-      title: 'Koniec przerwy',
-      body: `Czas na kolejną serię — ${exerciseName}.`,
-      sound: true,
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-      seconds: Math.ceil(seconds),
-      channelId: CHANNEL_ID,
-    },
-  });
-  setSetting(db, REST_NOTIFICATION_KEY, id);
+  const ids: string[] = [];
+  for (const { kind, afterSeconds } of plan) {
+    const content = CONTENT[kind];
+    ids.push(
+      await Notifications.scheduleNotificationAsync({
+        content: { title: content.title, body: content.body(exerciseName), sound: true },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds: afterSeconds,
+          channelId: content.channelId,
+        },
+      }),
+    );
+  }
+  // Oba identyfikatory w jednym wpisie: przerwa ma jedną parę sygnałów i odwołuje się je razem.
+  setSetting(db, REST_NOTIFICATION_KEY, ids.join(' '));
 }
 
 export async function cancelRestEnd(): Promise<void> {
-  const id = getSetting(db, REST_NOTIFICATION_KEY);
-  if (!id) return;
+  const stored = getSetting(db, REST_NOTIFICATION_KEY);
+  if (!stored) return;
   setSetting(db, REST_NOTIFICATION_KEY, null);
-  await Notifications.cancelScheduledNotificationAsync(id).catch(() => {
-    // Powiadomienie mogło już się pokazać albo zostać usunięte — nic nie trzeba robić.
-  });
+  // Rozdzielenie odczytuje też pojedynczy identyfikator zapisany przez starszą wersję.
+  for (const id of stored.split(' ').filter(Boolean)) {
+    await Notifications.cancelScheduledNotificationAsync(id).catch(() => {
+      // Powiadomienie mogło już się pokazać albo zostać usunięte — nic nie trzeba robić.
+    });
+  }
 }

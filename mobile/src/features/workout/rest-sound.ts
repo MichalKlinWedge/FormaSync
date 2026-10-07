@@ -1,33 +1,17 @@
 import { useEffect, useRef } from 'react';
 
+import { restCue } from './rest-cues';
+
 /**
  * Odliczanie końca przerwy słychać, a nie tylko widać. Telefon leży zwykle ekranem w dół
- * albo na ławce obok — ostatnie pięć sekund trzeba usłyszeć, żeby zdążyć wrócić pod sztangę.
+ * albo na ławce obok — końcówkę przerwy trzeba usłyszeć, żeby zdążyć wrócić pod sztangę.
+ * Kiedy dokładnie, mówi `rest-cues`; tu zostaje samo odtwarzanie.
  *
  * Moduł dźwięku wczytujemy leniwie i w osłonie. Aktualizacja OTA potrafi wyprzedzić wgranie
  * nowej paczki, a wtedy modułu natywnego jeszcze nie ma; zwykły import wywróciłby wtedy cały
  * ekran trwającego treningu — czyli odebrałby możliwość jego zatrzymania. Brak dźwięku jest
  * akceptowalny, brak ekranu nie jest.
  */
-
-const COUNTDOWN_FROM = 5;
-/**
- * Dzwonek na dziesiątej sekundzie. Ostatnie pięć piknięć to już sam start serii — za późno,
- * żeby odstawić telefon, dopiąć pas i stanąć pod sztangą. Dziesięć sekund wcześniej na to starcza.
- */
-const WARNING_AT = 10;
-
-export type RestCue = 'warning' | 'tick';
-
-/**
- * Jaki sygnał należy się tej sekundzie odliczania — osobno od odtwarzania, żeby regułę dawało
- * się sprawdzić bez dźwięku i bez urządzenia.
- */
-export function restCue(remainingSeconds: number): RestCue | null {
-  if (remainingSeconds === WARNING_AT) return 'warning';
-  if (remainingSeconds >= 1 && remainingSeconds <= COUNTDOWN_FROM) return 'tick';
-  return null;
-}
 
 type Player = { seekTo: (seconds: number) => void; play: () => void };
 type Players = { tick: Player; final: Player; warning: Player };
