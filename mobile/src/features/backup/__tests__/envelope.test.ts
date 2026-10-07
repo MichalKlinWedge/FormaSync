@@ -7,6 +7,7 @@ import { base64ToBytes, bytesToBase64 } from '@/lib/base64';
 
 import {
   checkEnvelope,
+  KDF_ITERATIONS,
   EnvelopeFormatError,
   looksSealed,
   openBackup,
@@ -99,5 +100,20 @@ describe('dwa sposoby liczenia klucza', () => {
     // odczytać przyciskiem przywracania.
     const sealed = await sealBackup('{"a":1}', 'tajne', { ...FAST, background: true });
     await expect(openBackup(sealed, 'tajne')).resolves.toBe('{"a":1}');
+  });
+});
+
+describe('zmiana liczby obrotów', () => {
+  it('kopia zamknięta inną liczbą obrotów nadal się otwiera', async () => {
+    // Liczba obrotów jedzie w kopercie, więc obniżenie stałej nie może unieważnić kopii
+    // leżących już na serwerze.
+    const old = await sealBackup('{"a":1}', 'tajne', { iterations: 7 });
+    expect(old.kdf.iterations).toBe(7);
+    await expect(openBackup(old, 'tajne')).resolves.toBe('{"a":1}');
+  });
+
+  it('nowe kopie dostają obecną liczbę obrotów', async () => {
+    const fresh = await sealBackup('{"a":1}', 'tajne');
+    expect(fresh.kdf.iterations).toBe(KDF_ITERATIONS);
   });
 });

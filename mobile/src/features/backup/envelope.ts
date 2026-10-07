@@ -19,11 +19,17 @@ const APP_MARKER = 'FormaSync';
 export const ENVELOPE_VERSION = 1;
 
 /**
- * Liczba obrotów PBKDF2. Hasło użytkownika jest krótkie, więc jedyne, co utrudnia jego zgadywanie,
- * to koszt jednej próby. Tyle obrotów liczy się na telefonie około sekundy — zauważalnie dla nas
- * raz na dobę, dotkliwie dla kogoś, kto próbuje milionów haseł.
+ * Liczba obrotów PBKDF2 dla **nowych** kopii. Każda koperta niesie własną liczbę obrotów, więc
+ * zmiana tej stałej nie unieważnia kopii już leżących na serwerze — te starsze nadal otwierają
+ * się swoją.
+ *
+ * 210 tysięcy obrotów liczyło się na telefonie 14,5 s, co przy ręcznej wysyłce było nie do
+ * zniesienia; 100 tysięcy zajmuje około 7 s. To świadome osłabienie o połowę, wybrane przez
+ * użytkownika. Realnie liczy się i tak przede wszystkim siła samego hasła: napastnik z kartą
+ * graficzną sprawdza miliony kombinacji na sekundę, więc żadna wartość w tym zakresie nie
+ * uratuje hasła słabego ani nie złamie losowego.
  */
-export const KDF_ITERATIONS = 210_000;
+export const KDF_ITERATIONS = 100_000;
 
 const SALT_BYTES = 16;
 const NONCE_BYTES = 24;
