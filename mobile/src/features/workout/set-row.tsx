@@ -20,13 +20,26 @@ type SetRowProps = {
   exercise: ActiveExercise;
   set: ActiveSet;
   isCurrent: boolean;
+  /** Czy to ta seria, która właśnie się odlicza. */
+  isTiming: boolean;
   onEdit: (values: SetValues) => void;
   onEditEnd: () => void;
   onToggle: () => void;
   onRemove: () => void;
+  onStartTimer: () => void;
 };
 
-export function SetRow({ exercise, set, isCurrent, onEdit, onEditEnd, onToggle, onRemove }: SetRowProps) {
+export function SetRow({
+  exercise,
+  set,
+  isCurrent,
+  isTiming,
+  onEdit,
+  onEditEnd,
+  onToggle,
+  onRemove,
+  onStartTimer,
+}: SetRowProps) {
   const theme = useTheme();
   const done = set.completedAt !== null;
   const timed = exercise.trackingType === 'TIME';
@@ -61,6 +74,25 @@ export function SetRow({ exercise, set, isCurrent, onEdit, onEditEnd, onToggle, 
           onChange={(v) => onEdit({ weightKg: v })}
           onEnd={onEditEnd}
         />
+
+        {/*
+          Seria na czas odlicza się sama: zegar w aplikacji pika końcówkę, więc nie trzeba
+          patrzeć na telefon w trakcie planku ani pamiętać wyniku po jego zakończeniu.
+          Wpisanie czasu ręcznie nadal działa — nie każda seria zaczyna się od naciśnięcia.
+        */}
+        {timed && !done && (
+          <Pressable
+            accessibilityLabel={isTiming ? 'Odliczanie trwa' : `Odlicz serię ${set.setNumber}`}
+            disabled={isTiming}
+            onPress={onStartTimer}
+            hitSlop={6}>
+            <Icon
+              name={isTiming ? 'hourglass_top' : 'play_circle'}
+              size={22}
+              color={isTiming ? theme.accent : theme.textSecondary}
+            />
+          </Pressable>
+        )}
 
         <Pressable accessibilityLabel="Usuń serię" onPress={onRemove} hitSlop={6}>
           <Icon name="close" size={18} color={theme.textSecondary} />

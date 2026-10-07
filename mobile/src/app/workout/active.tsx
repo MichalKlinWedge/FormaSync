@@ -14,6 +14,7 @@ import { db } from '@/db/client';
 import { formatTarget } from '@/features/plans/draft';
 import {
   type ActiveExercise,
+  type ActiveSet,
   countSets,
   elapsedSeconds,
   findCurrentSet,
@@ -22,8 +23,14 @@ import {
   restState,
   sessionTonnage,
 } from '@/features/workout/logic';
-import { cancelRestEnd, scheduleRestEnd } from '@/features/workout/notifications';
-import { playRestEndSound, useRestCountdownSound } from '@/features/workout/rest-sound';
+import { cancelCountdown, scheduleCountdown } from '@/features/workout/notifications';
+import { playCountdownEndSound, useCountdownSound } from '@/features/workout/countdown-sound';
+import {
+  clearTimedSet,
+  loadTimedSet,
+  startTimedSet,
+  timedSetState,
+} from '@/features/workout/timed-set';
 import {
   abandonSession,
   activeSessionSport,
@@ -69,6 +76,8 @@ export default function ActiveWorkoutScreen() {
   const [sessionSport] = useState(() => (sessionId === null ? null : activeSessionSport(db, sessionId)));
   const { session, reload } = useSession(sessionId ?? -1);
   const [restOverride, setRestOverride] = useState<RestOverride | null>(null);
+  // Odliczanie serii na czas przeżywa zamknięcie aplikacji, więc czytamy je z bazy, nie z pamięci.
+  const [timedStore, setTimedStore] = useState(() => loadTimedSet(db));
 
   // Po powrocie z okna dodawania ćwiczeń sesja może mieć nowe pozycje.
   useFocusEffect(useCallback(() => reload(), [reload]));
@@ -85,13 +94,27 @@ export default function ActiveWorkoutScreen() {
   useEffect(() => {
     if (wasActive.current && !restActive && !skipped) {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      playRestEndSound();
+      playCountdownEndSound();
     }
     wasActive.current = restActive;
   }, [restActive, skipped]);
 
-  // Ostatnie pięć sekund przerwy słychać: bip na każdą sekundę, dłuższy sygnał na zero.
-  useRestCountdownSound(skipped ? null : (rest?.remainingSeconds ?? null));
+  /**
+   * Odliczanie serii zostaje na ekranie także po dojściu do zera: czas wpisuje się sam, ale
+   * zapisanie serii należy do ćwiczącego. Plank puszczony na 48. sekundzie to wynik 48 s,
+   * nie 60 s, a licznik nie ma skąd wiedzieć, która wersja jest prawdziwa.
+   */
+  const timed = timedSetState(timedStore, now);
+  const timedName =
+    timed === null
+      ? null
+      : (session?.exercises.find((e) => e.sets.some((set) => set.id === timed.setId))?.name ?? null);
+
+  /**
+   * Jedno odliczanie naraz. Seria na czas ma pierwszeństwo: jeśli trwa, to znaczy, że przerwa
+   * skończyła się powrotem do pracy — a dwa odliczania naraz nie dałyby się odróżnić po dźwięku.
+   */
+  useCountdownSound(timed ? timed.remainingSeconds : skipped ? null : (rest?.remainingSeconds ?? null));
 
   // Trening wytrzymałościowy prowadzi się po odcinkach, nie po seriach — to osobny ekran.
   if (sessionId !== null && sessionSport !== null && isEndurance(sessionSport)) {
@@ -115,12 +138,12 @@ export default function ActiveWorkoutScreen() {
   const toggleSet = (exercise: ActiveExercise, setId: number, done: boolean) => {
     if (done) {
       reopenSet(db, setId);
-      void cancelRestEnd();
+      void cancelCountdown();
     } else {
       completeSet(db, setId);
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setRestOverride(null);
-      void scheduleRestEnd(exercise.restDurationSeconds, exercise.name);
+      void scheduleCountdown(exercise.restDurationSeconds, exercise.name, 'rest');
     }
     reload();
   };
@@ -129,13 +152,50 @@ export default function ActiveWorkoutScreen() {
     if (!baseRest || !rest) return;
     const delta = (typeof override?.delta === 'number' ? override.delta : 0) + EXTEND_SECONDS;
     setRestOverride({ baseEndsAt: baseRest.endsAt, delta });
-    void scheduleRestEnd((baseRest.endsAt + delta * 1000 - now) / 1000, rest.exerciseName);
+    void scheduleCountdown((baseRest.endsAt + delta * 1000 - now) / 1000, rest.exerciseName, 'rest');
   };
 
   const skipRest = () => {
     if (!baseRest) return;
     setRestOverride({ baseEndsAt: baseRest.endsAt, delta: 'skip' });
-    void cancelRestEnd();
+    void cancelCountdown();
+  };
+
+  const startTimer = (exercise: ActiveExercise, set: ActiveSet) => {
+    const seconds = set.durationSeconds ?? exercise.targetDurationSeconds;
+    if (seconds === null || seconds <= 0) {
+      Alert.alert('Nie wiadomo, ile ma trwać', 'Wpisz najpierw liczbę sekund w wierszu serii.');
+      return;
+    }
+    // Powrót do pracy kończy przerwę — nie ma czego już odliczać.
+    if (baseRest) setRestOverride({ baseEndsAt: baseRest.endsAt, delta: 'skip' });
+    startTimedSet(db, set.id, seconds);
+    setTimedStore(loadTimedSet(db));
+    void scheduleCountdown(seconds, exercise.name, 'set');
+  };
+
+  /**
+   * Zapisuje serię z czasem, który rzeczywiście upłynął — przy pełnym odliczeniu to czas
+   * zaplanowany, przy odpuszczeniu w połowie tyle, ile się wytrzymało. Dalej leci przerwa,
+   * tak samo jak po zwykłej serii.
+   */
+  const saveTimer = () => {
+    if (!timed) return;
+    const exercise = session.exercises.find((e) => e.sets.some((set) => set.id === timed.setId));
+    completeSet(db, timed.setId, { durationSeconds: Math.max(1, timed.elapsedSeconds) });
+    clearTimedSet(db);
+    setTimedStore(null);
+    setRestOverride(null);
+    if (exercise) void scheduleCountdown(exercise.restDurationSeconds, exercise.name, 'rest');
+    else void cancelCountdown();
+    reload();
+  };
+
+  /** Odliczanie odpalone przez pomyłkę: seria zostaje nietknięta. */
+  const discardTimer = () => {
+    clearTimedSet(db);
+    setTimedStore(null);
+    void cancelCountdown();
   };
 
   const confirmAbandon = () =>
@@ -146,7 +206,8 @@ export default function ActiveWorkoutScreen() {
         style: 'destructive',
         onPress: () => {
           abandonSession(db, session.id);
-          void cancelRestEnd();
+          clearTimedSet(db);
+          void cancelCountdown();
           router.replace('/');
         },
       },
@@ -172,7 +233,38 @@ export default function ActiveWorkoutScreen() {
           </Pressable>
         </View>
 
-        {rest && (
+        {timed && (
+          <ThemedView type="backgroundSelected" style={styles.rest}>
+            <View style={styles.restText}>
+              <ThemedText type="smallBold" themeColor="textSecondary" numberOfLines={1}>
+                SERIA · {timedName ?? 'na czas'}
+              </ThemedText>
+              {/*
+                Licznik serii jest tym, na co patrzy się w trakcie planku — stąd cyfry większe
+                niż w przerwie. Po zerze nie schodzi poniżej, bo ujemny czas trzymania nie istnieje.
+              */}
+              <ThemedText type="title" style={styles.setClock}>
+                {formatClock(Math.max(0, timed.remainingSeconds))}
+              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                z {formatClock(timed.totalSeconds)}
+                {timed.remainingSeconds <= 0 ? ' · koniec' : ''}
+              </ThemedText>
+            </View>
+            <Pressable onPress={saveTimer} hitSlop={6}>
+              <ThemedText type="smallBold" style={{ color: theme.accent }}>
+                Zapisz
+              </ThemedText>
+            </Pressable>
+            <Pressable onPress={discardTimer} hitSlop={6}>
+              <ThemedText type="smallBold" style={{ color: theme.accent }}>
+                Odrzuć
+              </ThemedText>
+            </Pressable>
+          </ThemedView>
+        )}
+
+        {rest && !timed && (
           <ThemedView type="backgroundSelected" style={styles.rest}>
             <View style={styles.restText}>
               <ThemedText type="smallBold" themeColor="textSecondary" numberOfLines={1}>
@@ -220,6 +312,7 @@ export default function ActiveWorkoutScreen() {
                   exercise={exercise}
                   set={set}
                   isCurrent={current?.set.id === set.id}
+                  isTiming={timed?.setId === set.id}
                   onEdit={(values: SetValues) => updateSet(db, set.id, values)}
                   onEditEnd={reload}
                   onToggle={() => toggleSet(exercise, set.id, set.completedAt !== null)}
@@ -227,6 +320,7 @@ export default function ActiveWorkoutScreen() {
                     removeSet(db, set.id);
                     reload();
                   }}
+                  onStartTimer={() => startTimer(exercise, set)}
                 />
               ))}
 
@@ -282,6 +376,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
   },
   restText: { flex: 1 },
+  setClock: { fontSize: 34, lineHeight: 40 },
   content: { padding: Spacing.four, gap: Spacing.three, paddingBottom: Spacing.six },
   card: { borderRadius: 16, padding: Spacing.three, gap: Spacing.one },
   cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two, marginBottom: Spacing.one },

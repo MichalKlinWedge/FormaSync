@@ -1,11 +1,12 @@
 import { useEffect, useRef } from 'react';
 
-import { restCue } from './rest-cues';
+import { countdownCue } from './countdown-cues';
 
 /**
- * Odliczanie końca przerwy słychać, a nie tylko widać. Telefon leży zwykle ekranem w dół
- * albo na ławce obok — końcówkę przerwy trzeba usłyszeć, żeby zdążyć wrócić pod sztangę.
- * Kiedy dokładnie, mówi `rest-cues`; tu zostaje samo odtwarzanie.
+ * Odliczanie słychać, a nie tylko widać — i przerwę między seriami, i serię na czas. Telefon leży
+ * zwykle ekranem w dół albo na ławce obok; końcówkę trzeba usłyszeć, żeby zdążyć wrócić pod
+ * sztangę albo wiedzieć, ile jeszcze trzymać. Kiedy dokładnie, mówi `countdown-cues`; tu zostaje
+ * samo odtwarzanie.
  *
  * Moduł dźwięku wczytujemy leniwie i w osłonie. Aktualizacja OTA potrafi wyprzedzić wgranie
  * nowej paczki, a wtedy modułu natywnego jeszcze nie ma; zwykły import wywróciłby wtedy cały
@@ -58,10 +59,10 @@ function play(pick: (all: Players) => Player): void {
 }
 
 /**
- * Dzwoni na dziesięć sekund przed końcem przerwy, potem pika w ostatnich pięciu, raz na sekundę.
- * `remainingSeconds` to null, gdy przerwa nie trwa; pominięcie przerwy nie pika.
+ * Dzwoni na dziesięć sekund przed końcem, pika w ostatnich pięciu raz na sekundę, a na zerze
+ * daje dłuższy sygnał. `remainingSeconds` to null, gdy nic nie odlicza; pominięta przerwa milczy.
  */
-export function useRestCountdownSound(remainingSeconds: number | null, enabled = true): void {
+export function useCountdownSound(remainingSeconds: number | null, enabled = true): void {
   // Pamiętamy ostatnią odegraną sekundę, żeby przerysowanie ekranu nie piknęło drugi raz.
   const lastPlayed = useRef<number | null>(null);
 
@@ -70,15 +71,18 @@ export function useRestCountdownSound(remainingSeconds: number | null, enabled =
       lastPlayed.current = null;
       return;
     }
-    const cue = restCue(remainingSeconds);
+    const cue = countdownCue(remainingSeconds);
     if (cue === null) return;
-    if (lastPlayed.current === remainingSeconds) return;
-    lastPlayed.current = remainingSeconds;
-    play((all) => (cue === 'warning' ? all.warning : all.tick));
+    // Uśpiona aplikacja przeskakuje sekundy, więc zero rozpoznajemy po sygnale, a nie po
+    // liczbie: inaczej każda ujemna sekunda odgrywałaby koniec jeszcze raz.
+    const playedKey = cue === 'end' ? 0 : remainingSeconds;
+    if (lastPlayed.current === playedKey) return;
+    lastPlayed.current = playedKey;
+    play((all) => (cue === 'warning' ? all.warning : cue === 'end' ? all.final : all.tick));
   }, [remainingSeconds, enabled]);
 }
 
-/** Dłuższy sygnał w chwili, gdy przerwa się kończy. */
-export function playRestEndSound(): void {
+/** Dłuższy sygnał w chwili, gdy odliczanie dobiega zera. */
+export function playCountdownEndSound(): void {
   play((all) => all.final);
 }

@@ -12,7 +12,8 @@ import { formatDistance, formatPace } from '@/features/endurance/format';
 import { loadEnduranceSession, paceBreakdown, sessionTotals } from '@/features/endurance/session';
 import { isEndurance } from '@/features/sports/sport';
 import { formatClock, summarize } from '@/features/workout/logic';
-import { cancelRestEnd } from '@/features/workout/notifications';
+import { cancelCountdown } from '@/features/workout/notifications';
+import { clearTimedSet } from '@/features/workout/timed-set';
 import { findActiveSessionId, finishSession } from '@/features/workout/repository';
 import { useSession } from '@/features/workout/use-session';
 import { useNow } from '@/hooks/use-now';
@@ -41,7 +42,8 @@ export default function FinishWorkoutScreen() {
 
   const save = () => {
     finishSession(db, session.id, { userNotes: notes.trim() || null, rpeRating: rpe });
-    void cancelRestEnd();
+    clearTimedSet(db);
+    void cancelCountdown();
     router.replace('/');
   };
 

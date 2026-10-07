@@ -4,14 +4,14 @@ import { Platform } from 'react-native';
 import { db } from '@/db/client';
 import { getSetting, setSetting } from '@/db/settings';
 
-import { restNotificationPlan, type RestNotification } from './rest-cues';
+import { countdownNotificationPlan, type CountdownNotification } from './countdown-cues';
 
-// Sygnały przerwy muszą zadziałać także przy wygaszonym ekranie, gdy Android wstrzymuje
+// Sygnały odliczania muszą zadziałać także przy wygaszonym ekranie, gdy Android wstrzymuje
 // liczniki JS (R5 w planie) — dzwonek i pikanie z ekranu trwającego treningu wtedy nie zabrzmią.
 // Dlatego planujemy lokalne powiadomienia z wyprzedzeniem, a ich identyfikatory trzymamy
 // w bazie — przeżywają zamknięcie i ponowne uruchomienie aplikacji.
 
-const REST_NOTIFICATION_KEY = 'rest_notification_id';
+const NOTIFICATION_KEY = 'rest_notification_id';
 const CHANNEL_ID = 'rest-timer';
 const WARNING_CHANNEL_ID = 'rest-warning';
 
@@ -30,13 +30,13 @@ let permissionChecked = false;
 export async function ensureNotificationPermission(): Promise<boolean> {
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-      name: 'Koniec przerwy',
+      name: 'Koniec odliczania',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#E5484D',
     });
     await Notifications.setNotificationChannelAsync(WARNING_CHANNEL_ID, {
-      name: 'Dziesięć sekund do końca przerwy',
+      name: 'Dziesięć sekund do końca',
       importance: Notifications.AndroidImportance.HIGH,
       // Krótsze i pojedyncze drgnięcie: to jeszcze nie wezwanie pod sztangę, tylko zapowiedź.
       vibrationPattern: [0, 200],
@@ -51,51 +51,61 @@ export async function ensureNotificationPermission(): Promise<boolean> {
   return requested.granted;
 }
 
-const CONTENT: Record<
-  RestNotification['kind'],
-  { title: string; body: (exerciseName: string) => string; channelId: string }
-> = {
-  warning: {
-    title: 'Jeszcze 10 sekund',
-    body: (exerciseName) => `Zaraz kolejna seria — ${exerciseName}.`,
-    channelId: WARNING_CHANNEL_ID,
+/**
+ * Co odlicza: przerwa między seriami czy sama seria na czas. Treść musi to rozróżniać —
+ * „Koniec przerwy” przy planku kazałoby wstać dokładnie wtedy, gdy trzeba jeszcze leżeć.
+ */
+export type CountdownKind = 'rest' | 'set';
+
+const TEXTS: Record<CountdownKind, Record<CountdownNotification['kind'], [string, string]>> = {
+  rest: {
+    warning: ['Jeszcze 10 sekund przerwy', 'Zaraz kolejna seria'],
+    end: ['Koniec przerwy', 'Czas na kolejną serię'],
   },
-  end: {
-    title: 'Koniec przerwy',
-    body: (exerciseName) => `Czas na kolejną serię — ${exerciseName}.`,
-    channelId: CHANNEL_ID,
+  set: {
+    warning: ['Jeszcze 10 sekund', 'Wytrzymaj do końca'],
+    end: ['Koniec serii', 'Możesz puścić'],
   },
 };
 
-/** Planuje ostrzeżenie i koniec przerwy, zastępując poprzednią parę. */
-export async function scheduleRestEnd(seconds: number, exerciseName: string): Promise<void> {
-  await cancelRestEnd();
-  const plan = restNotificationPlan(seconds);
+const CHANNELS: Record<CountdownNotification['kind'], string> = {
+  warning: WARNING_CHANNEL_ID,
+  end: CHANNEL_ID,
+};
+
+/** Planuje ostrzeżenie i koniec odliczania, zastępując poprzednią parę. */
+export async function scheduleCountdown(
+  seconds: number,
+  exerciseName: string,
+  kind: CountdownKind = 'rest',
+): Promise<void> {
+  await cancelCountdown();
+  const plan = countdownNotificationPlan(seconds);
   if (plan.length === 0) return;
   if (!(await ensureNotificationPermission())) return;
 
   const ids: string[] = [];
-  for (const { kind, afterSeconds } of plan) {
-    const content = CONTENT[kind];
+  for (const step of plan) {
+    const [title, body] = TEXTS[kind][step.kind];
     ids.push(
       await Notifications.scheduleNotificationAsync({
-        content: { title: content.title, body: content.body(exerciseName), sound: true },
+        content: { title, body: `${body} — ${exerciseName}.`, sound: true },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-          seconds: afterSeconds,
-          channelId: content.channelId,
+          seconds: step.afterSeconds,
+          channelId: CHANNELS[step.kind],
         },
       }),
     );
   }
-  // Oba identyfikatory w jednym wpisie: przerwa ma jedną parę sygnałów i odwołuje się je razem.
-  setSetting(db, REST_NOTIFICATION_KEY, ids.join(' '));
+  // Oba identyfikatory w jednym wpisie: odliczanie ma jedną parę sygnałów i odwołuje się je razem.
+  setSetting(db, NOTIFICATION_KEY, ids.join(' '));
 }
 
-export async function cancelRestEnd(): Promise<void> {
-  const stored = getSetting(db, REST_NOTIFICATION_KEY);
+export async function cancelCountdown(): Promise<void> {
+  const stored = getSetting(db, NOTIFICATION_KEY);
   if (!stored) return;
-  setSetting(db, REST_NOTIFICATION_KEY, null);
+  setSetting(db, NOTIFICATION_KEY, null);
   // Rozdzielenie odczytuje też pojedynczy identyfikator zapisany przez starszą wersję.
   for (const id of stored.split(' ').filter(Boolean)) {
     await Notifications.cancelScheduledNotificationAsync(id).catch(() => {
