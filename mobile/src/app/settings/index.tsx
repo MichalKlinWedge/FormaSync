@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import * as Updates from 'expo-updates';
 import { useState } from 'react';
@@ -29,6 +30,8 @@ import { formatNumber } from '@/lib/number';
 
 export default function SettingsScreen() {
   const [busy, setBusy] = useState<null | 'export' | 'import'>(null);
+  // Wersja z manifestu, nie wpisana w kod — inaczej rozjeżdża się z app.json przy pierwszym wydaniu.
+  const appVersion = Constants.expoConfig?.version ?? '—';
   // Stałe expo-updates są ustalane przy starcie aplikacji — czytamy je raz, bez stanu.
   const bundle = describeBundle({
     isEnabled: Updates.isEnabled,
@@ -143,8 +146,8 @@ export default function SettingsScreen() {
             O APLIKACJI
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            FormaSync 1.0.0 — dziennik treningu siłowego. Aplikacja działa bez internetu, a dane
-            opuszczają telefon tylko tam, gdzie sam je wyślesz.
+            FormaSync {appVersion} — dziennik treningu siłowego. Aplikacja działa bez internetu,
+            a dane opuszczają telefon tylko tam, gdzie sam je wyślesz.
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             {bundle}
