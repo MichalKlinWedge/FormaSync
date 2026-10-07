@@ -75,7 +75,10 @@ if ($method === 'POST') {
     }
 
     $pdo->prepare(
-        'INSERT INTO formasync_backups (created_at, device, size_bytes, payload) VALUES (NOW(), ?, ?, ?)'
+        // Czas zapisujemy w UTC: spis kopii podaje go ze znacznikiem „Z”, a telefon przelicza
+        // na swoją strefę. Zwykłe NOW() zapisałoby czas lokalny serwera i daty wyszłyby
+        // przesunięte o tyle, ile wynosi różnica stref.
+        'INSERT INTO formasync_backups (created_at, device, size_bytes, payload) VALUES (UTC_TIMESTAMP(), ?, ?, ?)'
     )->execute([
         substr((string) ($envelope['device'] ?? ''), 0, 64),
         strlen($payload),
