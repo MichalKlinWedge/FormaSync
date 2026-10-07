@@ -184,9 +184,26 @@ function PlannedDetails({ entry, onAttached }: { entry: Entry; onAttached: () =>
               onPress={() => setCandidates(sessionsToAttach(db, entry.scheduledDate, entry.sport))}
             />
           ) : candidates.length === 0 ? (
-            <ThemedText type="small" themeColor="textSecondary">
-              Brak treningów z okolic tej daty, które nie są jeszcze przypisane do innego terminu.
-            </ThemedText>
+            <>
+              <ThemedText type="small" themeColor="textSecondary">
+                Brak treningów z okolic tej daty, które nie są jeszcze przypisane do innego terminu.
+              </ThemedText>
+              {/*
+                Trening nagrany na zegarku nie jest jeszcze treningiem w aplikacji — czeka
+                w „Z zegarka” na wczytanie. Bez tej wskazówki termin twierdzi, że nie ma czego
+                przypisać, mimo że trening się odbył i widać go dwa ekrany dalej.
+              */}
+              <ThemedText type="small" themeColor="textSecondary">
+                Trening nagrany na zegarku czeka na wczytanie i dopiero wtedy da się go tu
+                przypisać — a stamtąd przypiszesz go od razu do tego terminu.
+              </ThemedText>
+              <Button
+                label="Otwórz treningi z zegarka"
+                icon="watch"
+                variant="secondary"
+                onPress={() => router.push('/history/import')}
+              />
+            </>
           ) : (
             <View style={styles.chips}>
               {candidates.map((session) => (
