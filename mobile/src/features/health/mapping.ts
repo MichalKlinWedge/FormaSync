@@ -10,6 +10,8 @@ import { toDateKey } from '@/lib/date';
 
 export type Sample = { time: string; beatsPerMinute: number };
 export type Interval = { startTime: string; endTime: string };
+/** Blok pomiarowy razem z programem, który go zapisał. */
+export type Sourced = Interval & { origin: string };
 
 const within = (iso: string, from: number, to: number) => {
   const at = Date.parse(iso);
@@ -36,11 +38,11 @@ export function summarizeHeartRate(samples: Sample[], startTime: string, endTime
  * Health Connect dzieli dobę na bloki, które rzadko pokrywają się z treningiem co do minuty.
  */
 export function caloriesInWindow(
-  records: (Interval & { kilocalories: number })[],
+  records: (Sourced & { kilocalories: number })[],
   startTime: string,
   endTime: string,
 ): number | null {
-  const total = sumInWindow(records, (record) => record.kilocalories, startTime, endTime);
+  const total = largestSourceInWindow(records, (record) => record.kilocalories, startTime, endTime);
   return total === null ? null : Math.round(total);
 }
 
@@ -50,12 +52,42 @@ export function caloriesInWindow(
  * jak kalorie.
  */
 export function metersInWindow(
-  records: (Interval & { meters: number })[],
+  records: (Sourced & { meters: number })[],
   startTime: string,
   endTime: string,
 ): number | null {
-  const total = sumInWindow(records, (record) => record.meters, startTime, endTime);
+  const total = largestSourceInWindow(records, (record) => record.meters, startTime, endTime);
   return total === null ? null : Math.round(total);
+}
+
+/**
+ * Największe pojedyncze źródło, a nie suma wszystkich.
+ *
+ * Ten sam bieg zapisuje do Health Connect i zegarek, i telefon liczący kroki. Dodanie ich do
+ * siebie dawało bzdurę: bieg na 10,01 km pokazywał się jako 17,65 km. Dwa programy nie
+ * przebiegły dwóch tras — opisały tę samą, więc bierzemy tę relację, która mówi o niej najwięcej.
+ *
+ * Wewnątrz jednego źródła nadal sumujemy: tam kolejne bloki to kolejne odcinki tej samej trasy,
+ * a nie ta sama droga policzona dwa razy.
+ */
+function largestSourceInWindow<T extends Sourced>(
+  records: T[],
+  valueOf: (record: T) => number,
+  startTime: string,
+  endTime: string,
+): number | null {
+  const origins = new Set(records.map((record) => record.origin));
+  let best: number | null = null;
+  for (const origin of origins) {
+    const total = sumInWindow(
+      records.filter((record) => record.origin === origin),
+      valueOf,
+      startTime,
+      endTime,
+    );
+    if (total !== null && (best === null || total > best)) best = total;
+  }
+  return best;
 }
 
 /** Suma wartości z bloków nachodzących na okno, ważona długością części wspólnej. */
@@ -111,19 +143,4 @@ export function dayKeysBetween(from: Date, to: Date): string[] {
     cursor.setDate(cursor.getDate() + 1);
   }
   return days;
-}
-
-/**
- * Wartość z podsumowania Health Connect ma pierwszeństwo przed własnym sumowaniem zapisów.
- *
- * Health Connect wie, które zapisy pochodzą z różnych źródeł i opisują to samo — Garmin zapisuje
- * dystans treningu, a telefon równolegle liczy kroki. Zwykłe dodanie wszystkiego, co nachodzi na
- * okno treningu, podwaja wtedy kilometry: bieg na 10 km pokazywał się jako 17,65 km.
- *
- * Sumowanie zostaje jako zapasowa droga, gdy podsumowanie nie dojdzie albo wyjdzie puste —
- * lepszy dystans policzony z grubsza niż jego brak.
- */
-export function preferAggregate(aggregate: number | null, summed: number | null): number | null {
-  if (aggregate !== null && Number.isFinite(aggregate) && aggregate > 0) return Math.round(aggregate);
-  return summed;
 }

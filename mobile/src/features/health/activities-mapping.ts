@@ -1,6 +1,6 @@
 import type { Sport } from '@/db/schema';
 
-import type { HeartRateSummary, Interval, Sample } from './mapping';
+import type { HeartRateSummary, Interval, Sample, Sourced } from './mapping';
 import { caloriesInWindow, metersInWindow, summarizeHeartRate } from './mapping';
 
 /**
@@ -120,8 +120,8 @@ export function findOverlappingSession(
 export function toWatchActivity(
   record: ExerciseSession,
   samples: Sample[],
-  calorieBlocks: (Interval & { kilocalories: number })[],
-  distanceBlocks: (Interval & { meters: number })[] = [],
+  calorieBlocks: (Sourced & { kilocalories: number })[],
+  distanceBlocks: (Sourced & { meters: number })[] = [],
 ): WatchActivity | null {
   const recordId = record.metadata?.id;
   if (!recordId) return null;

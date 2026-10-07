@@ -149,9 +149,12 @@ export async function syncHealth(now: Date = new Date()): Promise<SyncResult> {
   ]);
 
   const samples = heart.records.flatMap((record) => record.samples);
+  // Źródło zapisu rozstrzyga, czy dwa bloki opisują to samo — bez niego kalorie z zegarka
+  // i z telefonu dodawałyby się do siebie, tak jak wcześniej kilometry.
   const calorieBlocks = calories.records.map((record) => ({
     startTime: record.startTime,
     endTime: record.endTime,
+    origin: record.metadata?.dataOrigin ?? '',
     kilocalories: record.energy.inKilocalories,
   }));
 

@@ -43,6 +43,7 @@ describe('toWatchActivity', () => {
         {
           startTime: '2026-10-02T14:00:00.000Z',
           endTime: '2026-10-02T14:30:00.000Z',
+          origin: 'zegarek',
           kilocalories: 120,
         },
       ],
@@ -68,10 +69,10 @@ describe('toWatchActivity', () => {
       [],
       [],
       [
-        { startTime: '2026-10-02T14:00:00.000Z', endTime: '2026-10-02T14:15:00.000Z', meters: 3000 },
-        { startTime: '2026-10-02T14:15:00.000Z', endTime: '2026-10-02T14:30:00.000Z', meters: 2500 },
+        { startTime: '2026-10-02T14:00:00.000Z', endTime: '2026-10-02T14:15:00.000Z', origin: 'zegarek', meters: 3000 },
+        { startTime: '2026-10-02T14:15:00.000Z', endTime: '2026-10-02T14:30:00.000Z', origin: 'zegarek', meters: 2500 },
         // Blok z innej pory dnia nie ma prawa dołożyć się do tego biegu.
-        { startTime: '2026-10-02T18:00:00.000Z', endTime: '2026-10-02T18:30:00.000Z', meters: 9000 },
+        { startTime: '2026-10-02T18:00:00.000Z', endTime: '2026-10-02T18:30:00.000Z', origin: 'zegarek', meters: 9000 },
       ],
     );
     expect(activity?.distanceMeters).toBe(5500);
