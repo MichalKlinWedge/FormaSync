@@ -23,6 +23,7 @@ import {
   forgetRemote,
   getAddress,
   getLastBackupAt,
+  getPassword,
   setAddress,
   setPassword,
   setToken,
@@ -92,7 +93,7 @@ export default function RemoteBackupScreen() {
   };
 
   const sendNow = async () => {
-    setBusy('Szyfruję i wysyłam…');
+    setBusy('Szyfruję i wysyłam… to potrwa kilkanaście sekund.');
     try {
       const result = await sendBackupNow();
       setLastAt(getLastBackupAt());
@@ -122,14 +123,18 @@ export default function RemoteBackupScreen() {
         Alert.alert('Trwa trening', 'Najpierw zakończ lub przerwij bieżący trening.');
         return;
       }
-      if (restorePassword === '') {
+      // Na tym telefonie hasło już jest — służy do codziennej kopii. Puste pole znaczy
+      // „użyj tego, co zapamiętane”; wpisanie czegoś pozwala odczytać kopię zamkniętą innym
+      // hasłem, na przykład przeniesioną ze starego telefonu.
+      const key = restorePassword === '' ? await getPassword() : restorePassword;
+      if (key === null || key === '') {
         Alert.alert('Podaj hasło', 'Kopie są zaszyfrowane — bez hasła nie da się ich otworzyć.');
         return;
       }
-      setBusy('Pobieram i odszyfrowuję…');
+      setBusy('Pobieram i odszyfrowuję… to potrwa kilkanaście sekund.');
       let backup;
       try {
-        backup = await downloadBackup(copy.id, restorePassword);
+        backup = await downloadBackup(copy.id, key);
       } catch (error) {
         setBusy(null);
         fail('Nie udało się odczytać kopii', error);
@@ -286,6 +291,7 @@ export default function RemoteBackupScreen() {
                 </ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
                   Przywrócenie zastępuje wszystkie dane w telefonie treścią wybranej kopii.
+                  Hasło zostaw puste, żeby użyć zapamiętanego na tym telefonie.
                 </ThemedText>
 
                 <Field label="HASŁO DO KOPII">
