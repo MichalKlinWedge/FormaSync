@@ -1,6 +1,6 @@
 import { xchacha20poly1305 } from '@noble/ciphers/chacha';
 import { bytesToUtf8, utf8ToBytes } from '@noble/ciphers/utils';
-import { pbkdf2 } from '@noble/hashes/pbkdf2';
+import { pbkdf2, pbkdf2Async } from '@noble/hashes/pbkdf2';
 import { sha256 } from '@noble/hashes/sha256';
 
 import { base64ToBytes, bytesToBase64 } from '@/lib/base64';
@@ -48,17 +48,24 @@ export class WrongPasswordError extends Error {
 }
 
 /**
- * Liczymy synchronicznie, mimo że blokuje to wątek na sekundę. Wersja asynchroniczna oddaje
- * sterowanie po każdej garstce obrotów i na telefonie rozciągała to do kilkudziesięciu sekund —
- * kręciołek i tak kręci się po stronie systemu, więc nikt na tym nie zyskiwał.
+ * Dwa sposoby liczenia klucza, bo dwa różne koszty są tu nie do pogodzenia.
+ *
+ * Gdy użytkownik czeka przed ekranem, liczymy **synchronicznie**: wątek stoi kilkanaście sekund,
+ * ale to najkrótszy możliwy czas, a kręciołek i tak rysuje system.
+ *
+ * Gdy kopia idzie sama w tle, liczymy **asynchronicznie**: trwa to kilka razy dłużej, lecz nikt
+ * na to nie patrzy, a wersja blokująca zamroziłaby aplikację na kilkanaście sekund zaraz po
+ * uruchomieniu — czyli dokładnie wtedy, gdy użytkownik chce jej użyć.
  */
-const deriveKey = (password: string, salt: Uint8Array, iterations: number) =>
-  pbkdf2(sha256, utf8ToBytes(password), salt, { c: iterations, dkLen: KEY_BYTES });
+const deriveKey = (password: string, salt: Uint8Array, iterations: number, background: boolean) => {
+  const args = [sha256, utf8ToBytes(password), salt, { c: iterations, dkLen: KEY_BYTES }] as const;
+  return background ? pbkdf2Async(...args) : Promise.resolve(pbkdf2(...args));
+};
 
 export async function sealBackup(
   plaintext: string,
   password: string,
-  options: { device?: string; now?: string; iterations?: number } = {},
+  options: { device?: string; now?: string; iterations?: number; background?: boolean } = {},
 ): Promise<Envelope> {
   if (password.length === 0) throw new EnvelopeFormatError('Hasło nie może być puste.');
   const iterations = options.iterations ?? KDF_ITERATIONS;
@@ -66,7 +73,7 @@ export async function sealBackup(
   // powtórzenie wektora jednorazowego nie ma jak zaszkodzić.
   const salt = randomBytes(SALT_BYTES);
   const nonce = randomBytes(NONCE_BYTES);
-  const key = deriveKey(password, salt, iterations);
+  const key = await deriveKey(password, salt, iterations, options.background ?? false);
 
   return {
     app: APP_MARKER,
@@ -82,7 +89,8 @@ export async function sealBackup(
 
 export async function openBackup(envelope: unknown, password: string): Promise<string> {
   const sealed = checkEnvelope(envelope);
-  const key = deriveKey(password, base64ToBytes(sealed.kdf.salt), sealed.kdf.iterations);
+  // Otwieranie kopii zawsze dzieje się na żądanie, więc zawsze liczymy najszybszą drogą.
+  const key = await deriveKey(password, base64ToBytes(sealed.kdf.salt), sealed.kdf.iterations, false);
   try {
     const plain = xchacha20poly1305(key, base64ToBytes(sealed.nonce)).decrypt(
       base64ToBytes(sealed.data),

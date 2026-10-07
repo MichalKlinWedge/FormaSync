@@ -92,3 +92,12 @@ describe('looksSealed', () => {
     expect(looksSealed({ app: 'FormaSync', version: 1, tables: {} })).toBe(false);
   });
 });
+
+describe('dwa sposoby liczenia klucza', () => {
+  it('kopia liczona w tle otwiera się tak samo jak liczona na żądanie', async () => {
+    // Obie drogi muszą dawać ten sam klucz — inaczej kopia z nocnej wysyłki nie dałaby się
+    // odczytać przyciskiem przywracania.
+    const sealed = await sealBackup('{"a":1}', 'tajne', { ...FAST, background: true });
+    await expect(openBackup(sealed, 'tajne')).resolves.toBe('{"a":1}');
+  });
+});

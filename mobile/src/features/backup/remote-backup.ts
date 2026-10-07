@@ -48,12 +48,18 @@ export async function connection(): Promise<RemoteConnection> {
   return { address, token };
 }
 
-export async function sendBackupNow(device = ''): Promise<{ id: number; size: number }> {
+export async function sendBackupNow(
+  device = '',
+  options: { background?: boolean } = {},
+): Promise<{ id: number; size: number }> {
   const link = await connection();
   const password = await getPassword();
   if (password === null) throw new RemoteNotConfiguredError();
 
-  const sealed = await sealBackup(serializeBackup(createBackup(db)), password, { device });
+  const sealed = await sealBackup(serializeBackup(createBackup(db)), password, {
+    device,
+    background: options.background,
+  });
   const result = await uploadBackup(link, sealed);
   setLastBackupAt(new Date().toISOString());
   return result;
@@ -67,7 +73,9 @@ export async function sendBackupNow(device = ''): Promise<{ id: number; size: nu
 export async function backUpInBackground(device = ''): Promise<boolean> {
   if (getAddress() === null || !shouldBackUpNow(getLastBackupAt())) return false;
   try {
-    await sendBackupNow(device);
+    // W tle nie wolno zablokować wątku: aplikacja właśnie się uruchomiła i użytkownik
+    // chce z niej korzystać, a nie patrzeć na zamrożony ekran.
+    await sendBackupNow(device, { background: true });
     return true;
   } catch {
     return false;
