@@ -4,6 +4,7 @@ import {
   caloriesInWindow,
   dayKeysBetween,
   latestOfDay,
+  preferAggregate,
   sleepMinutesForDay,
   summarizeHeartRate,
 } from '../mapping';
@@ -88,5 +89,34 @@ describe('dayKeysBetween', () => {
       '2026-10-02',
     ]);
     expect(dayKeysBetween(new Date(2026, 9, 1), new Date(2026, 9, 1))).toEqual(['2026-10-01']);
+  });
+});
+
+describe('preferAggregate', () => {
+  it('podsumowanie Health Connect wygrywa z własnym sumowaniem', () => {
+    // Bieg na 10 km pokazywał się jako 17,65 km, bo do dystansu z zegarka dodawaliśmy
+    // dystans z kroków telefonu — ten sam odcinek policzony dwa razy.
+    expect(preferAggregate(10009, 17650)).toBe(10009);
+  });
+
+  it('zaokrągla do pełnych metrów', () => {
+    expect(preferAggregate(10009.4, null)).toBe(10009);
+  });
+
+  it('bez podsumowania zostaje własne sumowanie', () => {
+    expect(preferAggregate(null, 8400)).toBe(8400);
+  });
+
+  it('zero traktujemy jak brak — trening bez dystansu nie ma go wymazywać', () => {
+    expect(preferAggregate(0, 8400)).toBe(8400);
+  });
+
+  it('bzdurna wartość nie wypiera sensownej', () => {
+    expect(preferAggregate(Number.NaN, 8400)).toBe(8400);
+    expect(preferAggregate(-5, 8400)).toBe(8400);
+  });
+
+  it('gdy nie ma ani jednego, ani drugiego — null', () => {
+    expect(preferAggregate(null, null)).toBeNull();
   });
 });

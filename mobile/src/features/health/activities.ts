@@ -1,4 +1,4 @@
-import { getGrantedPermissions, initialize, readRecords } from 'react-native-health-connect';
+import { aggregateRecord, getGrantedPermissions, initialize, readRecords } from 'react-native-health-connect';
 
 import { db } from '@/db/client';
 import { attachSession, openTermsOn } from '@/features/calendar/repository';
@@ -6,6 +6,7 @@ import { toDateKey } from '@/lib/date';
 
 import type { ImportCandidate, WatchActivity } from './activities-mapping';
 import { selectImportable, toWatchActivity } from './activities-mapping';
+import { preferAggregate } from './mapping';
 import {
   archiveActivity,
   archivedActivityIds,
@@ -79,9 +80,11 @@ export async function listWatchActivities(now: Date = new Date()): Promise<Watch
     meters: record.distance.inMeters,
   }));
 
-  const activities = exercise.records
+  const summed = exercise.records
     .map((record) => toWatchActivity(record, samples, calorieBlocks, distanceBlocks))
     .filter((activity): activity is WatchActivity => activity !== null);
+
+  const activities = await Promise.all(summed.map(withAggregates));
 
   return {
     distanceAvailable,
@@ -92,6 +95,51 @@ export async function listWatchActivities(now: Date = new Date()): Promise<Watch
       sessionWindows(db, fromIso),
     ),
   };
+}
+
+/**
+ * Dystans i kalorie bierzemy z podsumowania Health Connect dla okna treningu. Ono jedno wie,
+ * że dystans z zegarka i dystans z kroków telefonu opisują tę samą drogę — własne dodawanie
+ * zapisów podwajało kilometry.
+ */
+async function withAggregates(activity: WatchActivity): Promise<WatchActivity> {
+  const timeRangeFilter = {
+    operator: 'between',
+    startTime: activity.startTime,
+    endTime: activity.endTime,
+  } as const;
+
+  const [distance, calories] = await Promise.all([
+    aggregate('Distance', timeRangeFilter),
+    aggregate('ActiveCaloriesBurned', timeRangeFilter),
+  ]);
+
+  return {
+    ...activity,
+    distanceMeters: preferAggregate(
+      distance === null ? null : (distance as { DISTANCE_TOTAL?: { inMeters?: number } }).DISTANCE_TOTAL?.inMeters ?? null,
+      activity.distanceMeters,
+    ),
+    caloriesBurned: preferAggregate(
+      calories === null
+        ? null
+        : (calories as { ACTIVE_CALORIES_TOTAL?: { inKilocalories?: number } }).ACTIVE_CALORIES_TOTAL
+            ?.inKilocalories ?? null,
+      activity.caloriesBurned,
+    ),
+  };
+}
+
+/** Podsumowanie albo nic. Brak zgody czy chwilowy błąd nie może wywrócić całej listy. */
+async function aggregate(
+  recordType: 'Distance' | 'ActiveCaloriesBurned',
+  timeRangeFilter: { operator: 'between'; startTime: string; endTime: string },
+): Promise<unknown> {
+  try {
+    return await aggregateRecord({ recordType, timeRangeFilter });
+  } catch {
+    return null;
+  }
 }
 
 /** Dopisuje aktywność do historii i zwraca identyfikator utworzonej sesji. */

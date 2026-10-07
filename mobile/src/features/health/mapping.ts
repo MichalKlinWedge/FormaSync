@@ -112,3 +112,18 @@ export function dayKeysBetween(from: Date, to: Date): string[] {
   }
   return days;
 }
+
+/**
+ * Wartość z podsumowania Health Connect ma pierwszeństwo przed własnym sumowaniem zapisów.
+ *
+ * Health Connect wie, które zapisy pochodzą z różnych źródeł i opisują to samo — Garmin zapisuje
+ * dystans treningu, a telefon równolegle liczy kroki. Zwykłe dodanie wszystkiego, co nachodzi na
+ * okno treningu, podwaja wtedy kilometry: bieg na 10 km pokazywał się jako 17,65 km.
+ *
+ * Sumowanie zostaje jako zapasowa droga, gdy podsumowanie nie dojdzie albo wyjdzie puste —
+ * lepszy dystans policzony z grubsza niż jego brak.
+ */
+export function preferAggregate(aggregate: number | null, summed: number | null): number | null {
+  if (aggregate !== null && Number.isFinite(aggregate) && aggregate > 0) return Math.round(aggregate);
+  return summed;
+}
