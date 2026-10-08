@@ -12,6 +12,8 @@ import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
 import { categories, equipment, exerciseMuscles, exercises } from '@/db/schema';
 import { deleteExerciseImage } from '@/features/exercises/images';
+import { ExerciseIllustration } from '@/features/exercises/illustration/exercise-illustration';
+import { illustrationFor } from '@/features/exercises/illustration/poses';
 import { difficultyLabels, trackingTypeLabels } from '@/features/exercises/labels';
 import { deleteExercise, ExerciseInUseError } from '@/features/exercises/repository';
 import { useTheme } from '@/hooks/use-theme';
@@ -57,6 +59,8 @@ export function ExerciseDetails({ id, manageable = false }: ExerciseDetailsProps
   const { exercise } = row;
 
   const steps = exercise.instructions?.split('\n').filter((s) => s.trim()) ?? [];
+  // Własne ćwiczenia mogą mieć zdjęcie; katalogowe dostają rysunek poglądowy.
+  const illustration = illustrationFor(exercise.name);
 
   const confirmDelete = () =>
     Alert.alert('Usunąć ćwiczenie?', exercise.name, [
@@ -88,6 +92,8 @@ export function ExerciseDetails({ id, manageable = false }: ExerciseDetailsProps
         <ThemedView type="backgroundElement" style={styles.image}>
           {exercise.imageUrl ? (
             <Image source={{ uri: exercise.imageUrl }} style={StyleSheet.absoluteFill} contentFit="cover" />
+          ) : illustration ? (
+            <ExerciseIllustration illustration={illustration} />
           ) : (
             <Icon name="fitness_center" size={56} color={theme.textSecondary} />
           )}
