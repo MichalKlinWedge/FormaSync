@@ -51,6 +51,9 @@ const side = (arms: Limb, hip: Vec = STAND, torso = 90): Pose => ({
   legs: [legToFloor(hip, -90)],
 });
 
+/** Sztanga na karku: łokieć wyraźnie pod barkiem, talerz za głową, a nie na niej. */
+const BACK_RACK: Limb = { upper: -123, lower: 108 };
+
 /** Półprzysiad — biodro na tyle nisko, żeby kolana były wyraźnie ugięte. */
 const HALF_SQUAT: Vec = { x: 86, y: 88 };
 
@@ -430,8 +433,8 @@ export const exerciseIllustrations: Record<string, Illustration> = {
   },
 
   // Nogi
-  'Przysiad ze sztangą': squat({ gear: 'barbell' }, { arms: { upper: 170, lower: 10 } }),
-  'Przysiad goblet': squat({ gear: 'kettlebell' }, { arms: { upper: -46, lower: 42 }, torso: 80 }),
+  'Przysiad ze sztangą': squat({ gear: 'barbell' }, { arms: BACK_RACK }),
+  'Przysiad goblet': squat({ gear: 'kettlebell' }, { arms: { upper: -86, lower: 61 }, torso: 80 }),
   'Przysiad z masą ciała': squat({ gear: 'none' }, { arms: { upper: -8, lower: 4 }, torso: 76 }),
   'Wypychanie nogami na maszynie': {
     phases: [
@@ -511,7 +514,7 @@ export const exerciseIllustrations: Record<string, Illustration> = {
   },
   'Wspięcia na palce stojąc': calfRaise({ gear: 'none' }),
   'Przysiad bułgarski z hantlami': lunge({ gear: 'dumbbells' }, true),
-  'Przysiad przedni ze sztangą': squat({ gear: 'barbell' }, { arms: { upper: 8, lower: 128 }, torso: 80 }),
+  'Przysiad przedni ze sztangą': squat({ gear: 'barbell' }, { arms: { upper: 64, lower: -70 }, torso: 80 }),
   'Martwy ciąg rumuński jednonóż z hantlami': {
     phases: [
       planted({
@@ -533,7 +536,7 @@ export const exerciseIllustrations: Record<string, Illustration> = {
   },
   'Dobry ranek ze sztangą': hinge(
     { gear: 'barbell' },
-    { torso: 10, hip: { x: 78, y: 80 }, knee: -84, arms: { upper: 170, lower: 10 } },
+    { torso: 10, hip: { x: 78, y: 80 }, knee: -84, arms: BACK_RACK },
   ),
   'Wspięcia na palce z hantlami': calfRaise({ gear: 'dumbbells' }),
 
