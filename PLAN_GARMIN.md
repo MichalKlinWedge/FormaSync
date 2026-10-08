@@ -16,8 +16,10 @@ trzy rzeczy, których nie da się obejść:
    na której wzorujemy implementację, została przez to oznaczona jako niewspierana.
    Synchronizacja potrafi więc przestać działać z dnia na dzień, a aplikacja musi to
    przeżyć bez utraty danych i powiedzieć wprost, co się stało.
-3. **Eksport `.FIT` zostaje.** Działa bez konta i bez internetu, więc jest drogą awaryjną,
-   gdy API padnie. Nie zastępujemy go synchronizacją.
+3. **Eksport `.FIT` usunięty.** Miał być drogą awaryjną na wypadek padu API, ale wymagał
+   kabla i wrzucał plik tylko na zegarek — do biblioteki ani kalendarza Garmina nic z niego
+   nie trafiało. Gdy wysyłka do Connect zaczęła działać, przestał być tego wart. Drogą
+   zapasową jest narzędzie na komputerze, czytające kopię zapasową.
 
 ## Co trzymamy na telefonie
 

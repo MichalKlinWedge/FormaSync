@@ -55,6 +55,7 @@ export function PickExerciseScreen({ onConfirm }: PickExerciseScreenProps) {
           keyExtractor={(item) => String(item.id)}
           extraData={selected}
           keyboardShouldPersistTaps="handled"
+          style={styles.listArea}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => {
             const position = selected.indexOf(item.id);
@@ -83,6 +84,9 @@ export function PickExerciseScreen({ onConfirm }: PickExerciseScreenProps) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1, paddingTop: Spacing.three, gap: Spacing.two },
+  // Bez tego lista bierze wysokość treści, a stopka z przyciskiem wisi tuż pod ostatnim
+  // widocznym wierszem zamiast przy dolnej krawędzi.
+  listArea: { flex: 1 },
   list: { paddingHorizontal: Spacing.four, paddingBottom: Spacing.four },
   footer: { paddingHorizontal: Spacing.four, paddingBottom: Spacing.two },
 });

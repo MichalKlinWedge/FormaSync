@@ -6,7 +6,9 @@ Narzędzie uruchamiane na komputerze. Czyta kopię zapasową wyeksportowaną z a
 
 Garmin Training API wymaga programu deweloperskiego, który jest wstrzymany, przeznaczony dla podmiotów prawnych i płatny. Zostaje nieoficjalny klient `garminconnect`, logujący się na konto użytkownika — biblioteka pythonowa, której nie da się uruchomić w aplikacji React Native. Wbudowanie jej oznaczałoby też trzymanie danych logowania do Garmina w telefonie.
 
-Aplikacja ma osobną, niezależną drogę: **eksport planu do pliku `.FIT`**, który kopiuje się kablem wprost na zegarek (folder `NewFiles`). Garmin Connect nie przyjmuje plików treningowych przez import — obsługa Garmina potwierdza, że import działa wyłącznie dla plików aktywności. To narzędzie jest więc jedyną drogą, by trening trafił do biblioteki i kalendarza Garmin Connect — za cenę zależności od nieoficjalnego API.
+Aplikacja robi to jednak sama: przycisk **Wyślij do Garmin Connect** na ekranie planu loguje się tą samą nieoficjalną drogą i wpisuje trening do biblioteki oraz kalendarza. To narzędzie zostaje jako droga zapasowa — gdy telefon odmówi logowania albo chcesz wysłać plany hurtem z kopii zapasowej.
+
+Wcześniej aplikacja miała też eksport planu do pliku `.FIT`, kopiowanego kablem do folderu `NewFiles` na zegarku. Został usunięty, kiedy wysyłka do Connect zaczęła działać — plik trafiał tylko na zegarek, bo Garmin Connect nie przyjmuje przez import plików treningowych, a wyłącznie pliki aktywności.
 
 **Garmin może zmienić to API bez zapowiedzi.** Tak właśnie stało się z przepływem logowania, przez co biblioteka `garth` (fundament `garminconnect`) została oznaczona jako niewspierana.
 

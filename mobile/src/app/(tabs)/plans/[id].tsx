@@ -13,11 +13,8 @@ import { deletePlan, draftFromPlan, loadPlanDraft } from '@/features/plans/repos
 import { EndurancePlanDetails } from '@/features/endurance/plan-details';
 import { usePlanDetails } from '@/features/plans/use-plans';
 import { isEndurance } from '@/features/sports/sport';
-import { buildWorkoutFit, FitExportError, fitFileName } from '@/features/garmin/fit-workout';
 import { SendToGarminButton } from '@/features/garmin/connect/send-button';
-import { loadPlanForFit } from '@/features/garmin/repository';
 import { proposeProgression } from '@/features/progress/progression';
-import { ExportCanceled, saveToPickedDirectory } from '@/lib/file-export';
 import { ensureNotificationPermission } from '@/features/workout/notifications';
 import { ActiveSessionExistsError, startSession } from '@/features/workout/repository';
 
@@ -51,26 +48,6 @@ export default function PlanDetailsScreen() {
       return;
     }
     router.push({ pathname: '/plans/progression', params: { id: plan.id } });
-  };
-
-  const exportToFit = async () => {
-    const data = loadPlanForFit(db, plan.id);
-    if (!data) return;
-    try {
-      const bytes = buildWorkoutFit(data.title, data.exercises);
-      const name = await saveToPickedDirectory(bytes, fitFileName(data.title), 'application/octet-stream');
-      Alert.alert(
-        'Plik zapisany',
-        `${name}
-
-Podłącz zegarek kablem i skopiuj plik do folderu NewFiles — trening pojawi się na zegarku. ` +
-          'Garmin Connect nie przyjmuje plików treningowych przez import, więc do wysyłki razem z kalendarzem ' +
-          'służy narzędzie na komputerze (tools/garmin).',
-      );
-    } catch (e) {
-      if (e instanceof ExportCanceled) return;
-      Alert.alert('Nie udało się zapisać', e instanceof FitExportError ? e.message : 'Nieznany błąd.');
-    }
   };
 
   const start = () => {
@@ -126,12 +103,6 @@ Podłącz zegarek kablem i skopiuj plik do folderu NewFiles — trening pojawi s
         <View style={styles.actions}>
           <Button label="Rozpocznij trening" icon="play_arrow" onPress={start} />
           <SendToGarminButton planId={id} />
-          <Button
-            label="Eksportuj na zegarek (.FIT)"
-            icon="watch"
-            variant="secondary"
-            onPress={() => void exportToFit()}
-          />
           {plan.isTemplate ? (
             <Button label="Kopiuj do moich planów" icon="content_copy" variant="secondary" onPress={copy} />
           ) : (
