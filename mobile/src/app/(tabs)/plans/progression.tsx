@@ -8,6 +8,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
+import { ExerciseLink } from '@/features/exercises/exercise-link';
 import {
   applyProgression,
   type ProgressionAdvice,
@@ -132,9 +133,12 @@ function SuggestionRow({
         color={selected && !hold ? theme.accent : theme.textSecondary}
       />
       <View style={styles.rowText}>
-        <ThemedText type="smallBold" numberOfLines={1}>
-          {suggestion.exerciseName}
-        </ThemedText>
+        <View style={styles.rowTitle}>
+          <ThemedText type="smallBold" numberOfLines={1} style={styles.rowName}>
+            {suggestion.exerciseName}
+          </ThemedText>
+          <ExerciseLink exerciseId={suggestion.exerciseId} name={suggestion.exerciseName} />
+        </View>
         <ThemedText type="small" themeColor="textSecondary">
           {suggestion.reason}
         </ThemedText>
@@ -163,6 +167,8 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: Spacing.three,
   },
+  rowTitle: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
+  rowName: { flexShrink: 1 },
   rowText: { flex: 1 },
   change: { alignItems: 'flex-end' },
   footnote: { borderTopWidth: StyleSheet.hairlineWidth, padding: Spacing.four },

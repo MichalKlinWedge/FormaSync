@@ -18,6 +18,7 @@ import {
 
 const performance = (overrides: Partial<ExercisePerformance> = {}): ExercisePerformance => ({
   planExerciseId: 1,
+  exerciseId: 1,
   exerciseName: 'Przysiad',
   targetSets: 3,
   targetReps: 8,
@@ -124,12 +125,12 @@ function setup() {
       },
     ],
   });
-  return { db, planId };
+  return { db, planId, squatId: squat.id };
 }
 
 describe('proposeProgression', () => {
   it('opiera się na ostatniej ukończonej sesji planu', () => {
-    const { db, planId } = setup();
+    const { db, planId, squatId } = setup();
 
     // Starsza sesja: słabe wykonanie.
     const first = startSession(db, { kind: 'plan', planId }, '2026-10-01T10:00:00.000Z');
@@ -151,6 +152,8 @@ describe('proposeProgression', () => {
     // Plank nie ma ciężaru ani celu powtórzeń, więc nie ma dla niego sugestii.
     expect(proposal.suggestions).toHaveLength(1);
     expect(proposal.suggestions[0]).toMatchObject({
+      // Identyfikator niesie odnośnik do opisu ćwiczenia na ekranie progresji.
+      exerciseId: squatId,
       exerciseName: 'Przysiad ze sztangą',
       advice: 'INCREASE',
       currentWeight: 100,

@@ -13,6 +13,7 @@ export type SetOutcome = { reps: number | null; weightKg: number | null; rpe: nu
 
 export type ExercisePerformance = {
   planExerciseId: number;
+  exerciseId: number;
   exerciseName: string;
   targetSets: number;
   targetReps: number | null;
@@ -25,6 +26,7 @@ export type ProgressionAdvice = 'INCREASE' | 'HOLD' | 'DECREASE';
 
 export type Suggestion = {
   planExerciseId: number;
+  exerciseId: number;
   exerciseName: string;
   advice: ProgressionAdvice;
   currentWeight: number;
@@ -66,6 +68,7 @@ export function suggestProgression(performance: ExercisePerformance): Suggestion
 
   const base = {
     planExerciseId: performance.planExerciseId,
+    exerciseId: performance.exerciseId,
     exerciseName: performance.exerciseName,
     currentWeight: targetWeight,
   };
@@ -176,6 +179,7 @@ export function proposeProgression(db: SyncDb, planId: number): ProgressionPropo
     if (!planItem) continue;
     const suggestion = suggestProgression({
       planExerciseId: planItem.id,
+      exerciseId: se.exerciseId,
       exerciseName: name,
       targetSets: planItem.targetSets,
       targetReps: planItem.targetReps,

@@ -9,6 +9,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
+import { ExerciseLink } from '@/features/exercises/exercise-link';
 import { type DraftItem, moveItem, PlanValidationError, removeItem, updateItem } from '@/features/plans/draft';
 import { isDraftDirty, usePlanDraftStore } from '@/features/plans/draft-store';
 import { savePlan } from '@/features/plans/repository';
@@ -136,6 +137,7 @@ function PlanItemEditor({ item, index, isFirst, isLast, onChange, onMove, onRemo
         <ThemedText type="smallBold" style={styles.itemTitle} numberOfLines={2}>
           {index + 1}. {item.exerciseName}
         </ThemedText>
+        <ExerciseLink exerciseId={item.exerciseId} name={item.exerciseName} />
         {iconButton('arrow_upward', 'Przesuń w górę', () => onMove(-1), isFirst)}
         {iconButton('arrow_downward', 'Przesuń w dół', () => onMove(1), isLast)}
         {iconButton('delete', 'Usuń z planu', onRemove)}

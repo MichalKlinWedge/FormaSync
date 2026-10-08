@@ -6,6 +6,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
+import { ExerciseLink } from '@/features/exercises/exercise-link';
 import { formatDuration, formatTarget } from '@/features/plans/draft';
 import { usePlanDraftStore } from '@/features/plans/draft-store';
 import { deletePlan, draftFromPlan, loadPlanDraft } from '@/features/plans/repository';
@@ -113,7 +114,7 @@ Podłącz zegarek kablem i skopiuj plik do folderu NewFiles — trening pojawi s
                 {index + 1}
               </ThemedText>
               <View style={styles.itemText}>
-                <ThemedText>{item.exerciseName}</ThemedText>
+                <ExerciseLink exerciseId={item.exerciseId} name={item.exerciseName} withName />
                 <ThemedText type="small" themeColor="textSecondary">
                   {formatTarget(item)} · przerwa {formatDuration(item.restDurationSeconds)}
                 </ThemedText>

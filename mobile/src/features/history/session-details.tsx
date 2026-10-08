@@ -11,6 +11,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
+import { ExerciseLink } from '@/features/exercises/exercise-link';
 
 import { EnduranceSessionDetails } from '@/features/endurance/session-details';
 import { SessionHealth } from '@/features/health/session-health';
@@ -115,7 +116,12 @@ export function SessionDetails({ id, updatePlanRoute, footer }: SessionDetailsPr
 
           {session.exercises.map((exercise) => (
             <ThemedView key={exercise.id} type="backgroundElement" style={styles.card}>
-              <ThemedText type="smallBold">{exercise.name}</ThemedText>
+              <ExerciseLink
+                exerciseId={exercise.exerciseId}
+                name={exercise.name}
+                withName
+                textType="smallBold"
+              />
               <ThemedText type="small" themeColor="textSecondary">
                 plan: {formatTarget(exercise)}
               </ThemedText>

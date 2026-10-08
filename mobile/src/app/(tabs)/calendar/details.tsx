@@ -8,6 +8,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
+import { ExerciseLink } from '@/features/exercises/exercise-link';
 import {
   attachSession,
   detachSession,
@@ -142,7 +143,12 @@ function PlannedDetails({ entry, onAttached }: { entry: Entry; onAttached: () =>
           ) : (
             items.map((item) => (
               <ThemedView key={item.id} type="backgroundElement" style={styles.card}>
-                <ThemedText type="smallBold">{item.exerciseName}</ThemedText>
+                <ExerciseLink
+                  exerciseId={item.exerciseId}
+                  name={item.exerciseName}
+                  withName
+                  textType="smallBold"
+                />
                 <ThemedText type="small" themeColor="textSecondary">
                   {formatTarget(item)}
                 </ThemedText>

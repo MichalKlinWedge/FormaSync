@@ -9,6 +9,7 @@ import { Chip } from '@/components/chip';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { ExerciseLink } from '@/features/exercises/exercise-link';
 import {
   exerciseProgress,
   overallStats,
@@ -171,9 +172,14 @@ export default function ProgressScreen() {
           />
           {records.slice(0, 10).map((record) => (
             <View key={record.exerciseId} style={styles.tableRow}>
-              <ThemedText type="small" style={styles.recordName} numberOfLines={1}>
-                {record.exerciseName}
-              </ThemedText>
+              <View style={styles.recordName}>
+                <ExerciseLink
+                  exerciseId={record.exerciseId}
+                  name={record.exerciseName}
+                  withName
+                  textType="small"
+                />
+              </View>
               <ThemedText type="small" themeColor="textSecondary">
                 {formatKg(record.maxWeight)}
                 {record.maxWeightReps ? ` × ${record.maxWeightReps}` : ''}
