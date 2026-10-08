@@ -51,6 +51,45 @@ describe('seedDatabase', () => {
     ]);
   });
 
+  it('ma spójne odcinki w szablonach wytrzymałościowych', () => {
+    // Zbieramy usterki zamiast przerywać na pierwszej — przy wpadce widać od razu, który szablon.
+    const problems: string[] = [];
+    for (const template of seedEnduranceTemplates) {
+      let openGroup = false;
+      for (const segment of template.segments) {
+        const where = `${template.title} / ${segment.kind}`;
+        const check = (ok: boolean, what: string) => {
+          if (!ok) problems.push(`${where}: ${what}`);
+        };
+
+        // Odcinek w grupie musi iść zaraz za nią — seed wiąże go z ostatnio wstawioną grupą.
+        if (segment.inRepeat) check(openGroup, 'odcinek w grupie bez grupy przed sobą');
+        if (segment.kind === 'REPEAT') {
+          check((segment.repeatCount ?? 0) > 1, 'grupa powtórzeń bez sensownej liczby powtórzeń');
+          openGroup = true;
+        }
+
+        if (segment.durationType === 'DISTANCE') {
+          check((segment.distanceMeters ?? 0) > 0, 'odcinek na dystans bez dystansu');
+          check(segment.durationSeconds === undefined, 'odcinek na dystans ma też czas');
+        }
+        if (segment.durationType === 'TIME') {
+          check((segment.durationSeconds ?? 0) > 0, 'odcinek na czas bez czasu');
+          check(segment.distanceMeters === undefined, 'odcinek na czas ma też dystans');
+        }
+
+        if (segment.targetType === 'PACE' || segment.targetType === 'HEART_RATE') {
+          // Tempo liczymy w sekundach na kilometr, więc niższa granica to szybszy koniec zakresu.
+          check(
+            segment.targetLow !== undefined && segment.targetHigh !== undefined && segment.targetLow < segment.targetHigh,
+            'zakres celu nie rośnie',
+          );
+        }
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+
   it('jest idempotentne', () => {
     const db = createDb();
     seedDatabase(db);

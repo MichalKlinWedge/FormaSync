@@ -11,7 +11,7 @@ import type {
 // Dane startowe: słowniki, katalog ćwiczeń i wbudowane szablony.
 // Zmiana zawartości wymaga podbicia SEED_VERSION (seed.ts dograje brakujące rekordy).
 
-export const SEED_VERSION = 3;
+export const SEED_VERSION = 4;
 
 export const seedCategories: { name: string; description: string }[] = [
   { name: 'Klatka piersiowa', description: 'Mięsień piersiowy większy i mniejszy' },
@@ -1011,6 +1011,95 @@ export const seedEnduranceTemplates: SeedEnduranceTemplate[] = [
       { kind: 'WORK', inRepeat: true, durationType: 'TIME', durationSeconds: 30 },
       { kind: 'RECOVERY', inRepeat: true, durationType: 'TIME', durationSeconds: 120 },
       { kind: 'COOLDOWN', durationType: 'TIME', durationSeconds: 600 },
+    ],
+  },
+  {
+    sport: 'RUNNING',
+    title: 'Rozbieganie regeneracyjne',
+    description: 'Krótko i bardzo wolno — dzień po mocnym akcencie. Tętno niżej niż na wybieganiu.',
+    segments: [
+      { kind: 'WORK', durationType: 'DISTANCE', distanceMeters: 5000, targetType: 'HEART_RATE', targetLow: 110, targetHigh: 135 },
+      { kind: 'COOLDOWN', durationType: 'TIME', durationSeconds: 300 },
+    ],
+  },
+  {
+    sport: 'RUNNING',
+    title: 'Długie wybieganie',
+    description: 'Najdłuższy bieg tygodnia. Tempo takie, żeby dało się rozmawiać do końca.',
+    segments: [
+      { kind: 'WARMUP', durationType: 'TIME', durationSeconds: 600 },
+      { kind: 'WORK', durationType: 'DISTANCE', distanceMeters: 16000, targetType: 'HEART_RATE', targetLow: 125, targetHigh: 145 },
+      { kind: 'COOLDOWN', durationType: 'TIME', durationSeconds: 600 },
+    ],
+  },
+  {
+    sport: 'RUNNING',
+    title: 'Bieg tempowy 20 minut',
+    description: 'Tempo progowe: ciężko, ale pod kontrolą. Wolniej niż odcinki, szybciej niż wybieganie.',
+    segments: [
+      { kind: 'WARMUP', durationType: 'TIME', durationSeconds: 900 },
+      { kind: 'WORK', durationType: 'TIME', durationSeconds: 1200, targetType: 'PACE', targetLow: 280, targetHigh: 300 },
+      { kind: 'COOLDOWN', durationType: 'TIME', durationSeconds: 600 },
+    ],
+  },
+  {
+    sport: 'RUNNING',
+    title: 'Interwały 5×1000 m',
+    description: 'Dłuższe odcinki niż na 400 m, więc i tempo odrobinę wolniejsze. Przerwa truchtem.',
+    segments: [
+      { kind: 'WARMUP', durationType: 'TIME', durationSeconds: 900 },
+      { kind: 'REPEAT', repeatCount: 5, durationType: 'OPEN' },
+      { kind: 'WORK', inRepeat: true, durationType: 'DISTANCE', distanceMeters: 1000, targetType: 'PACE', targetLow: 255, targetHigh: 275 },
+      { kind: 'RECOVERY', inRepeat: true, durationType: 'TIME', durationSeconds: 180 },
+      { kind: 'COOLDOWN', durationType: 'TIME', durationSeconds: 600 },
+    ],
+  },
+  {
+    sport: 'RUNNING',
+    title: 'Interwały 8×200 m',
+    description: 'Krótkie i szybkie. Akcent na rytm biegu, nie na zmęczenie.',
+    segments: [
+      { kind: 'WARMUP', durationType: 'TIME', durationSeconds: 900 },
+      { kind: 'REPEAT', repeatCount: 8, durationType: 'OPEN' },
+      { kind: 'WORK', inRepeat: true, durationType: 'DISTANCE', distanceMeters: 200, targetType: 'PACE', targetLow: 210, targetHigh: 240 },
+      { kind: 'RECOVERY', inRepeat: true, durationType: 'TIME', durationSeconds: 120 },
+      { kind: 'COOLDOWN', durationType: 'TIME', durationSeconds: 600 },
+    ],
+  },
+  {
+    sport: 'RUNNING',
+    title: 'Fartlek 10×1 minuta',
+    description: 'Zabawa biegowa: minuta mocno, dwie spokojnie. Bez zegarka na tempo — na czucie.',
+    segments: [
+      { kind: 'WARMUP', durationType: 'TIME', durationSeconds: 900 },
+      { kind: 'REPEAT', repeatCount: 10, durationType: 'OPEN' },
+      { kind: 'WORK', inRepeat: true, durationType: 'TIME', durationSeconds: 60 },
+      { kind: 'RECOVERY', inRepeat: true, durationType: 'TIME', durationSeconds: 120 },
+      { kind: 'COOLDOWN', durationType: 'TIME', durationSeconds: 600 },
+    ],
+  },
+  {
+    sport: 'RUNNING',
+    title: 'Bieg progresywny 9 km',
+    description: 'Trzy bloki po 3 km, każdy szybszy od poprzedniego. Ostatni ma boleć.',
+    segments: [
+      { kind: 'WARMUP', durationType: 'TIME', durationSeconds: 600 },
+      { kind: 'WORK', durationType: 'DISTANCE', distanceMeters: 3000, targetType: 'PACE', targetLow: 330, targetHigh: 350 },
+      { kind: 'WORK', durationType: 'DISTANCE', distanceMeters: 3000, targetType: 'PACE', targetLow: 300, targetHigh: 320 },
+      { kind: 'WORK', durationType: 'DISTANCE', distanceMeters: 3000, targetType: 'PACE', targetLow: 270, targetHigh: 290 },
+      { kind: 'COOLDOWN', durationType: 'TIME', durationSeconds: 600 },
+    ],
+  },
+  {
+    sport: 'RUNNING',
+    title: 'Marszobieg 8×3 minuty',
+    description: 'Wejście w bieganie od zera: trzy minuty truchtu, minuta marszu. Bez biegu non stop.',
+    segments: [
+      { kind: 'WARMUP', durationType: 'TIME', durationSeconds: 300 },
+      { kind: 'REPEAT', repeatCount: 8, durationType: 'OPEN' },
+      { kind: 'WORK', inRepeat: true, durationType: 'TIME', durationSeconds: 180 },
+      { kind: 'RECOVERY', inRepeat: true, durationType: 'TIME', durationSeconds: 60 },
+      { kind: 'COOLDOWN', durationType: 'TIME', durationSeconds: 300 },
     ],
   },
   {
