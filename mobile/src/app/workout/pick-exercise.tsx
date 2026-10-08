@@ -4,22 +4,17 @@ import { FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
-import { ExerciseRow } from '@/components/exercise-row';
-import { Icon } from '@/components/icon';
-import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
 import { ExerciseFilterBar } from '@/features/exercises/exercise-filter-bar';
-import { ExerciseLink } from '@/features/exercises/exercise-link';
+import { PickExerciseRow } from '@/features/exercises/pick-exercise-row';
 import { emptyExerciseFilter, type ExerciseFilter, filterExercises, toggleValue } from '@/features/exercises/filter';
 import { useExerciseCatalog } from '@/features/exercises/use-exercise-catalog';
 import { addSessionExercise, findActiveSessionId } from '@/features/workout/repository';
-import { useTheme } from '@/hooks/use-theme';
 
 /** Dodawanie ćwiczeń do trwającej sesji (także treningu rozpoczętego bez planu). */
 export default function PickSessionExerciseScreen() {
-  const theme = useTheme();
   const catalog = useExerciseCatalog();
   const [sessionId] = useState(() => findActiveSessionId(db));
   const [filter, setFilter] = useState<ExerciseFilter>(emptyExerciseFilter);
@@ -49,23 +44,10 @@ export default function PickSessionExerciseScreen() {
           renderItem={({ item }) => {
             const position = selected.indexOf(item.id);
             return (
-              <ExerciseRow
+              <PickExerciseRow
                 item={item}
-                onPress={() => setSelected((s) => toggleValue(s, item.id))}
-                accessory={
-                  <View style={styles.accessory}>
-                    <ExerciseLink exerciseId={item.id} name={item.name} />
-                    {position >= 0 ? (
-                      <View style={[styles.badge, { backgroundColor: theme.accent }]}>
-                        <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
-                          {position + 1}
-                        </ThemedText>
-                      </View>
-                    ) : (
-                      <Icon name="radio_button_unchecked" size={24} color={theme.textSecondary} />
-                    )}
-                  </View>
-                }
+                position={position >= 0 ? position + 1 : null}
+                onToggle={() => setSelected((s) => toggleValue(s, item.id))}
               />
             );
           }}
@@ -87,7 +69,5 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1, paddingTop: Spacing.three, gap: Spacing.two },
   list: { paddingHorizontal: Spacing.four, paddingBottom: Spacing.four },
-  accessory: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
-  badge: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   footer: { paddingHorizontal: Spacing.four, paddingBottom: Spacing.two },
 });
