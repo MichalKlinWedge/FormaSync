@@ -67,7 +67,8 @@
     "lint": "expo lint",
     "test": "jest",
     "typecheck": "tsc --noEmit",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "ota": "npx eas-cli@latest update --branch preview --environment preview --platform android"
   },
   "private": true
 }

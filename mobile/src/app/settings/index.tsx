@@ -24,12 +24,13 @@ import { syncWorkoutReminders } from '@/features/calendar/reminders';
 import { HealthSection } from '@/features/health/health-section';
 import { GarminAccountSection } from '@/features/garmin/connect/account-section';
 import { describeBundle } from '@/features/updates/bundle';
+import { describeCheck, fetchNewerBundle } from '@/features/updates/check';
 import { findActiveSessionId } from '@/features/workout/repository';
 import { ExportCanceled, readPickedTextFile, saveToPickedDirectory } from '@/lib/file-export';
 import { formatNumber } from '@/lib/number';
 
 export default function SettingsScreen() {
-  const [busy, setBusy] = useState<null | 'export' | 'import'>(null);
+  const [busy, setBusy] = useState<null | 'export' | 'import' | 'update'>(null);
   // Wersja z manifestu, nie wpisana w kod — inaczej rozjeżdża się z app.json przy pierwszym wydaniu.
   const appVersion = Constants.expoConfig?.version ?? '—';
   // Stałe expo-updates są ustalane przy starcie aplikacji — czytamy je raz, bez stanu.
@@ -40,6 +41,23 @@ export default function SettingsScreen() {
     createdAt: Updates.createdAt,
     channel: Updates.channel,
   });
+
+  const checkForUpdate = async () => {
+    setBusy('update');
+    const check = await fetchNewerBundle(Updates);
+    setBusy(null);
+
+    const { title, message } = describeCheck(check);
+    if (check.state !== 'ready') {
+      Alert.alert(title, message);
+      return;
+    }
+    Alert.alert(title, message, [
+      { text: 'Później', style: 'cancel' },
+      // Restart gubi tylko to, co na ekranie — dane siedzą w bazie, a trening wznawia się sam.
+      { text: 'Uruchom teraz', onPress: () => void Updates.reloadAsync() },
+    ]);
+  };
 
   const exportData = async () => {
     setBusy('export');
@@ -152,6 +170,13 @@ export default function SettingsScreen() {
           <ThemedText type="small" themeColor="textSecondary">
             {bundle}
           </ThemedText>
+          <Button
+            label={busy === 'update' ? 'Sprawdzam…' : 'Sprawdź aktualizację'}
+            icon="refresh"
+            variant="secondary"
+            onPress={checkForUpdate}
+            disabled={busy !== null}
+          />
           <Button
             label="Prywatność"
             icon="policy"

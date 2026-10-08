@@ -28,6 +28,26 @@ Samodzielny plik APK do instalacji:
 npx eas-cli@latest build -p android --profile preview
 ```
 
+### Aktualizacje OTA
+
+Zmiany wyłącznie w JavaScripcie (ekrany, logika, dane startowe) idą na telefon bez nowego APK:
+
+```bash
+npm run ota -- --message "Co się zmieniło"
+```
+
+Zainstalowany APK z profilu `preview` słucha **kanału `preview`** i tylko tego kanału —
+paczka wypchnięta na inną gałąź nigdy do niego nie dotrze, choć EAS zgłosi sukces. Dlatego gałąź
+jest wpisana na stałe w `npm run ota`, a nie podawana z palca. Lista kanałów i ich gałęzi:
+
+```bash
+npx eas-cli@latest channel:list
+```
+
+Aplikacja sprawdza serwer przy starcie i instaluje paczkę przy następnym uruchomieniu, więc nowa
+wersja pojawia się za drugim razem. **Ustawienia → Sprawdź aktualizację** robi to od razu, a linijka
+nad przyciskiem mówi, która paczka właśnie działa.
+
 ## Baza danych
 
 Po zmianie `src/db/schema.ts` wygeneruj migrację:
