@@ -23,13 +23,18 @@ type PickExerciseScreenProps = {
    * bo wersja robocza planu potrzebuje nazwy i sposobu rejestracji. Ekran zamyka się po powrocie.
    */
   onConfirm: (exercises: ExerciseListItem[]) => void;
+  /**
+   * Czy odsunąć stopkę od paska nawigacji systemu. Ekran otwierany spod zakładek ma je pod sobą,
+   * a one już ten pasek zasłaniają — odstęp byłby policzony drugi raz i zostawiał martwy pas.
+   */
+  safeBottom?: boolean;
 };
 
 /**
  * Wybór wielu ćwiczeń z katalogu. Wspólny dla dodawania do planu i do trwającego treningu —
  * różni je tylko to, gdzie trafia wynik, więc cel dostajemy wywołaniem zwrotnym.
  */
-export function PickExerciseScreen({ onConfirm }: PickExerciseScreenProps) {
+export function PickExerciseScreen({ onConfirm, safeBottom = true }: PickExerciseScreenProps) {
   const catalog = useExerciseCatalog();
   const [filter, setFilter] = useState<ExerciseFilter>(emptyExerciseFilter);
   const [selected, setSelected] = useState<number[]>([]);
@@ -43,7 +48,7 @@ export function PickExerciseScreen({ onConfirm }: PickExerciseScreenProps) {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+      <SafeAreaView style={styles.safeArea} edges={safeBottom ? ['left', 'right', 'bottom'] : ['left', 'right']}>
         <ExerciseFilterBar
           filter={filter}
           onChange={setFilter}
@@ -55,7 +60,6 @@ export function PickExerciseScreen({ onConfirm }: PickExerciseScreenProps) {
           keyExtractor={(item) => String(item.id)}
           extraData={selected}
           keyboardShouldPersistTaps="handled"
-          style={styles.listArea}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => {
             const position = selected.indexOf(item.id);
@@ -84,9 +88,6 @@ export function PickExerciseScreen({ onConfirm }: PickExerciseScreenProps) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1, paddingTop: Spacing.three, gap: Spacing.two },
-  // Bez tego lista bierze wysokość treści, a stopka z przyciskiem wisi tuż pod ostatnim
-  // widocznym wierszem zamiast przy dolnej krawędzi.
-  listArea: { flex: 1 },
   list: { paddingHorizontal: Spacing.four, paddingBottom: Spacing.four },
   footer: { paddingHorizontal: Spacing.four, paddingBottom: Spacing.two },
 });
