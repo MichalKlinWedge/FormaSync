@@ -11,6 +11,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
 import { ExerciseFilterBar } from '@/features/exercises/exercise-filter-bar';
+import { ExerciseLink } from '@/features/exercises/exercise-link';
 import { emptyExerciseFilter, type ExerciseFilter, filterExercises, toggleValue } from '@/features/exercises/filter';
 import { useExerciseCatalog } from '@/features/exercises/use-exercise-catalog';
 import { addSessionExercise, findActiveSessionId } from '@/features/workout/repository';
@@ -52,15 +53,18 @@ export default function PickSessionExerciseScreen() {
                 item={item}
                 onPress={() => setSelected((s) => toggleValue(s, item.id))}
                 accessory={
-                  position >= 0 ? (
-                    <View style={[styles.badge, { backgroundColor: theme.accent }]}>
-                      <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
-                        {position + 1}
-                      </ThemedText>
-                    </View>
-                  ) : (
-                    <Icon name="radio_button_unchecked" size={24} color={theme.textSecondary} />
-                  )
+                  <View style={styles.accessory}>
+                    <ExerciseLink exerciseId={item.id} name={item.name} />
+                    {position >= 0 ? (
+                      <View style={[styles.badge, { backgroundColor: theme.accent }]}>
+                        <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                          {position + 1}
+                        </ThemedText>
+                      </View>
+                    ) : (
+                      <Icon name="radio_button_unchecked" size={24} color={theme.textSecondary} />
+                    )}
+                  </View>
                 }
               />
             );
@@ -83,6 +87,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1, paddingTop: Spacing.three, gap: Spacing.two },
   list: { paddingHorizontal: Spacing.four, paddingBottom: Spacing.four },
+  accessory: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   badge: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   footer: { paddingHorizontal: Spacing.four, paddingBottom: Spacing.two },
 });
