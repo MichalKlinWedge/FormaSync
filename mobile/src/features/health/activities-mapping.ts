@@ -71,7 +71,8 @@ export const exerciseTypeName = (type: number): string => EXERCISE_TYPE_NAMES[ty
 /**
  * Dyscyplina aktywności. Marsz i wędrówkę liczymy jako bieganie, bo mierzy się je tak samo —
  * dystansem i tempem — a osobnego sportu dla chodzenia aplikacja nie ma. Czego nie rozpoznamy,
- * trafia do siły: to macierzysta dyscyplina aplikacji i stamtąd najłatwiej wpis przenieść.
+ * trafia do „Różnych”: joga, taniec czy tenis z zegarka to nie jest trening siłowy i nie ma po co
+ * psuć nim tonażu ani rekordów.
  */
 const SPORT_BY_EXERCISE_TYPE: Record<number, Sport> = {
   8: 'CYCLING',
@@ -89,7 +90,7 @@ const SPORT_BY_EXERCISE_TYPE: Record<number, Sport> = {
   81: 'STRENGTH',
 };
 
-export const sportForExerciseType = (type: number): Sport => SPORT_BY_EXERCISE_TYPE[type] ?? 'STRENGTH';
+export const sportForExerciseType = (type: number): Sport => SPORT_BY_EXERCISE_TYPE[type] ?? 'OTHER';
 
 /** Trening z aplikacji, na który nachodzi aktywność — kandydat do połączenia. */
 export type SessionWindow = Interval & { id: number; title: string };

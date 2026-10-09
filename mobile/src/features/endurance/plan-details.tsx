@@ -85,7 +85,7 @@ export function EndurancePlanDetails({ planId }: { planId: number }) {
 
         <View style={styles.actions}>
           <Button label="Rozpocznij trening" icon="play_arrow" onPress={start} />
-          <SendToGarminButton planId={planId} />
+          <SendToGarminButton planId={planId} sport={plan.sport} />
           {/* Wbudowanego szablonu nie wolno zmienić ani usunąć — pracuje się na jego kopii. */}
           {plan.isTemplate ? (
             <Button label="Kopiuj do moich planów" icon="content_copy" variant="secondary" onPress={copy} />

@@ -102,7 +102,7 @@ export default function PlanDetailsScreen() {
 
         <View style={styles.actions}>
           <Button label="Rozpocznij trening" icon="play_arrow" onPress={start} />
-          <SendToGarminButton planId={id} />
+          <SendToGarminButton planId={id} sport={plan.sport} />
           {plan.isTemplate ? (
             <Button label="Kopiuj do moich planów" icon="content_copy" variant="secondary" onPress={copy} />
           ) : (

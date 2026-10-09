@@ -10,7 +10,7 @@ import { listHistory } from '@/features/history/repository';
 import { savePlan } from '@/features/plans/repository';
 import { finishSession, startSession } from '@/features/workout/repository';
 
-import { isEndurance } from '../sport';
+import { goesToGarmin, isEndurance } from '../sport';
 
 function squatId(db: ReturnType<typeof createTestDb>) {
   return db
@@ -48,6 +48,20 @@ describe('isEndurance', () => {
     expect(isEndurance('CYCLING')).toBe(true);
     expect(isEndurance('SWIMMING')).toBe(true);
   });
+
+  it('„Różne” liczy odcinkami, nie seriami', () => {
+    expect(isEndurance('OTHER')).toBe(true);
+  });
+});
+
+describe('goesToGarmin', () => {
+  it('zatrzymuje w telefonie tylko „Różne”', () => {
+    expect(goesToGarmin('OTHER')).toBe(false);
+    expect(goesToGarmin('STRENGTH')).toBe(true);
+    expect(goesToGarmin('RUNNING')).toBe(true);
+    expect(goesToGarmin('CYCLING')).toBe(true);
+    expect(goesToGarmin('SWIMMING')).toBe(true);
+  });
 });
 
 describe('sport planu i sesji', () => {
@@ -67,6 +81,15 @@ describe('sport planu i sesji', () => {
     finishSession(db, sessionId);
 
     expect(listHistory(db).find((entry) => entry.id === sessionId)?.sport).toBe('CYCLING');
+  });
+
+  it('„Różne” zapisuje się jak każdy inny sport', () => {
+    const db = createTestDb({ seed: true });
+    const sessionId = startSession(db, { kind: 'empty', sport: 'OTHER' });
+    finishSession(db, sessionId);
+
+    expect(listHistory(db, 'OTHER').map((entry) => entry.id)).toEqual([sessionId]);
+    expect(listHistory(db, 'STRENGTH')).toHaveLength(0);
   });
 
   it('trening bez planu zapisuje sport podany przy starcie', () => {

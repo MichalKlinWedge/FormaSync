@@ -11,6 +11,7 @@ import {
   type GarminExercise,
   type GarminPlan,
   type GarminSegment,
+  SportNotOnWatchError,
 } from '../payload';
 import reference from './reference-payloads.json';
 
@@ -204,6 +205,14 @@ describe('dyscyplina', () => {
 });
 
 describe('odmowy', () => {
+  it('„Różne” nie jedzie na zegarek, bo Garmin nie ma na to kategorii', () => {
+    expect(() =>
+      buildWorkoutPayload(
+        plan({ sport: 'OTHER', segments: [segment({ durationType: 'TIME', durationSeconds: 3600 })] }),
+      ),
+    ).toThrow(SportNotOnWatchError);
+  });
+
   it('plan bez treści nie jedzie nigdzie', () => {
     expect(() => buildWorkoutPayload(plan({}))).toThrow(EmptyPlanError);
     expect(() => buildWorkoutPayload(plan({ sport: 'RUNNING' }))).toThrow(EmptyPlanError);

@@ -6,17 +6,19 @@ import { Button } from '@/components/button';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
+import type { Sport } from '@/db/schema';
+import { goesToGarmin } from '@/features/sports/sport';
 import { pluralWith } from '@/lib/number';
 
 import { GarminAuthExpired, GarminError, isConnected } from './client';
-import { EmptyPlanError } from './payload';
+import { EmptyPlanError, SportNotOnWatchError } from './payload';
 import { sendPlan } from './workouts';
 
 /**
  * Wysyłka planu do biblioteki Garmin Connect. Stan połączenia sprawdzamy dopiero przy
  * naciśnięciu — ekran planu nie ma po co odpytywać SecureStore przy każdym otwarciu.
  */
-export function SendToGarminButton({ planId }: { planId: number }) {
+export function SendToGarminButton({ planId, sport }: { planId: number; sport: Sport }) {
   const [busy, setBusy] = useState(false);
 
   const askToConnect = () =>
@@ -57,6 +59,17 @@ export function SendToGarminButton({ planId }: { planId: number }) {
     }
   };
 
+  // Zamiast wyszarzonego przycisku mówimy wprost, dlaczego go nie ma — inaczej wygląda to
+  // na usterkę akurat przy tym planie.
+  if (!goesToGarmin(sport)) {
+    return (
+      <ThemedText type="small" themeColor="textSecondary">
+        Garmin nie ma kategorii na „Różne”, więc ten plan zostaje w telefonie — w kalendarzu
+        aplikacji, historii i statystykach.
+      </ThemedText>
+    );
+  }
+
   return (
     <View style={styles.wrap}>
       <Button
@@ -79,7 +92,7 @@ export function SendToGarminButton({ planId }: { planId: number }) {
 }
 
 function describe(error: unknown): string {
-  if (error instanceof EmptyPlanError) return error.message;
+  if (error instanceof EmptyPlanError || error instanceof SportNotOnWatchError) return error.message;
   if (error instanceof GarminAuthExpired) {
     return 'Połączenie z Garmin Connect wygasło. Zaloguj się ponownie w Ustawieniach.';
   }

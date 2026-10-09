@@ -69,8 +69,11 @@ export const exerciseMuscles = sqliteTable(
 /**
  * Sport jest cechą planu i sesji, nie ćwiczenia. Siła ma serie, powtórzenia i ciężar; pozostałe
  * dyscypliny — odcinki z dystansem lub czasem. Dane sprzed wprowadzenia sportów to siła.
+ *
+ * `OTHER` to worek na wszystko, co trenuje się raz na jakiś czas — taniec, tenis, wspinaczka.
+ * Zamiast mnożyć dyscypliny z osobnymi ikonami i statystykami, nazwę nosi tytuł planu.
  */
-export const sports = ['STRENGTH', 'RUNNING', 'CYCLING', 'SWIMMING'] as const;
+export const sports = ['STRENGTH', 'RUNNING', 'CYCLING', 'SWIMMING', 'OTHER'] as const;
 export type Sport = (typeof sports)[number];
 
 export const workoutPlans = sqliteTable('workout_plans', {

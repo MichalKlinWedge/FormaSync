@@ -13,7 +13,11 @@ import { pluralWith } from '@/lib/number';
 import { formatDistance, formatPace, formatSeconds } from './format';
 import { loadEnduranceWorkouts, summarizeEndurance, weeklyVolume } from './stats';
 
-/** Statystyki biegania, roweru i pływania: tygodniowy dystans, najlepsze tempo, ostatnie treningi. */
+/**
+ * Statystyki biegania, roweru i pływania: tygodniowy dystans, najlepsze tempo, ostatnie treningi.
+ * Przy „Różnych” wszystko przestawia się na czas — tańca ani tenisa nikt nie mierzy kilometrami,
+ * a „0 km” i puste tempo wyglądałyby jak usterka.
+ */
 export function EnduranceStats({ sport }: { sport: Sport }) {
   const theme = useTheme();
   const workouts = useMemo(() => loadEnduranceWorkouts(db, sport), [sport]);
@@ -30,26 +34,31 @@ export function EnduranceStats({ sport }: { sport: Sport }) {
     );
   }
 
-  const maxMeters = Math.max(...weeks.map((week) => week.meters), 1);
+  const byTime = sport === 'OTHER';
+  const volume = (week: { meters: number; seconds: number }) => (byTime ? week.seconds : week.meters);
+  const formatVolume = byTime ? formatSeconds : formatDistance;
+  const maxVolume = Math.max(...weeks.map(volume), 1);
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.stats}>
         <Stat label="Treningi" value={String(summary.workouts)} />
-        <Stat label="Dystans" value={formatDistance(summary.meters)} />
+        {!byTime && <Stat label="Dystans" value={formatDistance(summary.meters)} />}
         <Stat label="Czas" value={formatSeconds(summary.seconds)} />
       </View>
-      <View style={styles.stats}>
-        <Stat
-          label="Najlepsze tempo pracy"
-          value={summary.bestPace === null ? '—' : formatPace(summary.bestPace)}
-        />
-        <Stat label="Najdłuższy" value={formatDistance(summary.longestMeters)} />
-      </View>
+      {!byTime && (
+        <View style={styles.stats}>
+          <Stat
+            label="Najlepsze tempo pracy"
+            value={summary.bestPace === null ? '—' : formatPace(summary.bestPace)}
+          />
+          <Stat label="Najdłuższy" value={formatDistance(summary.longestMeters)} />
+        </View>
+      )}
 
       <View style={styles.group}>
         <ThemedText type="smallBold" themeColor="textSecondary">
-          DYSTANS TYDZIEŃ PO TYGODNIU
+          {byTime ? 'CZAS TYDZIEŃ PO TYGODNIU' : 'DYSTANS TYDZIEŃ PO TYGODNIU'}
         </ThemedText>
         {weeks.map((week) => (
           <View key={week.weekKey} style={styles.barRow}>
@@ -60,12 +69,12 @@ export function EnduranceStats({ sport }: { sport: Sport }) {
               <View
                 style={[
                   styles.barFill,
-                  { backgroundColor: theme.accent, width: `${(week.meters / maxMeters) * 100}%` },
+                  { backgroundColor: theme.accent, width: `${(volume(week) / maxVolume) * 100}%` },
                 ]}
               />
             </View>
             <ThemedText type="small" themeColor="textSecondary" style={styles.barValue}>
-              {week.meters > 0 ? formatDistance(week.meters) : '—'}
+              {volume(week) > 0 ? formatVolume(volume(week)) : '—'}
             </ThemedText>
           </View>
         ))}

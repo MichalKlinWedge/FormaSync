@@ -18,6 +18,22 @@ const planWith = (segments: ReturnType<typeof createSegment>[]) => ({
   segments,
 });
 
+describe('emptyEnduranceDraft', () => {
+  it('„Różne” zaczyna od gotowego odcinka na czas — zostaje wpisać nazwę', () => {
+    const [segment, ...rest] = emptyEnduranceDraft('OTHER').segments;
+    expect(rest).toEqual([]);
+    expect(segment.kind).toBe('WORK');
+    expect(segment.durationType).toBe('TIME');
+    expect(segment.durationSeconds).toBeGreaterThan(0);
+    expect(segment.distanceMeters).toBeNull();
+  });
+
+  it('pozostałe dyscypliny zaczynają od pustej listy odcinków', () => {
+    expect(emptyEnduranceDraft('RUNNING').segments).toEqual([]);
+    expect(emptyEnduranceDraft('SWIMMING').segments).toEqual([]);
+  });
+});
+
 describe('createRepeatBlock', () => {
   it('tworzy grupę z pracą i przerwą w środku', () => {
     const [group, work, recovery] = createRepeatBlock();

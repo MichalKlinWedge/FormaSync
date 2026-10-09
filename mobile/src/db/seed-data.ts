@@ -11,7 +11,7 @@ import type {
 // Dane startowe: słowniki, katalog ćwiczeń i wbudowane szablony.
 // Zmiana zawartości wymaga podbicia SEED_VERSION (seed.ts dograje brakujące rekordy).
 
-export const SEED_VERSION = 4;
+export const SEED_VERSION = 5;
 
 export const seedCategories: { name: string; description: string }[] = [
   { name: 'Klatka piersiowa', description: 'Mięsień piersiowy większy i mniejszy' },
@@ -1123,6 +1123,26 @@ export const seedEnduranceTemplates: SeedEnduranceTemplate[] = [
       { kind: 'RECOVERY', inRepeat: true, durationType: 'TIME', durationSeconds: 30 },
       { kind: 'COOLDOWN', durationType: 'DISTANCE', distanceMeters: 200, stroke: 'BACKSTROKE' },
     ],
+  },
+  // „Różne” to jedna pozycja: ile to trwa. Nazwa aktywności siedzi w tytule planu, więc zamiast
+  // mnożyć dyscypliny, kopiuje się szablon i zmienia mu nazwę.
+  {
+    sport: 'OTHER',
+    title: 'Taniec 60 minut',
+    description: 'Godzina zajęć. Zmień nazwę i czas, jeśli Twoje trwają inaczej.',
+    segments: [{ kind: 'WORK', durationType: 'TIME', durationSeconds: 3600 }],
+  },
+  {
+    sport: 'OTHER',
+    title: 'Tenis 90 minut',
+    description: 'Gra albo trening na korcie — liczy się czas na nogach.',
+    segments: [{ kind: 'WORK', durationType: 'TIME', durationSeconds: 5400 }],
+  },
+  {
+    sport: 'OTHER',
+    title: 'Inna aktywność 60 minut',
+    description: 'Pusty szablon na wszystko, czego nie ma w pozostałych dyscyplinach — skopiuj i nazwij po swojemu.',
+    segments: [{ kind: 'WORK', durationType: 'TIME', durationSeconds: 3600 }],
   },
 ];
 

@@ -47,11 +47,18 @@ const DEFAULT_WARMUP_SECONDS = 600;
 let counter = 0;
 export const newSegmentKey = (): string => `s${(counter += 1)}`;
 
+const DEFAULT_OTHER_SECONDS = 3600;
+
 export const emptyEnduranceDraft = (sport: Sport): EnduranceDraft => ({
   sport,
   title: '',
   description: '',
-  segments: [],
+  // Przy „Różnych” plan to zwykle jedna pozycja — ile to trwa. Zaczynamy od gotowego odcinka
+  // na czas, żeby taniec czy tenis dało się zapisać samą nazwą.
+  segments:
+    sport === 'OTHER'
+      ? [{ ...createSegment('WORK'), durationType: 'TIME', durationSeconds: DEFAULT_OTHER_SECONDS, distanceMeters: null }]
+      : [],
 });
 
 const base = (kind: SegmentKind, parentKey: string | null = null): SegmentDraft => ({

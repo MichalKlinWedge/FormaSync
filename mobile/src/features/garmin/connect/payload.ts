@@ -10,7 +10,7 @@ import { GARMIN_DRILLS, GARMIN_EQUIPMENT, GARMIN_STROKES } from '@/features/endu
 
 type Named = Record<string, unknown>;
 
-const SPORT_TYPES: Record<Sport, Named> = {
+const SPORT_TYPES: Record<Exclude<Sport, 'OTHER'>, Named> = {
   STRENGTH: { sportTypeId: 5, sportTypeKey: 'strength_training', displayOrder: 5 },
   RUNNING: { sportTypeId: 1, sportTypeKey: 'running', displayOrder: 1 },
   CYCLING: { sportTypeId: 2, sportTypeKey: 'cycling', displayOrder: 2 },
@@ -85,6 +85,12 @@ export type GarminPlan = {
 export class EmptyPlanError extends Error {
   constructor() {
     super('Plan jest pusty — nie ma czego wysłać.');
+  }
+}
+
+export class SportNotOnWatchError extends Error {
+  constructor() {
+    super('Garmin nie ma kategorii na „Różne”, więc taki plan zostaje w telefonie.');
   }
 }
 
@@ -219,6 +225,8 @@ function strengthSteps(exercises: GarminExercise[]): Named[] {
 
 /** Gotowa treść do wysłania pod `/workout-service/workout`. */
 export function buildWorkoutPayload(plan: GarminPlan): Named {
+  // Zabezpieczenie na wypadek wysyłki z pominięciem ekranu planu; przycisk i tak się tam nie pokazuje.
+  if (plan.sport === 'OTHER') throw new SportNotOnWatchError();
   const steps =
     plan.sport === 'STRENGTH' ? strengthSteps(plan.exercises) : enduranceSteps(plan.segments);
   if (steps.length === 0) throw new EmptyPlanError();

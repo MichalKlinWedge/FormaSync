@@ -193,8 +193,10 @@ describe('sportForExerciseType', () => {
     expect(sportForExerciseType(37)).toBe('RUNNING');
   });
 
-  it('nierozpoznaną aktywność zapisuje jako siłę, macierzystą dyscyplinę aplikacji', () => {
-    expect(sportForExerciseType(0)).toBe('STRENGTH');
-    expect(sportForExerciseType(9999)).toBe('STRENGTH');
+  it('nierozpoznaną aktywność wrzuca do „Różnych”, a nie do siły', () => {
+    // Joga czy taniec z zegarka zapisane jako siła psułyby tonaż i rekordy.
+    expect(sportForExerciseType(0)).toBe('OTHER');
+    expect(sportForExerciseType(83)).toBe('OTHER');
+    expect(sportForExerciseType(9999)).toBe('OTHER');
   });
 });
