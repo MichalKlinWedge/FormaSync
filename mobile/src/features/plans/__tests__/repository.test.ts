@@ -8,7 +8,7 @@ import * as schema from '@/db/schema';
 import { createTestDb } from '@/db/test-utils';
 
 import { updateItem } from '../draft';
-import { copyPlan, deletePlan, loadPlanDraft, savePlan, TemplateReadOnlyError } from '../repository';
+import { copyPlan, deletePlan, loadPlanDraft, savePlan } from '../repository';
 
 function setup() {
   const db = createTestDb({ seed: true });
@@ -59,12 +59,22 @@ describe('kopiowanie szablonu (kryterium odbioru etapu 3)', () => {
   });
 });
 
-describe('ochrona szablonów', () => {
-  it('nie pozwala edytować ani usuwać szablonu', () => {
+describe('szablony', () => {
+  it('edycja szablonu zostawia go szablonem', () => {
     const { db, ppl } = setup();
     const draft = loadPlanDraft(db, ppl.id);
-    expect(() => savePlan(db, { ...draft, title: 'Zmieniony' })).toThrow(TemplateReadOnlyError);
-    expect(() => deletePlan(db, ppl.id)).toThrow(TemplateReadOnlyError);
+
+    savePlan(db, { ...draft, title: 'Mój push' });
+
+    const saved = db.select().from(schema.workoutPlans).where(eq(schema.workoutPlans.id, ppl.id)).get()!;
+    expect(saved.title).toBe('Mój push');
+    expect(saved.isTemplate).toBe(true);
+  });
+
+  it('szablon da się usunąć jak każdy inny plan', () => {
+    const { db, ppl } = setup();
+    deletePlan(db, ppl.id);
+    expect(db.select().from(schema.workoutPlans).where(eq(schema.workoutPlans.id, ppl.id)).get()).toBeUndefined();
   });
 });
 

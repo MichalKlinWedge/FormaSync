@@ -5,12 +5,6 @@ import type { SyncDb } from '@/db/types';
 
 import { newItemKey, type PlanDraft, validateDraft } from './draft';
 
-export class TemplateReadOnlyError extends Error {
-  constructor() {
-    super('Szablonów nie można modyfikować — skopiuj szablon do swoich planów.');
-  }
-}
-
 function getPlan(db: SyncDb, id: number) {
   const plan = db.select().from(schema.workoutPlans).where(eq(schema.workoutPlans.id, id)).get();
   if (!plan) throw new Error(`Plan ${id} nie istnieje`);
@@ -51,7 +45,6 @@ export function loadPlanDraft(db: SyncDb, id: number): PlanDraft {
 /** Zapisuje plan użytkownika (nowy lub istniejący). Zwraca id planu. */
 export function savePlan(db: SyncDb, draft: PlanDraft): number {
   validateDraft(draft);
-  if (draft.id !== undefined && getPlan(db, draft.id).isTemplate) throw new TemplateReadOnlyError();
 
   return db.transaction((tx) => {
     const values = {
@@ -110,8 +103,11 @@ export function copyPlan(db: SyncDb, id: number): number {
   return savePlan(db, draftFromPlan(db, id));
 }
 
-/** Usuwa plan użytkownika. Zaplanowane terminy znikają razem z nim, historia treningów zostaje. */
+/**
+ * Usuwa plan albo szablon. Zaplanowane terminy znikają razem z nim, historia treningów zostaje.
+ * Wbudowany szablon też wolno usunąć — seed pamięta, że go już wgrał, więc nie wróci.
+ */
 export function deletePlan(db: SyncDb, id: number): void {
-  if (getPlan(db, id).isTemplate) throw new TemplateReadOnlyError();
+  getPlan(db, id);
   db.delete(schema.workoutPlans).where(eq(schema.workoutPlans.id, id)).run();
 }

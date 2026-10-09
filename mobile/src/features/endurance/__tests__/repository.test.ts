@@ -13,7 +13,6 @@ import {
   listPlanSegments,
   loadEnduranceDraft,
   saveEndurancePlan,
-  TemplateReadOnlyError,
 } from '../repository';
 
 function intervalDraft() {
@@ -76,7 +75,7 @@ describe('saveEndurancePlan', () => {
 });
 
 describe('szablony wytrzymałościowe', () => {
-  it('nie dają się nadpisać — pracuje się na kopii', () => {
+  it('dają się przerobić i zostają szablonami', () => {
     const db = createTestDb({ seed: true });
     const template = db
       .select()
@@ -85,9 +84,10 @@ describe('szablony wytrzymałościowe', () => {
       .get()!;
 
     const draft = loadEnduranceDraft(db, template.id);
+    saveEndurancePlan(db, { ...draft, title: 'Interwały 5×400 m' });
 
-    expect(() => saveEndurancePlan(db, draft)).toThrow(TemplateReadOnlyError);
-    // Kopia bez identyfikatora zapisuje się normalnie.
-    expect(() => saveEndurancePlan(db, { ...draft, id: undefined, title: 'Moja kopia' })).not.toThrow();
+    const saved = db.select().from(schema.workoutPlans).where(eq(schema.workoutPlans.id, template.id)).get()!;
+    expect(saved.title).toBe('Interwały 5×400 m');
+    expect(saved.isTemplate).toBe(true);
   });
 });

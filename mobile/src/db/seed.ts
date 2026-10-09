@@ -16,6 +16,10 @@ const SEED_VERSION_KEY = 'seed_version';
 /**
  * Wgrywa słowniki, katalog ćwiczeń i szablony. Idempotentne: rekordy dopasowywane po nazwie,
  * więc podbicie SEED_VERSION dogrywa tylko brakujące pozycje, nie ruszając danych użytkownika.
+ *
+ * Szablony są wyjątkiem — wolno je edytować i usuwać, więc „brakujący” nie znaczy „do dogrania”.
+ * Każdy wgrany tytuł zapisujemy w `seeded_templates` i drugi raz go nie podajemy, cokolwiek
+ * użytkownik z nim zrobił.
  */
 export function seedDatabase(db: SyncDb): boolean {
   const current = db
@@ -78,16 +82,23 @@ export function seedDatabase(db: SyncDb): boolean {
       }
     }
 
-    const existingTemplates = new Set(
-      tx
-        .select({ title: schema.workoutPlans.title })
-        .from(schema.workoutPlans)
-        .where(eq(schema.workoutPlans.isTemplate, true))
-        .all()
-        .map((t) => t.title),
+    const delivered = new Set(
+      tx.select({ title: schema.seededTemplates.title }).from(schema.seededTemplates).all().map((t) => t.title),
     );
+    for (const t of tx
+      .select({ title: schema.workoutPlans.title })
+      .from(schema.workoutPlans)
+      .where(eq(schema.workoutPlans.isTemplate, true))
+      .all()) {
+      delivered.add(t.title);
+    }
+    const markDelivered = (title: string) => {
+      delivered.add(title);
+      tx.insert(schema.seededTemplates).values({ title }).onConflictDoNothing().run();
+    };
+
     for (const t of seedTemplates) {
-      if (existingTemplates.has(t.title)) continue;
+      if (delivered.has(t.title)) continue;
       const plan = tx
         .insert(schema.workoutPlans)
         .values({ title: t.title, description: t.description, isTemplate: true })
@@ -106,10 +117,11 @@ export function seedDatabase(db: SyncDb): boolean {
         })),
         )
         .run();
+      markDelivered(t.title);
     }
 
     for (const t of seedEnduranceTemplates) {
-      if (existingTemplates.has(t.title)) continue;
+      if (delivered.has(t.title)) continue;
       const plan = tx
         .insert(schema.workoutPlans)
         .values({ sport: t.sport, title: t.title, description: t.description, isTemplate: true })
@@ -139,6 +151,7 @@ export function seedDatabase(db: SyncDb): boolean {
           .get();
         if (segment.kind === 'REPEAT') groupId = row.id;
       });
+      markDelivered(t.title);
     }
 
     tx.insert(schema.appSettings)

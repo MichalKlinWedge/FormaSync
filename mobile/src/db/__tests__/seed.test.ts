@@ -97,6 +97,61 @@ describe('seedDatabase', () => {
     expect(db.select({ n: count() }).from(schema.exercises).get()?.n).toBe(seedExercises.length);
   });
 
+  describe('szablony po zmianach użytkownika', () => {
+    const reseed = (db: ReturnType<typeof createDb>) => {
+      db.update(schema.appSettings).set({ value: '0' }).where(eq(schema.appSettings.key, 'seed_version')).run();
+      return seedDatabase(db);
+    };
+    const templateTitles = (db: ReturnType<typeof createDb>) =>
+      db
+        .select({ title: schema.workoutPlans.title })
+        .from(schema.workoutPlans)
+        .where(eq(schema.workoutPlans.isTemplate, true))
+        .all()
+        .map((t) => t.title);
+
+    it('nie przywraca usuniętego szablonu', () => {
+      const db = createDb();
+      seedDatabase(db);
+      const victim = seedTemplates[0].title;
+      db.delete(schema.workoutPlans).where(eq(schema.workoutPlans.title, victim)).run();
+
+      reseed(db);
+
+      expect(templateTitles(db)).not.toContain(victim);
+    });
+
+    it('nie dorabia bliźniaka pod starą nazwą po zmianie tytułu', () => {
+      const db = createDb();
+      seedDatabase(db);
+      const before = seedEnduranceTemplates[0].title;
+      db.update(schema.workoutPlans)
+        .set({ title: 'Mój własny tytuł' })
+        .where(eq(schema.workoutPlans.title, before))
+        .run();
+
+      reseed(db);
+
+      const titles = templateTitles(db);
+      expect(titles).toContain('Mój własny tytuł');
+      expect(titles).not.toContain(before);
+    });
+
+    it('dogrywa szablon, którego jeszcze nie dostarczył', () => {
+      const db = createDb();
+      seedDatabase(db);
+      // Tak wygląda szablon dopisany do seed-data po stronie aplikacji: nie ma go ani w bazie,
+      // ani na liście dostarczonych.
+      const fresh = seedTemplates[1].title;
+      db.delete(schema.workoutPlans).where(eq(schema.workoutPlans.title, fresh)).run();
+      db.delete(schema.seededTemplates).where(eq(schema.seededTemplates.title, fresh)).run();
+
+      reseed(db);
+
+      expect(templateTitles(db)).toContain(fresh);
+    });
+  });
+
   it('nie dubluje rekordów przy ponownym seedzie po zmianie wersji', () => {
     const db = createDb();
     seedDatabase(db);

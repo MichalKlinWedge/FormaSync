@@ -171,6 +171,15 @@ export const planSegments = sqliteTable(
   (t) => [index('plan_segments_plan_idx').on(t.planId)],
 );
 
+/**
+ * Pamięć seeda: tytuły szablonów, które kiedykolwiek wgrał. Szablony wolno zmieniać i usuwać,
+ * a seed dopasowuje rekordy po nazwie — bez tej listy usunięty szablon wracałby przy najbliższym
+ * podbiciu SEED_VERSION, a przemianowany dorobiłby się bliźniaka pod starą nazwą.
+ */
+export const seededTemplates = sqliteTable('seeded_templates', {
+  title: text('title').primaryKey(),
+});
+
 // --- 3. Harmonogram i powiadomienia ---
 
 export const scheduledWorkouts = sqliteTable(

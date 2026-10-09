@@ -1,4 +1,4 @@
-import { router, Stack, useNavigation } from 'expo-router';
+import { router, Stack, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { Alert, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
@@ -12,10 +12,12 @@ import { db } from '@/db/client';
 import { ExerciseLink } from '@/features/exercises/exercise-link';
 import { type DraftItem, moveItem, PlanValidationError, removeItem, updateItem } from '@/features/plans/draft';
 import { isDraftDirty, usePlanDraftStore } from '@/features/plans/draft-store';
+import { screenTitle } from '@/features/plans/labels';
 import { savePlan } from '@/features/plans/repository';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function PlanEditorScreen() {
+  const params = useLocalSearchParams<{ template?: string }>();
   const theme = useTheme();
   const navigation = useNavigation();
   const draft = usePlanDraftStore((s) => s.draft);
@@ -59,7 +61,7 @@ export default function PlanEditorScreen() {
   return (
     <KeyboardAvoidingView style={styles.flex} behavior="padding">
       <ThemedView style={styles.flex}>
-        <Stack.Screen options={{ title: draft.id === undefined ? 'Nowy plan' : 'Edycja planu' }} />
+        <Stack.Screen options={{ title: screenTitle(draft.id !== undefined, params.template === '1') }} />
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <TextInput
             value={draft.title}

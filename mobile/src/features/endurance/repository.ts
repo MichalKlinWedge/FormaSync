@@ -15,12 +15,6 @@ import {
  * potem ich wnętrze — dopiero wtedy znamy `parent_id`, którego przed zapisem jeszcze nie ma.
  */
 
-export class TemplateReadOnlyError extends Error {
-  constructor() {
-    super('Szablonów nie można modyfikować — skopiuj szablon do swoich planów.');
-  }
-}
-
 function insertSegments(tx: SyncDb, planId: number, segments: SegmentDraft[]): void {
   const idByKey = new Map<string, number>();
   const ordered = [...segments.filter((s) => s.parentKey === null), ...segments.filter((s) => s.parentKey !== null)];
@@ -57,7 +51,6 @@ export function saveEndurancePlan(db: SyncDb, draft: EnduranceDraft): number {
   if (draft.id !== undefined) {
     const plan = db.select().from(schema.workoutPlans).where(eq(schema.workoutPlans.id, draft.id)).get();
     if (!plan) throw new Error(`Plan ${draft.id} nie istnieje`);
-    if (plan.isTemplate) throw new TemplateReadOnlyError();
   }
 
   return db.transaction((tx) => {

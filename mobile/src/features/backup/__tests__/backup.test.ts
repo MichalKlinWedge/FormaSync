@@ -101,6 +101,7 @@ describe('createBackup', () => {
       'plan_exercises',
       'plan_segments',
       'scheduled_workouts',
+      'seeded_templates',
       'session_exercises',
       'session_segments',
       'workout_plans',

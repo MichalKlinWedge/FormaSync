@@ -7,6 +7,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
 import { SendToGarminButton } from '@/features/garmin/connect/send-button';
+import { deleteMessage } from '@/features/plans/labels';
 import { deletePlan } from '@/features/plans/repository';
 import { ensureNotificationPermission } from '@/features/workout/notifications';
 import { ActiveSessionExistsError, startSession } from '@/features/workout/repository';
@@ -39,7 +40,7 @@ export function EndurancePlanDetails({ planId }: { planId: number }) {
 
   const edit = () => {
     startDraft(loadEnduranceDraft(db, planId));
-    router.push('/plans/edit-endurance');
+    router.push({ pathname: '/plans/edit-endurance', params: plan.isTemplate ? { template: '1' } : {} });
   };
 
   const copy = () => {
@@ -49,7 +50,7 @@ export function EndurancePlanDetails({ planId }: { planId: number }) {
   };
 
   const confirmDelete = () =>
-    Alert.alert('Usunąć plan?', plan.title, [
+    Alert.alert(plan.isTemplate ? 'Usunąć szablon?' : 'Usunąć plan?', deleteMessage(plan.isTemplate, plan.title), [
       { text: 'Anuluj', style: 'cancel' },
       {
         text: 'Usuń',
@@ -86,9 +87,14 @@ export function EndurancePlanDetails({ planId }: { planId: number }) {
         <View style={styles.actions}>
           <Button label="Rozpocznij trening" icon="play_arrow" onPress={start} />
           <SendToGarminButton planId={planId} sport={plan.sport} />
-          {/* Wbudowanego szablonu nie wolno zmienić ani usunąć — pracuje się na jego kopii. */}
+          {/* Szablon wolno zmienić i usunąć; kopiowanie zostaje na wierzchu, bo zwykle chodzi
+              o własną wersję, a nie o przerabianie wzorca. */}
           {plan.isTemplate ? (
-            <Button label="Kopiuj do moich planów" icon="content_copy" variant="secondary" onPress={copy} />
+            <>
+              <Button label="Kopiuj do moich planów" icon="content_copy" variant="secondary" onPress={copy} />
+              <Button label="Edytuj szablon" icon="edit" variant="secondary" onPress={edit} />
+              <Button label="Usuń szablon" icon="delete" variant="danger" onPress={confirmDelete} />
+            </>
           ) : (
             <>
               <Button label="Edytuj" icon="edit" variant="secondary" onPress={edit} />

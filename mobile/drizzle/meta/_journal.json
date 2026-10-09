@@ -78,6 +78,13 @@
       "when": 1791264674409,
       "tag": "0010_swim_template_strokes",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1791525490215,
+      "tag": "0011_seeded_templates",
+      "breakpoints": true
     }
   ]
 }

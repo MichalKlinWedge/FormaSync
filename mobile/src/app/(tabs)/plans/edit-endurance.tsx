@@ -1,4 +1,4 @@
-import { router, Stack } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Alert, KeyboardAvoidingView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/button';
@@ -40,6 +40,7 @@ import {
   STROKE_LABELS,
 } from '@/features/endurance/swim';
 import { saveEndurancePlan } from '@/features/endurance/repository';
+import { screenTitle } from '@/features/plans/labels';
 import { useTheme } from '@/hooks/use-theme';
 
 const DURATION_LABELS: Record<DurationType, string> = {
@@ -56,6 +57,7 @@ const TARGET_LABELS: Record<TargetType, string> = {
 
 /** Kreator planu wytrzymałościowego: odcinki, grupy powtórzeń, cel tempa lub tętna. */
 export default function EnduranceEditorScreen() {
+  const params = useLocalSearchParams<{ template?: string }>();
   const theme = useTheme();
   const draft = useEnduranceDraftStore((s) => s.draft);
   const apply = useEnduranceDraftStore((s) => s.apply);
@@ -84,7 +86,7 @@ export default function EnduranceEditorScreen() {
   return (
     <KeyboardAvoidingView style={styles.flex} behavior="padding">
       <ThemedView style={styles.flex}>
-        <Stack.Screen options={{ title: draft.id === undefined ? 'Nowy plan' : 'Edycja planu' }} />
+        <Stack.Screen options={{ title: screenTitle(draft.id !== undefined, params.template === '1') }} />
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.field}>
             <ThemedText type="smallBold" themeColor="textSecondary">
