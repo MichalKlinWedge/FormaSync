@@ -40,7 +40,7 @@ import {
   STROKE_LABELS,
 } from '@/features/endurance/swim';
 import { saveEndurancePlan } from '@/features/endurance/repository';
-import { screenTitle } from '@/features/plans/labels';
+import { saveLabel, screenTitle } from '@/features/plans/labels';
 import { useTheme } from '@/hooks/use-theme';
 
 const DURATION_LABELS: Record<DurationType, string> = {
@@ -186,7 +186,7 @@ export default function EnduranceEditorScreen() {
             </ThemedView>
           )}
 
-          <Button label="Zapisz plan" icon="check" onPress={save} />
+          <Button label={saveLabel(params.template === '1')} icon="check" onPress={save} />
           <Button
             label="Anuluj"
             variant="secondary"

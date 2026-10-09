@@ -12,7 +12,7 @@ import { db } from '@/db/client';
 import { ExerciseLink } from '@/features/exercises/exercise-link';
 import { type DraftItem, moveItem, PlanValidationError, removeItem, updateItem } from '@/features/plans/draft';
 import { isDraftDirty, usePlanDraftStore } from '@/features/plans/draft-store';
-import { screenTitle } from '@/features/plans/labels';
+import { saveLabel, screenTitle } from '@/features/plans/labels';
 import { savePlan } from '@/features/plans/repository';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -98,7 +98,7 @@ export default function PlanEditorScreen() {
             variant="secondary"
             onPress={() => router.push('/plans/pick-exercise')}
           />
-          <Button label="Zapisz plan" icon="check" onPress={save} />
+          <Button label={saveLabel(params.template === '1')} icon="check" onPress={save} />
         </ScrollView>
       </ThemedView>
     </KeyboardAvoidingView>

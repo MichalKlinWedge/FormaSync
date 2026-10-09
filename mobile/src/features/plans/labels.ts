@@ -17,3 +17,6 @@ export function screenTitle(editing: boolean, isTemplate: boolean): string {
   if (!editing) return 'Nowy plan';
   return isTemplate ? 'Edycja szablonu' : 'Edycja planu';
 }
+
+/** Podpis przycisku zapisu — ta sama rzecz, którą nazywa nagłówek. */
+export const saveLabel = (isTemplate: boolean): string => (isTemplate ? 'Zapisz szablon' : 'Zapisz plan');
