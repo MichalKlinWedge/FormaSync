@@ -71,7 +71,9 @@ export function EnduranceStats({ sport }: { sport: Sport }) {
             key={record.meters}
             label={formatDistance(record.meters)}
             value={formatSeconds(record.seconds)}
-            note={`${formatDate(record.startTime.slice(0, 10))} · ${SOURCE_LABELS[record.source]}`}
+            // Nazwa treningu, nie tylko data: gdy rekord wygląda na niemożliwy, od razu wiadomo,
+            // w którym wpisie historii szukać przyczyny.
+            note={`${record.title} · ${formatDate(record.startTime.slice(0, 10))} · ${SOURCE_LABELS[record.source]}`}
           />
         ))}
         {!byTime && records.longestDistance !== null && (

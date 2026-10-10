@@ -3,7 +3,13 @@
  */
 import { describe, expect, it } from '@jest/globals';
 
-import { bestEffort, RECORD_DISTANCES, sportRecords, type RecordWorkout } from '../records';
+import {
+  bestEffort,
+  FASTEST_PLAUSIBLE_PACE,
+  RECORD_DISTANCES,
+  sportRecords,
+  type RecordWorkout,
+} from '../records';
 
 /** Trening złożony z podanych odcinków; sumy i tempa liczymy tak jak statystyki. */
 function workout(sessionId: number, splits: [number, number][]): RecordWorkout {
@@ -138,5 +144,47 @@ describe('sportRecords', () => {
     const hundred = records.efforts.find((effort) => effort.meters === 100);
     // Najszybsza setka to dwie najszybsze kolejne pięćdziesiątki: 55 + 58.
     expect(hundred).toMatchObject({ seconds: 113, source: 'SPLIT' });
+  });
+});
+
+describe('tempo nie z tego świata', () => {
+  it('nie uznaje za rekord fragmentu szybszego od rekordzisty świata', () => {
+    // Kilometr w 39 sekund to 92 km/h. Taki zapis zostaje po zgubionym sygnale GPS albo
+    // po aktywności dopisanej ręcznie — i bez progu zostawał rekordem na zawsze.
+    const splits = [{ meters: 1000, seconds: 39 }];
+    expect(bestEffort(splits, 1000)).toEqual({ seconds: 39, source: 'WORKOUT' });
+    expect(bestEffort(splits, 1000, FASTEST_PLAUSIBLE_PACE.RUNNING)).toBeNull();
+  });
+
+  it('jeden zepsuty odcinek nie psuje rekordu z pozostałych', () => {
+    const records = sportRecords(
+      [
+        workout(1, [[1000, 39]]),
+        workout(2, [[1000, 252], [1000, 258], [1000, 255]]),
+      ],
+      'RUNNING',
+    );
+    const kilometer = records.efforts.find((effort) => effort.meters === 1000);
+    // Zamiast 0:39 zostaje najszybszy prawdziwy kilometr z drugiego treningu.
+    expect(kilometer).toMatchObject({ seconds: 252, sessionId: 2 });
+  });
+
+  it('nie pokazuje też niemożliwego tempa jako najlepszego tempa pracy', () => {
+    const records = sportRecords([workout(1, [[1000, 39]]), workout(2, [[5000, 1400]])], 'RUNNING');
+    expect(records.bestPace).toMatchObject({ value: 280, sessionId: 2 });
+  });
+
+  it('nie ucina tempa realnego, choćby bardzo szybkiego', () => {
+    // 2:30/km to tempo światowej czołówki na kilometrze — mieści się w progu.
+    expect(bestEffort([{ meters: 1000, seconds: 150 }], 1000, FASTEST_PLAUSIBLE_PACE.RUNNING)).toEqual({
+      seconds: 150,
+      source: 'WORKOUT',
+    });
+  });
+
+  it('każda dyscyplina ma własny próg', () => {
+    // Setka w 20 sekund to usterka pomiaru, w 50 — rekord świata.
+    expect(bestEffort([{ meters: 100, seconds: 20 }], 100, FASTEST_PLAUSIBLE_PACE.SWIMMING)).toBeNull();
+    expect(bestEffort([{ meters: 100, seconds: 50 }], 100, FASTEST_PLAUSIBLE_PACE.SWIMMING)).not.toBeNull();
   });
 });

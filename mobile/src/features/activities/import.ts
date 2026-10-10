@@ -2,7 +2,7 @@ import { db } from '@/db/client';
 import { adoptTermPlan, attachSession, openTermsOn } from '@/features/calendar/repository';
 import { fetchGarminActivities } from '@/features/garmin/connect/activities';
 import { GarminNotConnectedError, isConnected } from '@/features/garmin/connect/client';
-import { fetchGarminLaps, lapsMatchTotal } from '@/features/garmin/connect/laps';
+import { fetchGarminLaps, lapsMatchTotal, lapsPlausible } from '@/features/garmin/connect/laps';
 import {
   archiveActivity,
   archivedActivityIds,
@@ -16,6 +16,7 @@ import {
   sessionsMissingLaps,
   sessionWindows,
 } from '@/features/health/repository';
+import { FASTEST_PLAUSIBLE_PACE } from '@/features/endurance/records';
 import { toDateKey } from '@/lib/date';
 
 import type { ImportCandidate, InventoryEntry, WatchActivity } from './mapping';
@@ -80,7 +81,8 @@ export async function listWatchActivities(now: Date = new Date()): Promise<Watch
  */
 async function lapsFor(activity: WatchActivity) {
   const laps = await fetchGarminLaps(activity.recordId);
-  return lapsMatchTotal(laps, activity.distanceMeters) ? laps : [];
+  const fastest = FASTEST_PLAUSIBLE_PACE[activity.sport];
+  return lapsMatchTotal(laps, activity.distanceMeters) && lapsPlausible(laps, fastest) ? laps : [];
 }
 
 /** Dopisuje aktywność do historii i zwraca identyfikator utworzonej sesji. */
@@ -175,6 +177,9 @@ export async function backfillLaps(): Promise<LapBackfill> {
   for (const candidate of candidates) {
     const fetched = await fetchGarminLaps(candidate.recordId);
     if (!lapsMatchTotal(fetched, candidate.meters)) continue;
+    // Jedno okrążenie z niemożliwym tempem psuje rekordy na zawsze, a suma dystansów takiego
+    // zestawu bywa poprawna — więc sprawdzamy też same okrążenia, nie tylko ich sumę.
+    if (!lapsPlausible(fetched, FASTEST_PLAUSIBLE_PACE[candidate.sport])) continue;
     replaceSegmentsWithLaps(db, candidate.sessionId, fetched, candidate.startTime);
     filled += 1;
     laps += fetched.length;

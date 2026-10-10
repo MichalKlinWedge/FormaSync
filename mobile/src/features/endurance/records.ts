@@ -60,6 +60,27 @@ export type SportRecords = {
  * poważny start, a dla rowerzysty rozgrzewka. Siła i „Różne” nie mierzą się dystansem: taniec
  * ani tenis nie mają kilometrów, więc zostaje im rekord czasu.
  */
+/**
+ * Najszybsze tempo, jakie człowiek jest w stanie utrzymać — w sekundach na kilometr. Wszystko
+ * poniżej jest usterką zapisu, nie rekordem: zgubiony sygnał GPS, aktywność dopisana ręcznie
+ * w Garminie, ucięte okrążenie albo bieżnia, która podała dystans bez czasu.
+ *
+ * Bez tego progu jeden taki trening zostawał rekordem na zawsze, bo rekord bierze minimum
+ * z całej historii — a przy „1 km w 0:39” cały plan liczyłby tempa od prędkości samochodu.
+ * Rekord świata na kilometrze to 2:11, więc dwie minuty zostawiają zapas i dla biegacza,
+ * i dla sprintera na krótkim odcinku.
+ */
+export const FASTEST_PLAUSIBLE_PACE: Record<Sport, number> = {
+  STRENGTH: 0,
+  RUNNING: 120,
+  // Sześćdziesiąt sekund na kilometr to 60 km/h; na rowerze zjazd bywa szybszy, więc zapas
+  // większy — ale nie na tyle, żeby przejazd samochodem uszedł za rekord.
+  CYCLING: 45,
+  // Sto metrów stylem dowolnym poniżej 40 sekund to już nie pływanie, tylko pomyłka pomiaru.
+  SWIMMING: 400,
+  OTHER: 60,
+};
+
 export const RECORD_DISTANCES: Record<Sport, number[]> = {
   STRENGTH: [],
   RUNNING: [1000, 5000, 10000, 21097],
@@ -80,6 +101,7 @@ export const RECORD_DISTANCES: Record<Sport, number[]> = {
 export function bestEffort(
   splits: Split[],
   target: number,
+  fastestPlausiblePace = 0,
 ): { seconds: number; source: RecordSource } | null {
   let best: { seconds: number; source: RecordSource } | null = null;
   let left = 0;
@@ -101,6 +123,9 @@ export function bestEffort(
     // Okno prawie nigdy nie kończy się dokładnie na rekordowym dystansie, więc czas skracamy
     // proporcjonalnie. To szacunek z tempa tego fragmentu, a nie odczyt z linii mety.
     const scaled = Math.round((seconds * target) / meters);
+    // Tempo nie z tego świata znaczy, że zapis tego fragmentu jest zepsuty — nie że ktoś
+    // pobiegł szybciej niż rekordzista świata.
+    if ((scaled * 1000) / target < fastestPlausiblePace) continue;
     // Okno objęło cały trening, więc nie ma w nim żadnego wyróżnionego fragmentu — to po prostu
     // średnia całości, i tak ją podpisujemy.
     const source: RecordSource = right - left + 1 < splits.length ? 'SPLIT' : 'WORKOUT';
@@ -114,11 +139,12 @@ function bestBy(
   workouts: RecordWorkout[],
   pick: (workout: RecordWorkout) => number | null,
   mode: 'max' | 'min',
+  floor = 0,
 ): Feat | null {
   let best: Feat | null = null;
   for (const workout of workouts) {
     const value = pick(workout);
-    if (value === null || value <= 0) continue;
+    if (value === null || value <= 0 || value < floor) continue;
     if (best !== null && (mode === 'max' ? value <= best.value : value >= best.value)) continue;
     best = {
       value,
@@ -134,10 +160,12 @@ function bestBy(
 export function sportRecords(workouts: RecordWorkout[], sport: Sport): SportRecords {
   const efforts: EffortRecord[] = [];
 
+  const fastest = FASTEST_PLAUSIBLE_PACE[sport];
+
   for (const target of RECORD_DISTANCES[sport]) {
     let best: EffortRecord | null = null;
     for (const workout of workouts) {
-      const effort = bestEffort(workout.splits, target);
+      const effort = bestEffort(workout.splits, target, fastest);
       if (effort === null) continue;
       if (best !== null && effort.seconds >= best.seconds) continue;
       best = {
@@ -157,6 +185,6 @@ export function sportRecords(workouts: RecordWorkout[], sport: Sport): SportReco
     longestDistance: bestBy(workouts, (workout) => workout.meters, 'max'),
     longestTime: bestBy(workouts, (workout) => workout.seconds, 'max'),
     // Tempo z odcinków pracy, tak jak w podsumowaniu: tempo całości zaniża rozgrzewka.
-    bestPace: bestBy(workouts, (workout) => workout.workPace ?? workout.pace, 'min'),
+    bestPace: bestBy(workouts, (workout) => workout.workPace ?? workout.pace, 'min', fastest),
   };
 }

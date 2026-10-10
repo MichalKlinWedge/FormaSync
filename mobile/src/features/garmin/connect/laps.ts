@@ -76,6 +76,31 @@ export function lapsMatchTotal(laps: Lap[], meters: number | null): boolean {
   return Math.abs(sum - meters) <= meters * 0.02;
 }
 
+/**
+ * Okrążenia krótsze od tego pomijamy przy sprawdzaniu tempa. Na końcu aktywności zostaje zwykle
+ * kilkudziesięciometrowa resztka, której czas bywa zaokrąglony do sekundy — liczona jako tempo
+ * wychodzi absurdalnie szybka, a na żaden rekord i tak nie ma wpływu.
+ */
+const MIN_CHECKED_METERS = 100;
+
+/**
+ * Czy wśród okrążeń nie ma takiego, którego tempo jest niemożliwe. Jedno zepsute okrążenie —
+ * zgubiony sygnał, ucięty pomiar — wystarczy, żeby zostało rekordem na zawsze, bo rekord bierze
+ * minimum z całej historii. Suma dystansów takiego zestawu bywa poprawna, więc samo porównanie
+ * z podsumowaniem tego nie wyłapie.
+ *
+ * Przy jednym podejrzanym okrążeniu odrzucamy cały podział i zostajemy przy sumach z listy
+ * aktywności: lepiej mieć średnią całego treningu niż rekord z usterki.
+ */
+export function lapsPlausible(laps: Lap[], fastestPlausiblePace: number): boolean {
+  return !laps.some(
+    (lap) =>
+      lap.meters >= MIN_CHECKED_METERS &&
+      lap.seconds > 0 &&
+      (lap.seconds * 1000) / lap.meters < fastestPlausiblePace,
+  );
+}
+
 /** Numer aktywności ze ścieżki adresu; `null`, gdy identyfikator nie pochodzi z Garmina. */
 export function activityNumber(recordId: string): string | null {
   return /^garmin:(\d+)$/.exec(recordId)?.[1] ?? null;

@@ -119,7 +119,9 @@ describe('dociąganie okrążeń do historii', () => {
     const sessionId = createSessionFromActivity(db, { ...RUN, distanceMeters: 3000 });
 
     expect(sessionsMissingLaps(db)).toEqual([
-      { sessionId, recordId: 'rec-run', startTime: RUN.startTime, meters: 3000 },
+      // Dyscyplina jedzie razem z resztą: od niej zależy próg tempa, po którym poznajemy
+      // okrążenia nie z tego świata.
+      { sessionId, recordId: 'rec-run', startTime: RUN.startTime, meters: 3000, sport: 'RUNNING' },
     ]);
   });
 

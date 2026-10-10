@@ -287,12 +287,19 @@ export function linkActivityToSession(
  */
 export function sessionsMissingLaps(
   db: SyncDb,
-): { sessionId: number; recordId: string; startTime: string; meters: number | null }[] {
+): {
+  sessionId: number;
+  recordId: string;
+  startTime: string;
+  meters: number | null;
+  sport: schema.Sport;
+}[] {
   const linked = db
     .select({
       sessionId: schema.workoutSessions.id,
       recordId: schema.garminActivityMetrics.garminActivityId,
       startTime: schema.workoutSessions.startTime,
+      sport: schema.workoutSessions.sport,
     })
     .from(schema.workoutSessions)
     .innerJoin(

@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from '@jest/globals';
 
-import { activityNumber, lapsMatchTotal, parseLaps } from '../laps';
+import { activityNumber, lapsMatchTotal, lapsPlausible, parseLaps } from '../laps';
 
 describe('parseLaps', () => {
   it('czyta okrążenia biegu z lapDTOs', () => {
@@ -101,5 +101,31 @@ describe('activityNumber', () => {
     // Takie wpisy zostały po wczytywaniu przez Health Connect.
     expect(activityNumber('rec-1')).toBeNull();
     expect(activityNumber('garmin:abc')).toBeNull();
+  });
+});
+
+describe('lapsPlausible', () => {
+  const lap = (meters: number, seconds: number) => ({ meters, seconds, avgHeartRate: null });
+
+  it('przyjmuje okrążenia o normalnym tempie', () => {
+    expect(lapsPlausible([lap(1000, 300), lap(1000, 290)], 120)).toBe(true);
+  });
+
+  it('odrzuca cały podział, gdy jedno okrążenie ma niemożliwe tempo', () => {
+    // Kilometr w 39 sekund psuje rekord na zawsze, a suma dystansów takiego zestawu bywa dobra.
+    expect(lapsPlausible([lap(1000, 300), lap(1000, 39)], 120)).toBe(false);
+  });
+
+  it('nie czepia się resztki na końcu aktywności', () => {
+    // Czterdzieści metrów z czasem zaokrąglonym do sekundy wygląda na 25 s/km, a nie znaczy nic.
+    expect(lapsPlausible([lap(1000, 300), lap(40, 1)], 120)).toBe(true);
+  });
+
+  it('pomija okrążenia bez zmierzonego czasu, zamiast je odrzucać', () => {
+    expect(lapsPlausible([lap(1000, 300), lap(500, 0)], 120)).toBe(true);
+  });
+
+  it('bez progu nie ma czego sprawdzać', () => {
+    expect(lapsPlausible([lap(1000, 1)], 0)).toBe(true);
   });
 });
