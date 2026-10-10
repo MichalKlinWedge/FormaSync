@@ -104,6 +104,11 @@ export function EnduranceStats({ sport }: { sport: Sport }) {
             całości.
           </ThemedText>
         )}
+        {records.skipped > 0 && (
+          <ThemedText type="small" themeColor="textSecondary">
+            {`Pominięto ${pluralWith(records.skipped, 'trening', 'treningi', 'treningów')} o tempie nie do utrzymania przez człowieka — to zepsuty zapis, nie rekord. Zajrzyj do historii i popraw albo usuń taki wpis, bo jego dystans wchodzi do objętości tygodniowej.`}
+          </ThemedText>
+        )}
       </View>
 
       {fromGarmin.length > 0 && (

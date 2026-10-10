@@ -6,6 +6,7 @@ import { describe, expect, it } from '@jest/globals';
 import {
   bestEffort,
   FASTEST_PLAUSIBLE_PACE,
+  paceFloor,
   RECORD_DISTANCES,
   sportRecords,
   type RecordWorkout,
@@ -186,5 +187,56 @@ describe('tempo nie z tego świata', () => {
     // Setka w 20 sekund to usterka pomiaru, w 50 — rekord świata.
     expect(bestEffort([{ meters: 100, seconds: 20 }], 100, FASTEST_PLAUSIBLE_PACE.SWIMMING)).toBeNull();
     expect(bestEffort([{ meters: 100, seconds: 50 }], 100, FASTEST_PLAUSIBLE_PACE.SWIMMING)).not.toBeNull();
+  });
+});
+
+describe('próg względem własnej historii', () => {
+  /** Kilka treningów w zwykłym tempie 5:30/km plus jeden z zepsutym zapisem. */
+  const typical = [
+    workout(1, [[10000, 3300]]),
+    workout(2, [[8000, 2640]]),
+    workout(3, [[12000, 3960]]),
+  ];
+
+  it('liczy próg z mediany, nie ze średniej', () => {
+    // Mediana 330 s/km razy 0,6 daje 198 — mocniej niż granica gatunku, czyli 120.
+    expect(paceFloor(typical, 'RUNNING')).toBe(198);
+  });
+
+  it('jeden zepsuty trening nie rozchwieje progu', () => {
+    const withJunk = [...typical, workout(9, [[30000, 3600]])];
+    expect(paceFloor(withJunk, 'RUNNING')).toBe(198);
+  });
+
+  it('przy zbyt krótkiej historii zostaje przy granicy gatunku', () => {
+    expect(paceFloor([workout(1, [[10000, 3300]])], 'RUNNING')).toBe(
+      FASTEST_PLAUSIBLE_PACE.RUNNING,
+    );
+  });
+
+  it('odrzuca tempo, które przeszło przez samą granicę gatunku', () => {
+    // 30 km w godzinę to 120 s/km — niemożliwe w bieganiu, a próg gatunkowy to przepuszczał.
+    const records = sportRecords([...typical, workout(9, [[30000, 3600]])], 'RUNNING');
+    const kilometer = records.efforts.find((effort) => effort.meters === 1000);
+    // Wszystkie trzy zwykłe treningi mają to samo tempo, więc wygrywa pierwszy z nich.
+    expect(kilometer).toMatchObject({ seconds: 330, sessionId: 1 });
+    expect(records.skipped).toBe(1);
+  });
+
+  it('mówi, ile treningów pominięto, żeby brak rekordu nie wyglądał na zgubiony', () => {
+    const records = sportRecords([...typical, workout(9, [[1000, 39]])], 'RUNNING');
+    expect(records.skipped).toBe(1);
+  });
+
+  it('czysta historia nie ma nic do pominięcia', () => {
+    expect(sportRecords(typical, 'RUNNING').skipped).toBe(0);
+  });
+
+  it('zostawia prawdziwy start szybszy od treningów', () => {
+    // Piątka w 4:20/km przy treningach po 5:30 — szybka, ale realna.
+    const records = sportRecords([...typical, workout(9, [[5000, 1300]])], 'RUNNING');
+    const five = records.efforts.find((effort) => effort.meters === 5000);
+    expect(five).toMatchObject({ seconds: 1300, sessionId: 9 });
+    expect(records.skipped).toBe(0);
   });
 });

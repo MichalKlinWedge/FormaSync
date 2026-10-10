@@ -53,6 +53,8 @@ export type SportRecords = {
   longestDistance: Feat | null;
   longestTime: Feat | null;
   bestPace: Feat | null;
+  /** Ile treningów odpadło z powodu tempa nie do utrzymania przez człowieka. */
+  skipped: number;
 };
 
 /**
@@ -80,6 +82,38 @@ export const FASTEST_PLAUSIBLE_PACE: Record<Sport, number> = {
   SWIMMING: 400,
   OTHER: 60,
 };
+
+/**
+ * O ile szybszy od swojego zwykłego tempa można być na rekordowym odcinku. Czterdzieści procent
+ * to zapas z grubą rezerwą: start na piątce bywa szybszy od spokojnego biegu o kilkanaście
+ * procent, rzadko o więcej.
+ *
+ * Sam próg „niemożliwe dla człowieka” okazał się za słaby. Odrzucał 0:39 na kilometrze, ale
+ * przepuszczał 2:00 — bo to wciąż szybciej, niż ktokolwiek biega w treningu, a wolniej niż
+ * rekord świata. Śmieci w zapisie rzadko są absurdalne aż tak bardzo; zwykle sadowią się właśnie
+ * tuż nad takim progiem. Tempo liczone względem własnej historii trafia w nie znacznie lepiej.
+ */
+const RELATIVE_FLOOR = 0.6;
+
+/** Mniej niż tyle treningów nie wystarcza, by wiedzieć, jakie tempo jest dla kogoś zwykłe. */
+const MIN_WORKOUTS_FOR_RELATIVE = 3;
+
+/**
+ * Najszybsze tempo, które uznajemy za prawdziwe: nie szybsze od granicy gatunku i nie szybsze
+ * od sześćdziesięciu procent własnego zwykłego tempa. Bierzemy medianę, nie średnią — jedna
+ * zepsuta pozycja przesuwa średnią, a medianą nie potrząśnie.
+ */
+export function paceFloor(workouts: RecordWorkout[], sport: Sport): number {
+  const species = FASTEST_PLAUSIBLE_PACE[sport];
+  const paces = workouts
+    .map((workout) => workout.workPace ?? workout.pace)
+    .filter((pace): pace is number => pace !== null && pace > 0)
+    .sort((a, b) => a - b);
+  if (paces.length < MIN_WORKOUTS_FOR_RELATIVE) return species;
+
+  const median = paces[Math.floor(paces.length / 2)];
+  return Math.max(species, Math.round(median * RELATIVE_FLOOR));
+}
 
 export const RECORD_DISTANCES: Record<Sport, number[]> = {
   STRENGTH: [],
@@ -160,13 +194,19 @@ function bestBy(
 export function sportRecords(workouts: RecordWorkout[], sport: Sport): SportRecords {
   const efforts: EffortRecord[] = [];
 
-  const fastest = FASTEST_PLAUSIBLE_PACE[sport];
+  const fastest = paceFloor(workouts, sport);
+  const suspect = new Set<number>();
 
   for (const target of RECORD_DISTANCES[sport]) {
     let best: EffortRecord | null = null;
     for (const workout of workouts) {
       const effort = bestEffort(workout.splits, target, fastest);
-      if (effort === null) continue;
+      // Trening, który na tym dystansie coś pokazuje, ale dopiero po zdjęciu progu, ma zepsuty
+      // zapis. Liczymy takie, bo bez tej liczby zniknięcie rekordu wyglądałoby jak zgubienie go.
+      if (effort === null) {
+        if (bestEffort(workout.splits, target) !== null) suspect.add(workout.sessionId);
+        continue;
+      }
       if (best !== null && effort.seconds >= best.seconds) continue;
       best = {
         meters: target,
@@ -186,5 +226,6 @@ export function sportRecords(workouts: RecordWorkout[], sport: Sport): SportReco
     longestTime: bestBy(workouts, (workout) => workout.seconds, 'max'),
     // Tempo z odcinków pracy, tak jak w podsumowaniu: tempo całości zaniża rozgrzewka.
     bestPace: bestBy(workouts, (workout) => workout.workPace ?? workout.pace, 'min', fastest),
+    skipped: suspect.size,
   };
 }
