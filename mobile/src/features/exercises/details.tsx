@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, asc, eq, isNotNull } from 'drizzle-orm';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
@@ -10,13 +10,16 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
-import { categories, equipment, exerciseMuscles, exercises } from '@/db/schema';
+import { categories, equipment, exerciseMuscles, exercises, loggedSets, workoutSessions } from '@/db/schema';
+import { describeBest, describeChange, summarizeExercise } from '@/features/exercises/history';
 import { deleteExerciseImage } from '@/features/exercises/images';
 import { ExerciseIllustration } from '@/features/exercises/illustration/exercise-illustration';
 import { illustrationFor } from '@/features/exercises/illustration/poses';
 import { difficultyLabels, trackingTypeLabels } from '@/features/exercises/labels';
 import { deleteExercise, ExerciseInUseError } from '@/features/exercises/repository';
 import { useTheme } from '@/hooks/use-theme';
+import { formatDate, toDateKey } from '@/lib/date';
+import { formatNumber, pluralWith } from '@/lib/number';
 
 type ExerciseDetailsProps = {
   id: number;
@@ -54,11 +57,30 @@ export function ExerciseDetails({ id, manageable = false }: ExerciseDetailsProps
     [id],
   );
 
+  // Wykonane serie tego ćwiczenia — do liczby treningów, postępu i podpowiedzi na kolejny raz.
+  const { data: history } = useLiveQuery(
+    db
+      .select({
+        sessionId: loggedSets.sessionId,
+        startTime: workoutSessions.startTime,
+        reps: loggedSets.repsCompleted,
+        weightKg: loggedSets.weightKg,
+        durationSeconds: loggedSets.durationSeconds,
+        rpe: loggedSets.rpe,
+      })
+      .from(loggedSets)
+      .innerJoin(workoutSessions, eq(loggedSets.sessionId, workoutSessions.id))
+      .where(and(eq(loggedSets.exerciseId, id), isNotNull(loggedSets.completedAt)))
+      .orderBy(asc(workoutSessions.startTime), asc(loggedSets.setNumber)),
+    [id],
+  );
+
   const row = rows[0];
   if (!row) return <ThemedView style={styles.container} />;
   const { exercise } = row;
 
   const steps = exercise.instructions?.split('\n').filter((s) => s.trim()) ?? [];
+  const done = summarizeExercise(history, exercise.trackingType);
   // Własne ćwiczenia mogą mieć zdjęcie; katalogowe dostają rysunek poglądowy.
   const illustration = illustrationFor(exercise.name);
 
@@ -108,6 +130,26 @@ export function ExerciseDetails({ id, manageable = false }: ExerciseDetailsProps
           <Fact label="Poziom" value={exercise.difficultyLevel ? difficultyLabels[exercise.difficultyLevel] : null} />
           <Fact label="Rejestracja" value={trackingTypeLabels[exercise.trackingType]} />
         </View>
+
+        {done !== null && (
+          <>
+            <View style={styles.facts}>
+              <Fact
+                label="Wykonane treningi"
+                value={`${formatNumber(done.sessions)} · ${pluralWith(done.sets, 'seria', 'serie', 'serii')}`}
+              />
+              <Fact label="Ostatnio" value={formatDate(toDateKey(new Date(done.lastAt)))} />
+              <Fact label="Najlepsza seria" value={describeBest(done.best, done.metric)} />
+              <Fact
+                label="Od pierwszego razu"
+                value={done.change === null ? null : describeChange(done.change, done.metric)}
+              />
+            </View>
+            <Section title="Na kolejny trening">
+              <ThemedText>{done.advice}</ThemedText>
+            </Section>
+          </>
+        )}
 
         {steps.length > 0 && (
           <Section title="Instrukcja krok po kroku">

@@ -51,6 +51,21 @@ const average = (values: number[]): number | null =>
 
 const formatRpe = (rpe: number) => (Number.isInteger(rpe) ? String(rpe) : rpe.toFixed(1).replace('.', ','));
 
+/** Cel i wykonanie — wszystko, czego potrzebuje sama reguła, bez wiedzy o planie. */
+export type WorkDone = {
+  targetSets: number;
+  targetReps: number | null;
+  targetWeight: number | null;
+  sets: SetOutcome[];
+};
+
+/** Werdykt reguły: co zrobić z ciężarem i dlaczego. */
+export type ProgressionCall = {
+  advice: ProgressionAdvice;
+  suggestedWeight: number;
+  reason: string;
+};
+
 /**
  * Reguła progresji:
  * — komplet serii i powtórzeń przy RPE do 7 (lub bez oceny) → +5%,
@@ -60,18 +75,14 @@ const formatRpe = (rpe: number) => (Number.isInteger(rpe) ? String(rpe) : rpe.to
  *
  * Zwraca null dla ćwiczeń, których nie da się ocenić: bez ciężaru docelowego,
  * bez celu powtórzeń (ćwiczenia na czas) albo bez ani jednej wykonanej serii.
+ *
+ * Reguła żyje osobno od planu, bo liczy ją też opis ćwiczenia — tam celem nie jest wpis z planu,
+ * tylko to, co poszło ostatnim razem. Dwóch różnych reguł progresji w jednej aplikacji być nie może.
  */
-export function suggestProgression(performance: ExercisePerformance): Suggestion | null {
-  const { targetWeight, targetReps, targetSets, sets } = performance;
+export function decideProgression(work: WorkDone): ProgressionCall | null {
+  const { targetWeight, targetReps, targetSets, sets } = work;
   if (targetWeight === null || targetWeight <= 0 || targetReps === null || targetReps <= 0) return null;
   if (sets.length === 0) return null;
-
-  const base = {
-    planExerciseId: performance.planExerciseId,
-    exerciseId: performance.exerciseId,
-    exerciseName: performance.exerciseName,
-    currentWeight: targetWeight,
-  };
 
   const completedReps = sets.map((set) => set.reps ?? 0);
   const totalPlanned = targetSets * targetReps;
@@ -81,18 +92,15 @@ export function suggestProgression(performance: ExercisePerformance): Suggestion
   const avgRpe = average(sets.map((set) => set.rpe).filter((rpe): rpe is number => rpe !== null));
 
   if (totalDone * 2 < totalPlanned) {
-    const suggested = applyPercent(targetWeight, -0.05);
     return {
-      ...base,
       advice: 'DECREASE',
-      suggestedWeight: suggested,
+      suggestedWeight: applyPercent(targetWeight, -0.05),
       reason: `Wykonano ${totalDone} z ${totalPlanned} powtórzeń — ciężar był za duży.`,
     };
   }
 
   if (!allSetsDone || !allRepsMet) {
     return {
-      ...base,
       advice: 'HOLD',
       suggestedWeight: targetWeight,
       reason: allSetsDone
@@ -103,7 +111,6 @@ export function suggestProgression(performance: ExercisePerformance): Suggestion
 
   if (avgRpe !== null && avgRpe >= 9) {
     return {
-      ...base,
       advice: 'HOLD',
       suggestedWeight: targetWeight,
       reason: `Komplet serii, ale przy RPE ${formatRpe(avgRpe)} — utrwal ten ciężar.`,
@@ -111,15 +118,26 @@ export function suggestProgression(performance: ExercisePerformance): Suggestion
   }
 
   const percent = avgRpe !== null && avgRpe > 7 ? 0.025 : 0.05;
-  const suggested = applyPercent(targetWeight, percent);
   return {
-    ...base,
     advice: 'INCREASE',
-    suggestedWeight: suggested,
+    suggestedWeight: applyPercent(targetWeight, percent),
     reason:
       avgRpe === null
         ? `Komplet ${targetSets} × ${targetReps} powt. — czas na więcej.`
         : `Komplet ${targetSets} × ${targetReps} powt. przy RPE ${formatRpe(avgRpe)} — czas na więcej.`,
+  };
+}
+
+/** Ta sama reguła opisana nazwami ćwiczenia z planu — w tej postaci używa jej kreator progresji. */
+export function suggestProgression(performance: ExercisePerformance): Suggestion | null {
+  const call = decideProgression(performance);
+  if (call === null) return null;
+  return {
+    planExerciseId: performance.planExerciseId,
+    exerciseId: performance.exerciseId,
+    exerciseName: performance.exerciseName,
+    currentWeight: performance.targetWeight as number,
+    ...call,
   };
 }
 
