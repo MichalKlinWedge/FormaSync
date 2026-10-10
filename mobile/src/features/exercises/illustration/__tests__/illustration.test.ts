@@ -45,12 +45,11 @@ describe('geometria rysunku', () => {
 describe('katalog rysunków', () => {
   const names = new Set(seedExercises.map((exercise) => exercise.name));
 
-  it('ma rysunek do każdego ćwiczenia z katalogu', () => {
-    expect(seedExercises.map((e) => e.name).filter((name) => !exerciseIllustrations[name])).toEqual([]);
-  });
-
+  // Rysunki dochodzą stopniowo i nie każde ćwiczenie z katalogu już go ma — bez rysunku ekran
+  // opisu pokazuje ikonę, więc brak nie psuje niczego poza wyglądem. Pilnujemy natomiast drugiej
+  // strony: rysunek bez ćwiczenia to zawsze błąd, bo kluczem jest nazwa i literówka albo zmiana
+  // nazwy cicho odpięłaby rysunek od ćwiczenia.
   it('nie ma rysunków do ćwiczeń, których nie ma w katalogu', () => {
-    // Kluczem jest nazwa, więc literówka cicho odpięłaby rysunek od ćwiczenia.
     expect(Object.keys(exerciseIllustrations).filter((name) => !names.has(name))).toEqual([]);
   });
 

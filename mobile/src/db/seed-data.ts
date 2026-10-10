@@ -11,7 +11,7 @@ import type {
 // Dane startowe: słowniki, katalog ćwiczeń i wbudowane szablony.
 // Zmiana zawartości wymaga podbicia SEED_VERSION (seed.ts dograje brakujące rekordy).
 
-export const SEED_VERSION = 5;
+export const SEED_VERSION = 6;
 
 export const seedCategories: { name: string; description: string }[] = [
   { name: 'Klatka piersiowa', description: 'Mięsień piersiowy większy i mniejszy' },
@@ -23,6 +23,7 @@ export const seedCategories: { name: string; description: string }[] = [
   { name: 'Czworogłowe uda', description: 'Przód uda' },
   { name: 'Dwugłowe uda', description: 'Tył uda' },
   { name: 'Pośladki', description: 'Pośladkowy wielki, średni i mały' },
+  { name: 'Przywodziciele', description: 'Mięśnie wewnętrznej strony uda' },
   { name: 'Łydki', description: 'Brzuchaty i płaszczkowaty łydki' },
   { name: 'Brzuch i core', description: 'Prosty i skośne brzucha, poprzeczny, stabilizacja tułowia' },
 ];
@@ -937,6 +938,400 @@ export const seedExercises: SeedExercise[] = [
     ],
     technique: 'Zakres kończy się tam, gdzie lędźwie odchodzą od podłogi — nie niżej.',
     garminCategory: 'LEG_RAISE',
+  },
+
+  // ——— Dołożone w SEED_VERSION 6: typowy sprzęt siłowni, przede wszystkim na nogi ———
+
+  // Czworogłowe uda
+  {
+    name: 'Prostowanie nóg na maszynie',
+    category: 'Czworogłowe uda',
+    equipment: 'Maszyna',
+    difficulty: 'BEGINNER',
+    instructions: [
+      'Usiądź w maszynie, oprzyj plecy, wałek tuż nad kostkami.',
+      'Wyprostuj kolana i zatrzymaj ruch na moment w górze.',
+      'Opuszczaj powoli, nie pozwalając ciężarowi opaść swobodnie.',
+    ],
+    technique: 'Kolana prowadź w osi bioder. Ostatnie stopnie wyprostu rób bez szarpnięcia.',
+  },
+  {
+    name: 'Przysiad w suwnicy Smitha',
+    category: 'Czworogłowe uda',
+    secondary: ['Pośladki'],
+    equipment: 'Maszyna',
+    difficulty: 'BEGINNER',
+    instructions: [
+      'Ustaw gryf na karku, stopy nieco przed linią gryfu.',
+      'Odblokuj gryf i schodź w dół, aż uda będą równolegle do podłogi.',
+      'Wypchnij się nogami do wyprostu.',
+    ],
+    technique: 'Tor gryfu jest prowadzony, więc stopy mogą stać dalej z przodu niż w wolnym przysiadzie.',
+    garminCategory: 'SQUAT',
+  },
+  {
+    name: 'Hack przysiad na maszynie',
+    category: 'Czworogłowe uda',
+    secondary: ['Pośladki'],
+    equipment: 'Maszyna',
+    difficulty: 'INTERMEDIATE',
+    instructions: [
+      'Oprzyj plecy i barki o poduszki, stopy na środku platformy.',
+      'Zwolnij blokadę i zejdź w dół, uginając kolana.',
+      'Wypchnij platformę, nie blokując kolan w górze.',
+    ],
+    garminCategory: 'SQUAT',
+  },
+  {
+    name: 'Wejścia na skrzynię z hantlami',
+    category: 'Czworogłowe uda',
+    secondary: ['Pośladki'],
+    equipment: 'Hantle',
+    difficulty: 'BEGINNER',
+    instructions: [
+      'Stań przed skrzynią z hantlami w dłoniach.',
+      'Postaw całą stopę na skrzyni i wejdź, prostując nogę.',
+      'Zejdź kontrolowanie tą samą nogą i powtórz.',
+    ],
+    technique: 'Siłę bierz z nogi na skrzyni, a nie z odbicia tą stojącą na podłodze.',
+    garminCategory: 'LUNGE',
+  },
+  {
+    name: 'Wykroki chodzone z hantlami',
+    category: 'Czworogłowe uda',
+    secondary: ['Pośladki', 'Dwugłowe uda'],
+    equipment: 'Hantle',
+    difficulty: 'INTERMEDIATE',
+    instructions: [
+      'Stań prosto z hantlami wzdłuż tułowia.',
+      'Zrób długi krok w przód i opuść tylne kolano nad podłogę.',
+      'Wstań, przenosząc ciężar na przednią nogę, i od razu zrób krok drugą.',
+    ],
+    garminCategory: 'LUNGE',
+  },
+  {
+    name: 'Przysiad sumo z hantlem',
+    category: 'Czworogłowe uda',
+    secondary: ['Pośladki', 'Przywodziciele'],
+    equipment: 'Hantle',
+    difficulty: 'BEGINNER',
+    instructions: [
+      'Stań szeroko, stopy wyraźnie na zewnątrz, hantel trzymany oburącz przed sobą.',
+      'Zejdź w dół między pięty, kolana w linii stóp.',
+      'Wstań, napinając pośladki.',
+    ],
+    garminCategory: 'SQUAT',
+  },
+
+  // Dwugłowe uda
+  {
+    name: 'Uginanie nóg siedząc na maszynie',
+    category: 'Dwugłowe uda',
+    equipment: 'Maszyna',
+    difficulty: 'BEGINNER',
+    instructions: [
+      'Usiądź, wałek nad kostkami, uda zablokowane poduszką.',
+      'Zegnij kolana, ciągnąc wałek pod siebie.',
+      'Wracaj powoli do wyprostu.',
+    ],
+    garminCategory: 'LEG_CURL',
+  },
+  {
+    name: 'Nordic curl',
+    category: 'Dwugłowe uda',
+    equipment: 'Masa ciała',
+    difficulty: 'ADVANCED',
+    instructions: [
+      'Uklęknij, poproś partnera o przytrzymanie kostek albo zablokuj je pod drabinką.',
+      'Opadaj powoli w przód, trzymając biodra wyprostowane.',
+      'Zatrzymaj opadanie jak najniżej i wróć siłą tyłu ud.',
+    ],
+    technique: 'Biodra nie mogą się zginać — tułów i uda idą jedną linią.',
+    garminCategory: 'LEG_CURL',
+  },
+  {
+    name: 'Martwy ciąg na prostych nogach',
+    category: 'Dwugłowe uda',
+    secondary: ['Pośladki', 'Plecy'],
+    equipment: 'Sztanga',
+    difficulty: 'INTERMEDIATE',
+    instructions: [
+      'Stań ze sztangą, kolana prawie wyprostowane.',
+      'Zginaj się w biodrach, prowadząc sztangę blisko nóg.',
+      'Zatrzymaj się przy rozciągnięciu tyłu ud i wróć do wyprostu.',
+    ],
+    technique: 'Od rumuńskiego różni się prostszym kolanem — zakres kończą tylne uda, nie plecy.',
+    garminCategory: 'DEADLIFT',
+  },
+
+  // Pośladki i przywodziciele
+  {
+    name: 'Odwodzenie nóg na maszynie',
+    category: 'Pośladki',
+    equipment: 'Maszyna',
+    difficulty: 'BEGINNER',
+    instructions: [
+      'Usiądź, oprzyj kolana o poduszki od wewnątrz.',
+      'Rozsuń kolana na zewnątrz do końca zakresu.',
+      'Wracaj powoli, nie puszczając ciężaru.',
+    ],
+    garminCategory: 'HIP_STABILITY',
+  },
+  {
+    name: 'Przywodzenie nóg na maszynie',
+    category: 'Przywodziciele',
+    equipment: 'Maszyna',
+    difficulty: 'BEGINNER',
+    instructions: [
+      'Usiądź, kolana po zewnętrznej stronie poduszek.',
+      'Zsuń kolana do siebie.',
+      'Rozsuwaj je powoli do rozciągnięcia, ale bez bólu.',
+    ],
+    garminCategory: 'HIP_STABILITY',
+  },
+  {
+    name: 'Prostowanie biodra na wyciągu',
+    category: 'Pośladki',
+    secondary: ['Dwugłowe uda'],
+    equipment: 'Wyciąg',
+    difficulty: 'BEGINNER',
+    instructions: [
+      'Zapnij rzep wyciągu dolnego na kostce, stań twarzą do wyciągu.',
+      'Odciągnij nogę w tył, prostując biodro i napinając pośladek.',
+      'Wracaj powoli, nie odchylając tułowia.',
+    ],
+    technique: 'Ruch robi biodro, nie plecy — tułów stoi w miejscu.',
+  },
+
+  // Łydki
+  {
+    name: 'Wspięcia na palce siedząc na maszynie',
+    category: 'Łydki',
+    equipment: 'Maszyna',
+    difficulty: 'BEGINNER',
+    instructions: [
+      'Usiądź, poduszki na udach tuż nad kolanami, przodostopie na podeście.',
+      'Opuść pięty jak najniżej.',
+      'Wespnij się najwyżej, jak potrafisz, i zatrzymaj na moment.',
+    ],
+    technique: 'Zgięte kolano przenosi pracę na płaszczkowaty — stąd inny bodziec niż stojąc.',
+    garminCategory: 'CALF_RAISE',
+  },
+
+  // Plecy
+  {
+    name: 'Hiperwyprosty na ławce rzymskiej',
+    category: 'Plecy',
+    secondary: ['Pośladki', 'Dwugłowe uda'],
+    equipment: 'Masa ciała',
+    difficulty: 'BEGINNER',
+    instructions: [
+      'Ustaw poduszkę tuż pod biodrami, kostki pod wałkami.',
+      'Opuść tułów, zginając się w biodrach.',
+      'Wróć do linii tułowia z nogami, bez przeprostu w górze.',
+    ],
+    technique: 'Górę ruchu kończy linia prosta — odchylanie się w tył obciąża lędźwie bez zysku.',
+    garminCategory: 'HYPEREXTENSION',
+  },
+  {
+    name: 'Wiosłowanie sztangą T',
+    category: 'Plecy',
+    secondary: ['Biceps'],
+    equipment: 'Sztanga',
+    difficulty: 'INTERMEDIATE',
+    instructions: [
+      'Stań okrakiem nad gryfem, chwyć uchwyt, tułów w opadzie.',
+      'Przyciągnij gryf do brzucha, prowadząc łokcie blisko tułowia.',
+      'Opuść kontrolowanie do pełnego wyprostu ramion.',
+    ],
+    garminCategory: 'ROW',
+  },
+  {
+    name: 'Ściąganie drążka podchwytem wąsko',
+    category: 'Plecy',
+    secondary: ['Biceps'],
+    equipment: 'Wyciąg',
+    difficulty: 'BEGINNER',
+    instructions: [
+      'Usiądź, uda pod wałkami, chwyć drążek podchwytem na szerokość barków.',
+      'Ściągnij drążek do mostka, prowadząc łokcie wzdłuż tułowia.',
+      'Wróć powoli do wyprostu ramion.',
+    ],
+    garminCategory: 'PULL_UP',
+  },
+  {
+    name: 'Przyciąganie wyciągu prostymi rękami',
+    category: 'Plecy',
+    equipment: 'Wyciąg',
+    difficulty: 'INTERMEDIATE',
+    instructions: [
+      'Stań przed wyciągiem górnym, chwyć drążek, tułów lekko pochylony.',
+      'Z prostymi łokciami ściągnij drążek łukiem do ud.',
+      'Wracaj powoli, aż poczujesz rozciągnięcie najszerszych.',
+    ],
+    technique: 'Łokcie zostają prawie proste przez cały ruch — inaczej robi to triceps.',
+  },
+  {
+    name: 'Szrugsy z hantlami',
+    category: 'Plecy',
+    equipment: 'Hantle',
+    difficulty: 'BEGINNER',
+    instructions: [
+      'Stań prosto, hantle wzdłuż tułowia.',
+      'Unieś barki prosto do góry, jak najwyżej.',
+      'Opuść je powoli do pełnego rozciągnięcia.',
+    ],
+    technique: 'Barki idą w górę, nie w kółko — krążenie nic nie dodaje.',
+    garminCategory: 'SHRUG',
+  },
+
+  // Klatka piersiowa
+  {
+    name: 'Wyciskanie na maszynie siedząc',
+    category: 'Klatka piersiowa',
+    secondary: ['Triceps', 'Barki'],
+    equipment: 'Maszyna',
+    difficulty: 'BEGINNER',
+    instructions: [
+      'Usiądź, uchwyty na wysokości środka klatki.',
+      'Wypchnij uchwyty przed siebie do wyprostu ramion.',
+      'Wróć powoli, aż poczujesz rozciągnięcie klatki.',
+    ],
+    garminCategory: 'BENCH_PRESS',
+  },
+  {
+    name: 'Motylek na maszynie',
+    category: 'Klatka piersiowa',
+    equipment: 'Maszyna',
+    difficulty: 'BEGINNER',
+    instructions: [
+      'Usiądź, przedramiona na poduszkach, łokcie na wysokości barków.',
+      'Zsuń ramiona przed sobą, ściskając klatkę.',
+      'Rozsuwaj powoli do rozciągnięcia, nie dalej.',
+    ],
+    garminCategory: 'FLYE',
+  },
+  {
+    name: 'Pompki diamentowe',
+    category: 'Triceps',
+    secondary: ['Klatka piersiowa'],
+    equipment: 'Masa ciała',
+    difficulty: 'INTERMEDIATE',
+    instructions: [
+      'Ustaw dłonie blisko siebie, kciuki i palce wskazujące stykają się.',
+      'Opuść się, trzymając łokcie blisko tułowia.',
+      'Wypchnij się do wyprostu, utrzymując napięty brzuch.',
+    ],
+    garminCategory: 'PUSH_UP',
+  },
+
+  // Barki
+  {
+    name: 'Wyciskanie nad głowę na maszynie',
+    category: 'Barki',
+    secondary: ['Triceps'],
+    equipment: 'Maszyna',
+    difficulty: 'BEGINNER',
+    instructions: [
+      'Usiądź, uchwyty na wysokości barków, plecy oparte.',
+      'Wypchnij uchwyty nad głowę do wyprostu ramion.',
+      'Opuść powoli do wysokości barków.',
+    ],
+    garminCategory: 'SHOULDER_PRESS',
+  },
+  {
+    name: 'Unoszenie ramienia bokiem na wyciągu',
+    category: 'Barki',
+    equipment: 'Wyciąg',
+    difficulty: 'INTERMEDIATE',
+    instructions: [
+      'Stań bokiem do wyciągu dolnego, chwyć uchwyt dalszą ręką.',
+      'Unieś ramię bokiem do wysokości barku.',
+      'Opuszczaj powoli, nie pozwalając ciężarowi ciągnąć ręki w dół.',
+    ],
+    technique: 'Wyciąg trzyma napięcie też na dole ruchu — tym różni się od hantli.',
+    garminCategory: 'LATERAL_RAISE',
+  },
+  {
+    name: 'Unoszenie hantli przodem',
+    category: 'Barki',
+    equipment: 'Hantle',
+    difficulty: 'BEGINNER',
+    instructions: [
+      'Stań prosto, hantle przed udami.',
+      'Unieś ramiona przodem do wysokości barków.',
+      'Opuść powoli, bez bujania tułowiem.',
+    ],
+    garminCategory: 'LATERAL_RAISE',
+  },
+
+  // Ramiona
+  {
+    name: 'Uginanie ramion na modlitewniku',
+    category: 'Biceps',
+    equipment: 'Sztanga łamana',
+    difficulty: 'BEGINNER',
+    instructions: [
+      'Oprzyj ramiona o pochyłą poduszkę, pachy blisko jej górnej krawędzi.',
+      'Ugnij ramiona, prowadząc gryf do barków.',
+      'Opuść powoli do prawie pełnego wyprostu.',
+    ],
+    technique: 'Poduszka odbiera pomoc barkom — dlatego ciężar będzie mniejszy niż stojąc.',
+    garminCategory: 'CURL',
+  },
+  {
+    name: 'Prostowanie ramion na wyciągu zza głowy',
+    category: 'Triceps',
+    equipment: 'Wyciąg',
+    difficulty: 'BEGINNER',
+    instructions: [
+      'Stań tyłem do wyciągu, chwyć linkę i unieś ręce nad głowę.',
+      'Wyprostuj łokcie, prowadząc linkę do przodu.',
+      'Wracaj powoli, aż poczujesz rozciągnięcie tricepsa.',
+    ],
+    technique: 'Łokcie zostają wysoko i blisko głowy przez cały ruch.',
+    garminCategory: 'TRICEPS_EXTENSION',
+  },
+
+  // Brzuch i core
+  {
+    name: 'Spięcia brzucha na wyciągu',
+    category: 'Brzuch i core',
+    equipment: 'Wyciąg',
+    difficulty: 'INTERMEDIATE',
+    instructions: [
+      'Uklęknij przodem do wyciągu górnego, linka przy głowie.',
+      'Zwiń tułów, prowadząc łokcie w stronę ud.',
+      'Wracaj powoli, nie prostując się do końca między powtórzeniami.',
+    ],
+    technique: 'Ruch robi zwijanie kręgosłupa, a nie zginanie bioder.',
+    garminCategory: 'CRUNCH',
+  },
+  {
+    name: 'Wznosy nóg na ławce',
+    category: 'Brzuch i core',
+    equipment: 'Masa ciała',
+    difficulty: 'BEGINNER',
+    instructions: [
+      'Połóż się na ławce, chwyć jej krawędź nad głową.',
+      'Unieś wyprostowane nogi do pionu.',
+      'Opuszczaj je poniżej linii ławki, aż lędźwie zaczną się odrywać.',
+    ],
+    garminCategory: 'LEG_RAISE',
+  },
+  {
+    name: 'Hollow hold',
+    category: 'Brzuch i core',
+    equipment: 'Masa ciała',
+    difficulty: 'INTERMEDIATE',
+    tracking: 'TIME',
+    instructions: [
+      'Połóż się na plecach, ręce wyprostowane za głową.',
+      'Dociśnij lędźwie do podłogi i unieś barki oraz nogi nad ziemię.',
+      'Wytrzymaj, oddychając spokojnie.',
+    ],
+    technique: 'Lędźwie muszą dotykać podłogi — gdy odchodzą, podnieś nogi wyżej.',
+    garminCategory: 'CORE',
   },
 ];
 
