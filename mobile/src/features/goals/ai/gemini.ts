@@ -1,6 +1,7 @@
 import type { FormWorkout } from '../brief';
 import type { GoalBrief, PlannedWeek } from '../planner';
 
+import { isModelName, parseModelList, type GeminiModel, type ModelListReply } from './models';
 import { buildPrompt, parsePlanReply, PlanReplyError } from './prompt';
 import { loadApiKey, modelName } from './tokens';
 
@@ -31,7 +32,14 @@ type GeminiReply = {
 };
 
 function describeStatus(status: number, message: string | undefined): string {
-  if (status === 400) return message ?? 'Google odrzucił zapytanie jako nieprawidłowe.';
+  if (status === 400) {
+    // Odmowa z nazwy modelu wraca jako surowy komunikat API — bez tłumaczenia nie mówi nic o tym,
+    // gdzie tę nazwę zmienić.
+    if ((message ?? '').toLowerCase().includes('model')) {
+      return `Google nie przyjął nazwy modelu „${modelName()}”. Pobierz listę modeli w ustawieniach planisty i wybierz nazwę z niej.`;
+    }
+    return message ?? 'Google odrzucił zapytanie jako nieprawidłowe.';
+  }
   if (status === 401 || status === 403) return 'Klucz do Gemini jest nieważny albo bez uprawnień.';
   if (status === 404) return 'Taki model nie istnieje. Sprawdź jego nazwę w ustawieniach celu.';
   if (status === 429) return 'Wyczerpany limit zapytań do Gemini. Spróbuj później.';
@@ -44,8 +52,17 @@ export async function askGemini(prompt: string): Promise<string> {
   const key = await loadApiKey();
   if (key === null) throw new NoApiKeyError();
 
+  // Nazwę sprawdzamy u siebie: inaczej odpowiedzią na nazwę ze strony Google jest komunikat API
+  // o formacie, z którego nie wynika, co zrobić.
+  const model = modelName();
+  if (!isModelName(model)) {
+    throw new GeminiError(
+      `„${model}” to nie jest nazwa modelu, tylko jej opis. Pobierz listę modeli w ustawieniach planisty i wybierz nazwę z niej.`,
+    );
+  }
+
   const response = await fetch(
-    `${ENDPOINT}/${encodeURIComponent(modelName())}:generateContent?key=${encodeURIComponent(key)}`,
+    `${ENDPOINT}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -67,6 +84,25 @@ export async function askGemini(prompt: string): Promise<string> {
   const text = body?.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('') ?? '';
   if (text.trim() === '') throw new GeminiError('Gemini zwrócił pustą odpowiedź.');
   return text;
+}
+
+/**
+ * Modele dostępne dla tego klucza. Nazw nie zgadujemy ani nie wpisujemy z pamięci — Google
+ * wycofuje warianty w swoim tempie, a jedyna pewna lista jest po jego stronie.
+ */
+export async function listGeminiModels(): Promise<GeminiModel[]> {
+  const key = await loadApiKey();
+  if (key === null) throw new NoApiKeyError();
+
+  const response = await fetch(`${ENDPOINT}?key=${encodeURIComponent(key)}&pageSize=200`);
+  const body = (await response.json().catch(() => null)) as (ModelListReply & {
+    error?: { message?: string };
+  }) | null;
+  if (!response.ok) throw new GeminiError(describeStatus(response.status, body?.error?.message));
+
+  const models = parseModelList(body);
+  if (models.length === 0) throw new GeminiError('Google nie zwrócił ani jednego modelu do tekstu.');
+  return models;
 }
 
 /** Cały przebieg: polecenie, zapytanie, odczyt planu. */

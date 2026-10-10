@@ -3,10 +3,13 @@ import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/button';
+import { Chip } from '@/components/chip';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { FORM_WEEKS } from '@/features/goals/brief';
+import { listGeminiModels } from '@/features/goals/ai/gemini';
+import { isModelName, normalizeModel, type GeminiModel } from '@/features/goals/ai/models';
 import {
   DEFAULT_MODEL,
   hasApiKey,
@@ -27,11 +30,47 @@ export default function GoalAiScreen() {
   const [saved, setSaved] = useState<boolean | null>(null);
   const [key, setKey] = useState('');
   const [model, setModel] = useState(() => modelName());
+  const [models, setModels] = useState<GeminiModel[] | null>(null);
+  const [listing, setListing] = useState(false);
   const [consent, setConsentState] = useState(() => hasConsent());
 
   useEffect(() => {
     void hasApiKey().then(setSaved);
   }, []);
+
+  const wanted = normalizeModel(model);
+
+  const keep = (name: string) => {
+    saveModelName(name);
+    setModel(modelName());
+  };
+
+  const storeModel = () => {
+    if (wanted === '') {
+      Alert.alert('Pusto', 'Wpisz nazwę modelu albo wybierz ją z listy poniżej.');
+      return;
+    }
+    if (!isModelName(wanted)) {
+      Alert.alert(
+        'To nie jest nazwa modelu',
+        'API przyjmuje identyfikator — same małe litery, cyfry, kropki i myślniki, na przykład gemini-3.5-flash-lite. Najpewniej wybrać go z listy poniżej.',
+      );
+      return;
+    }
+    keep(wanted);
+    Alert.alert('Zapisane', `Plany pójdą do modelu ${wanted}.`);
+  };
+
+  const fetchModels = async () => {
+    setListing(true);
+    try {
+      setModels(await listGeminiModels());
+    } catch (error) {
+      Alert.alert('Nie udało się', error instanceof Error ? error.message : 'Nieznany błąd.');
+    } finally {
+      setListing(false);
+    }
+  };
 
   const store = async () => {
     await saveApiKey(key);
@@ -131,8 +170,9 @@ export default function GoalAiScreen() {
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             Domyślnie {DEFAULT_MODEL}. Google wycofuje i dokłada warianty, więc nazwę da się
-            zmienić bez nowej wersji aplikacji — gdy zobaczysz „taki model nie istnieje”, wpisz tu
-            aktualną.
+            zmienić bez nowej wersji aplikacji. Wpisuje się identyfikator, a nie nazwę ze strony:
+            „Gemini 3.5 Flash-Lite” API odrzuca, „gemini-3.5-flash-lite” przyjmuje. Zamienię jedno
+            w drugie sam, ale pewną listę ma tylko Google — najlepiej ją pobrać i wybrać z niej.
           </ThemedText>
           <TextInput
             value={model}
@@ -143,15 +183,31 @@ export default function GoalAiScreen() {
             placeholderTextColor={theme.textSecondary}
             style={[styles.input, { color: theme.text, backgroundColor: theme.background, borderColor: theme.border }]}
           />
+          {wanted !== model.trim() && wanted !== '' && (
+            <ThemedText type="small" themeColor="textSecondary">
+              Zapiszę jako: {wanted}
+            </ThemedText>
+          )}
+          <Button label="Zapisz nazwę modelu" icon="save" variant="secondary" onPress={storeModel} />
           <Button
-            label="Zapisz nazwę modelu"
-            icon="save"
+            label={listing ? 'Pobieram…' : 'Pobierz listę modeli'}
+            icon="sync"
             variant="secondary"
-            onPress={() => {
-              saveModelName(model);
-              setModel(modelName());
-            }}
+            disabled={listing}
+            onPress={() => void fetchModels()}
           />
+          {models !== null && (
+            <View style={styles.chips}>
+              {models.map((entry) => (
+                <Chip
+                  key={entry.id}
+                  label={entry.id}
+                  selected={entry.id === wanted}
+                  onPress={() => keep(entry.id)}
+                />
+              ))}
+            </View>
+          )}
         </View>
       </ScrollView>
     </ThemedView>
@@ -162,6 +218,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { padding: Spacing.four, gap: Spacing.five, paddingBottom: Spacing.six },
   section: { gap: Spacing.two },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   input: {
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,

@@ -3,6 +3,8 @@ import * as SecureStore from 'expo-secure-store';
 import { db } from '@/db/client';
 import { getSetting, setSetting } from '@/db/settings';
 
+import { normalizeModel } from './models';
+
 /**
  * Klucz do API modelu. Trzymamy go w SecureStore, nie w bazie — baza jedzie w kopii zapasowej,
  * którą przenosisz na komputer, a klucz rozliczany na Twoim koncie nie ma prawa tam trafić.
@@ -38,10 +40,16 @@ export async function loadApiKey(): Promise<string | null> {
 
 export const hasApiKey = async (): Promise<boolean> => (await loadApiKey()) !== null;
 
-export const modelName = (): string => getSetting(db, MODEL_KEY)?.trim() || DEFAULT_MODEL;
+/**
+ * Nazwa modelu w postaci, jakiej żąda API. Sprowadzamy ją przy odczycie, a nie tylko przy zapisie,
+ * bo w ustawieniach może już leżeć nazwa przepisana ze strony Google — i ma zadziałać bez
+ * ponownego wpisywania.
+ */
+export const modelName = (): string =>
+  normalizeModel(getSetting(db, MODEL_KEY) ?? '') || DEFAULT_MODEL;
 
 export const saveModelName = (value: string | null): void =>
-  setSetting(db, MODEL_KEY, value?.trim() || null);
+  setSetting(db, MODEL_KEY, normalizeModel(value ?? '') || null);
 
 /**
  * Zgoda na wysłanie danych do Google. Pytamy raz i zapisujemy, bo to pierwsza rzecz w tej
