@@ -1,7 +1,7 @@
 import { db } from '@/db/client';
 import { attachSession, openTermsOn } from '@/features/calendar/repository';
 import { fetchGarminActivities } from '@/features/garmin/connect/activities';
-import { isConnected } from '@/features/garmin/connect/client';
+import { GarminNotConnectedError, isConnected } from '@/features/garmin/connect/client';
 import {
   archiveActivity,
   archivedActivityIds,
@@ -26,12 +26,7 @@ export type {
   WatchActivity,
 } from './mapping';
 
-/** Bez połączenia z Garmin Connect nie ma skąd czytać — i nie ma czego naprawiać na liście. */
-export class GarminNotConnectedError extends Error {
-  constructor() {
-    super('Brak połączenia z Garmin Connect.');
-  }
-}
+export { GarminNotConnectedError } from '@/features/garmin/connect/client';
 
 /** Lista do wczytania razem ze spisem wszystkiego, co Garmin zwrócił. */
 export type WatchActivities = {

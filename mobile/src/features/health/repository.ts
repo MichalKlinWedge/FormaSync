@@ -5,9 +5,8 @@ import type { SyncDb } from '@/db/types';
 import { isEndurance } from '@/features/sports/sport';
 
 /**
- * Zapis danych zdrowotnych. Tabele noszą nazwy z „garmin”, bo taka była pierwotna
- * specyfikacja; dane przychodzą dziś przez Health Connect, do którego zapisuje je
- * aplikacja Garmin Connect. Nazw nie zmieniamy, żeby nie łamać istniejących kopii zapasowych.
+ * Zapis danych zdrowotnych — tętna i kalorii przy treningach oraz dziennych podsumowań.
+ * Źródłem jest Garmin Connect; tu tylko trzymamy to, co stamtąd przyszło.
  */
 
 export type ActivityMetrics = {
@@ -64,6 +63,26 @@ export function saveActivityMetrics(db: SyncDb, metrics: ActivityMetrics): boole
         caloriesBurned: metrics.caloriesBurned,
         rawGarminJson: metrics.rawGarminJson,
       },
+    })
+    .run();
+  return true;
+}
+
+/**
+ * Dopisuje treningowi samo tętno, nie ruszając reszty wiersza. Kalorie i numer aktywności zna
+ * wyłącznie trening wczytany albo połączony z zegarkiem — synchronizacja biometrii nie ma ich skąd
+ * wziąć i nie może ich przy okazji wyczyścić.
+ */
+export function saveHeartRateMetrics(
+  db: SyncDb,
+  metrics: { sessionId: number; avgHeartRate: number | null; maxHeartRate: number | null },
+): boolean {
+  if (!hasAnyValue([metrics.avgHeartRate, metrics.maxHeartRate])) return false;
+  db.insert(schema.garminActivityMetrics)
+    .values({ ...metrics, caloriesBurned: null, rawGarminJson: null })
+    .onConflictDoUpdate({
+      target: schema.garminActivityMetrics.sessionId,
+      set: { avgHeartRate: metrics.avgHeartRate, maxHeartRate: metrics.maxHeartRate },
     })
     .run();
   return true;
@@ -126,7 +145,7 @@ export function unlinkActivity(db: SyncDb, sessionId: number): void {
     .run();
 }
 
-/** Identyfikatory rekordów Health Connect, które już trafiły do historii. */
+/** Identyfikatory aktywności, które już trafiły do historii. */
 export function importedActivityIds(db: SyncDb): Set<string> {
   const rows = db
     .select({ id: schema.garminActivityMetrics.garminActivityId })
@@ -139,14 +158,15 @@ export function importedActivityIds(db: SyncDb): Set<string> {
  * Okna czasowe treningów zapisanych w aplikacji. Sesja trwająca nie ma jeszcze końca —
  * przyjmujemy wtedy jej początek, żeby nie uznać za pokrywającą się całej doby.
  *
- * `measured` mówi, czy trening ma już pomiary z zegarka. Taki jest rozliczony: aktywność, która
- * się z nim pokrywa, została albo z niego zrobiona, albo do niego dopięta — niezależnie od tego,
- * jakim identyfikatorem ją wtedy zapisaliśmy.
+ * `linked` mówi, czy trening powstał z aktywności z zegarka albo został do niej dopięty. Takiego nie
+ * ma już po co wczytywać drugi raz, niezależnie od tego, jakim identyfikatorem zapisaliśmy wtedy
+ * aktywność. Samo dopisanie tętna przez synchronizację to co innego i tu się nie liczy — trening
+ * prowadzony w aplikacji równolegle do zegarka ma dalej czekać na połączenie.
  */
 export function sessionWindows(
   db: SyncDb,
   fromIso: string,
-): { id: number; title: string; startTime: string; endTime: string; measured: boolean }[] {
+): { id: number; title: string; startTime: string; endTime: string; linked: boolean }[] {
   return db
     .select({
       id: schema.workoutSessions.id,
@@ -154,7 +174,7 @@ export function sessionWindows(
       planTitle: schema.workoutPlans.title,
       startTime: schema.workoutSessions.startTime,
       endTime: schema.workoutSessions.endTime,
-      metricsId: schema.garminActivityMetrics.id,
+      activityId: schema.garminActivityMetrics.garminActivityId,
     })
     .from(schema.workoutSessions)
     .leftJoin(schema.workoutPlans, eq(schema.workoutSessions.planId, schema.workoutPlans.id))
@@ -164,11 +184,11 @@ export function sessionWindows(
     )
     .where(gte(schema.workoutSessions.startTime, fromIso))
     .all()
-    .map(({ title, planTitle, endTime, metricsId, ...rest }) => ({
+    .map(({ title, planTitle, endTime, activityId, ...rest }) => ({
       ...rest,
       title: title ?? planTitle ?? 'Trening',
       endTime: endTime ?? rest.startTime,
-      measured: metricsId !== null,
+      linked: activityId !== null,
     }));
 }
 

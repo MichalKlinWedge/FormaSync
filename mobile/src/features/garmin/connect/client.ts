@@ -37,6 +37,13 @@ const OAUTH_HEADERS = { 'User-Agent': 'com.garmin.android.apps.connectmobile' };
 
 export class GarminError extends Error {}
 
+/** Konto niepołączone — nie ma skąd czytać i nie ma czego naprawiać poza zalogowaniem się. */
+export class GarminNotConnectedError extends GarminError {
+  constructor() {
+    super('Brak połączenia z Garmin Connect.');
+  }
+}
+
 /** Hasło odrzucone przez Garmina — jedyny błąd, który użytkownik naprawia sam. */
 export class GarminLoginError extends GarminError {}
 

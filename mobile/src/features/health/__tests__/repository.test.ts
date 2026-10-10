@@ -23,6 +23,7 @@ import {
   linkCandidates,
   listArchivedActivities,
   restoreActivity,
+  saveHeartRateMetrics,
   sessionWindows,
   unlinkActivity,
 } from '../repository';
@@ -144,7 +145,7 @@ describe('createSessionFromActivity', () => {
         title: ACTIVITY.title,
         startTime: ACTIVITY.startTime,
         endTime: ACTIVITY.endTime,
-        measured: true,
+        linked: true,
       },
     ]);
   });
@@ -159,6 +160,39 @@ describe('linkActivityToSession', () => {
 
     expect(sessionWindows(db, '2026-10-01T00:00:00.000Z')).toHaveLength(1);
     expect(importedActivityIds(db)).toEqual(new Set(['rec-1']));
+  });
+});
+
+describe('saveHeartRateMetrics', () => {
+  it('dopisuje tętno, nie ruszając kalorii ani numeru aktywności', () => {
+    // Synchronizacja biometrii zna tylko tętno. Gdyby zapisywała cały wiersz, skasowałaby kalorie
+    // i powiązanie, które przyszły razem z wczytaną aktywnością.
+    const db = createTestDb({ seed: true });
+    const sessionId = createSessionFromActivity(db, ACTIVITY);
+
+    saveHeartRateMetrics(db, { sessionId, avgHeartRate: 131, maxHeartRate: 168 });
+
+    const row = db
+      .select()
+      .from(schema.garminActivityMetrics)
+      .where(eq(schema.garminActivityMetrics.sessionId, sessionId))
+      .get();
+    expect(row).toMatchObject({
+      avgHeartRate: 131,
+      maxHeartRate: 168,
+      caloriesBurned: ACTIVITY.caloriesBurned,
+      garminActivityId: ACTIVITY.recordId,
+    });
+  });
+
+  it('trening bez odczytanego tętna nie zakłada pustego wiersza', () => {
+    // Pusty wiersz liczyłby się jako pomiary i ukrywałby trening przed połączeniem z aktywnością.
+    const db = createTestDb({ seed: true });
+    const sessionId = startSession(db, { kind: 'empty', sport: 'STRENGTH' });
+    finishSession(db, sessionId);
+
+    expect(saveHeartRateMetrics(db, { sessionId, avgHeartRate: null, maxHeartRate: null })).toBe(false);
+    expect(sessionWindows(db, '2026-10-01T00:00:00.000Z').every((w) => !w.linked)).toBe(true);
   });
 });
 

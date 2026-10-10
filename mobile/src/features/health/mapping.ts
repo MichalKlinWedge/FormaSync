@@ -1,17 +1,15 @@
 import { toDateKey } from '@/lib/date';
 
 /**
- * Czyste przeliczenia odczytów z Health Connect. Trzymamy je osobno od wywołań natywnych,
- * żeby dało się je przetestować bez urządzenia.
+ * Czyste przeliczenia danych zdrowotnych — osobno od zapytań do Garmin Connect, żeby dało się
+ * je przetestować bez sieci i bez urządzenia.
  *
- * Źródłem danych jest Garmin Connect, który zapisuje je do Health Connect. Tą drogą nie
- * przychodzą metryki własne Garmina: Body Battery, poziom stresu ani gotowość treningowa.
+ * Tą drogą nie przychodzą metryki własne Garmina: Body Battery, poziom stresu ani gotowość
+ * treningowa.
  */
 
 export type Sample = { time: string; beatsPerMinute: number };
 export type Interval = { startTime: string; endTime: string };
-/** Blok pomiarowy razem z programem, który go zapisał. */
-export type Sourced = Interval & { origin: string };
 
 const within = (iso: string, from: number, to: number) => {
   const at = Date.parse(iso);
@@ -31,106 +29,6 @@ export function summarizeHeartRate(samples: Sample[], startTime: string, endTime
     avgHeartRate: Math.round(sum / values.length),
     maxHeartRate: Math.max(...values),
   };
-}
-
-/**
- * Kalorie z okresów nachodzących na okno sesji, liczone proporcjonalnie do części wspólnej —
- * Health Connect dzieli dobę na bloki, które rzadko pokrywają się z treningiem co do minuty.
- */
-export function caloriesInWindow(
-  records: (Sourced & { kilocalories: number })[],
-  startTime: string,
-  endTime: string,
-): number | null {
-  const total = largestSourceInWindow(records, (record) => record.kilocalories, startTime, endTime);
-  return total === null ? null : Math.round(total);
-}
-
-/**
- * Dystans z okresów nachodzących na okno sesji. Garmin zapisuje go blokami, które nie muszą
- * pokrywać się z treningiem co do sekundy, więc część wspólną liczymy proporcjonalnie — tak samo
- * jak kalorie.
- */
-export function metersInWindow(
-  records: (Sourced & { meters: number })[],
-  startTime: string,
-  endTime: string,
-): number | null {
-  const total = largestSourceInWindow(records, (record) => record.meters, startTime, endTime);
-  return total === null ? null : Math.round(total);
-}
-
-/**
- * Największe pojedyncze źródło, a nie suma wszystkich.
- *
- * Ten sam bieg zapisuje do Health Connect i zegarek, i telefon liczący kroki. Dodanie ich do
- * siebie dawało bzdurę: bieg na 10,01 km pokazywał się jako 17,65 km. Dwa programy nie
- * przebiegły dwóch tras — opisały tę samą, więc bierzemy tę relację, która mówi o niej najwięcej.
- *
- * Wewnątrz jednego źródła nadal sumujemy: tam kolejne bloki to kolejne odcinki tej samej trasy,
- * a nie ta sama droga policzona dwa razy.
- */
-function largestSourceInWindow<T extends Sourced>(
-  records: T[],
-  valueOf: (record: T) => number,
-  startTime: string,
-  endTime: string,
-): number | null {
-  const origins = new Set(records.map((record) => record.origin));
-  let best: number | null = null;
-  for (const origin of origins) {
-    const total = sumInWindow(
-      records.filter((record) => record.origin === origin),
-      valueOf,
-      startTime,
-      endTime,
-    );
-    if (total !== null && (best === null || total > best)) best = total;
-  }
-  return best;
-}
-
-/** Suma wartości z bloków nachodzących na okno, ważona długością części wspólnej. */
-function sumInWindow<T extends Interval>(
-  records: T[],
-  valueOf: (record: T) => number,
-  startTime: string,
-  endTime: string,
-): number | null {
-  const from = Date.parse(startTime);
-  const to = Date.parse(endTime);
-  let total = 0;
-  let matched = false;
-  for (const record of records) {
-    const recordStart = Date.parse(record.startTime);
-    const recordEnd = Date.parse(record.endTime);
-    const overlap = Math.min(to, recordEnd) - Math.max(from, recordStart);
-    if (overlap <= 0) continue;
-    const span = recordEnd - recordStart;
-    const value = valueOf(record);
-    total += span > 0 ? (value * overlap) / span : value;
-    matched = true;
-  }
-  return matched ? total : null;
-}
-
-/** Sumaryczny czas snu w minutach dla sesji kończących się danego dnia. */
-export function sleepMinutesForDay(sessions: Interval[], dayKey: string): number | null {
-  const matching = sessions.filter((session) => toDateKey(new Date(session.endTime)) === dayKey);
-  if (matching.length === 0) return null;
-  const total = matching.reduce(
-    (sum, session) => sum + (Date.parse(session.endTime) - Date.parse(session.startTime)),
-    0,
-  );
-  return Math.round(total / 60000);
-}
-
-/** Ostatni odczyt z danego dnia — np. tętno spoczynkowe albo ciśnienie. */
-export function latestOfDay<T extends { time: string }>(records: T[], dayKey: string): T | null {
-  const ofDay = records
-    .filter((record) => toDateKey(new Date(record.time)) === dayKey)
-    .sort((a, b) => Date.parse(a.time) - Date.parse(b.time));
-  return ofDay.at(-1) ?? null;
 }
 
 /** Dni (klucze YYYY-MM-DD) od `from` do `to` włącznie, w czasie lokalnym. */

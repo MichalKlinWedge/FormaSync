@@ -54,7 +54,7 @@ describe('selectImportable', () => {
           title: 'Nogi',
           startTime: '2026-10-01T09:30:00.000Z',
           endTime: '2026-10-01T11:00:00.000Z',
-          measured: false,
+          linked: false,
         },
       ],
     );
@@ -78,7 +78,7 @@ describe('findOverlappingSession', () => {
           title: 'Rano',
           startTime: '2026-10-01T08:00:00.000Z',
           endTime: '2026-10-01T09:00:00.000Z',
-          measured: false,
+          linked: false,
         },
       ],
     );
@@ -130,7 +130,7 @@ describe('inventory', () => {
 });
 
 describe('alreadySettled', () => {
-  const window = (over: { startTime: string; endTime: string; measured: boolean }) => ({
+  const window = (over: { startTime: string; endTime: string; linked: boolean }) => ({
     id: 1,
     title: 'Nogi',
     ...over,
@@ -145,7 +145,7 @@ describe('alreadySettled', () => {
         window({
           startTime: '2026-10-01T10:02:00.000Z',
           endTime: '2026-10-01T10:58:00.000Z',
-          measured: true,
+          linked: true,
         }),
       ],
     );
@@ -159,7 +159,7 @@ describe('alreadySettled', () => {
         window({
           startTime: '2026-10-01T10:02:00.000Z',
           endTime: '2026-10-01T10:58:00.000Z',
-          measured: false,
+          linked: false,
         }),
       ],
     );
@@ -173,7 +173,7 @@ describe('alreadySettled', () => {
         window({
           startTime: '2026-10-01T10:00:00.000Z',
           endTime: '2026-10-01T11:00:00.000Z',
-          measured: true,
+          linked: true,
         }),
       ],
     );

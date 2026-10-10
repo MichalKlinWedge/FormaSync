@@ -41,7 +41,7 @@ export function describeRefresh(fresh: number, waiting: number): string {
 }
 
 /** Trening z aplikacji, na który nachodzi aktywność — kandydat do połączenia. */
-export type SessionWindow = Interval & { id: number; title: string; measured: boolean };
+export type SessionWindow = Interval & { id: number; title: string; linked: boolean };
 
 /**
  * Trening z aplikacji prowadzony w tym samym czasie co aktywność. Taka para to prawie zawsze
@@ -137,14 +137,14 @@ export function sameMoment(
 }
 
 /**
- * Aktywności rozliczone pod innym identyfikatorem: pokrywają się z treningiem, który ma już
- * pomiary z zegarka, czyli albo z niego powstał, albo został do niego dopięty.
+ * Aktywności rozliczone pod innym identyfikatorem: pokrywają się z treningiem, który już z jakiejś
+ * aktywności powstał albo został do niej dopięty.
  */
 export function alreadySettled(activities: WatchActivity[], sessions: SessionWindow[]): Set<string> {
-  const measured = sessions.filter((session) => session.measured);
+  const linked = sessions.filter((session) => session.linked);
   return new Set(
     activities
-      .filter((activity) => findOverlappingSession(activity, measured) !== null)
+      .filter((activity) => findOverlappingSession(activity, linked) !== null)
       .map((activity) => activity.recordId),
   );
 }

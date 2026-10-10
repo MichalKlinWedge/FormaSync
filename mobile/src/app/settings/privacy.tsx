@@ -5,7 +5,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 
 /**
- * Health Connect wymaga, by aplikacja czytająca dane zdrowotne pokazywała politykę
+ * Aplikacja czytająca dane zdrowotne powinna pokazywać politykę
  * prywatności — ten ekran otwiera się także z systemowego okna zgód.
  */
 export default function PrivacyScreen() {
@@ -28,23 +28,23 @@ export default function PrivacyScreen() {
           <Bullet>
             Garmin Connect — jeśli połączysz konto, do Garmina trafiają wysyłane przez Ciebie plany
             treningowe i terminy w kalendarzu. Historia, pomiary ciała ani notatki nigdy tam nie idą.
-            W drugą stronę czytamy listę Twoich aktywności — stąd bierze się ekran „Z zegarka”.
+            W drugą stronę czytamy Twoje aktywności i dane zdrowotne — stąd biorą się treningi z zegarka
+            i biometria przy treningach.
           </Bullet>
         </Section>
 
-        <Section title="Dane zdrowotne z Health Connect">
+        <Section title="Dane zdrowotne z Garmin Connect">
           <Paragraph>
-            Za Twoją zgodą aplikacja odczytuje z Health Connect: tętno, tętno spoczynkowe, zmienność rytmu
-            serca, czas snu, ciśnienie krwi i spalone kalorie. Źródłem tych danych jest aplikacja, która je
-            tam zapisuje — zwykle Garmin Connect.
+            Po połączeniu konta aplikacja odczytuje z Garmin Connect: tętno, tętno spoczynkowe, zmienność
+            rytmu serca, czas snu, ciśnienie krwi i spalone kalorie, a także listę Twoich aktywności.
           </Paragraph>
           <Paragraph>
             Odczytane wartości służą wyłącznie do pokazania ich przy Twoich treningach. Zapisujemy je w
-            lokalnej bazie telefonu. Aplikacja nigdy nie zapisuje niczego do Health Connect.
+            lokalnej bazie telefonu i nie wysyłamy nikomu dalej.
           </Paragraph>
           <Paragraph>
-            Zgodę możesz wycofać w każdej chwili w ustawieniach Health Connect. Dane odczytane wcześniej
-            usuniesz, kasując dane aplikacji w ustawieniach Androida.
+            Połączenie rozwiążesz w każdej chwili w Ustawieniach, przyciskiem odłączenia konta Garmin.
+            Dane odczytane wcześniej usuniesz, kasując dane aplikacji w ustawieniach Androida.
           </Paragraph>
         </Section>
 

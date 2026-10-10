@@ -21,7 +21,7 @@ import {
 
 import { RemoteBackupSection } from '@/features/backup/remote-section';
 import { syncWorkoutReminders } from '@/features/calendar/reminders';
-import { HealthSection } from '@/features/health/health-section';
+import { WellnessSection } from '@/features/wellness/wellness-section';
 import { GarminAccountSection } from '@/features/garmin/connect/account-section';
 import { describeBundle } from '@/features/updates/bundle';
 import { describeCheck, fetchNewerBundle } from '@/features/updates/check';
@@ -155,7 +155,7 @@ export default function SettingsScreen() {
 
         <RemoteBackupSection />
 
-        <HealthSection />
+        <WellnessSection />
 
         <GarminAccountSection />
 
