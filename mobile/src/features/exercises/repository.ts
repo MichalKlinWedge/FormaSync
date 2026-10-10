@@ -3,6 +3,7 @@ import { count, eq, sql } from 'drizzle-orm';
 import * as schema from '@/db/schema';
 import type { DifficultyLevel, TrackingType } from '@/db/schema';
 import type { SyncDb } from '@/db/types';
+import { normalizePictureUrl } from '@/features/exercises/picture';
 import { normalizeVideoUrl } from '@/features/exercises/video';
 
 export type ExerciseInput = {
@@ -59,6 +60,17 @@ export function saveExercise(db: SyncDb, rawInput: ExerciseInput, id?: number): 
     }
     return exerciseId;
   });
+}
+
+/**
+ * Podmienia albo zdejmuje własny obrazek ćwiczenia. Tak samo jak film — osobno od formularza,
+ * bo lepszą ilustrację warto móc podstawić także pod ćwiczenie z katalogu.
+ */
+export function setExercisePicture(db: SyncDb, id: number, rawUrl: string): void {
+  db.update(schema.exercises)
+    .set({ imageUrl: normalizePictureUrl(rawUrl) })
+    .where(eq(schema.exercises.id, id))
+    .run();
 }
 
 /**

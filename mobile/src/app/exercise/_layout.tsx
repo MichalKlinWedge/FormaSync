@@ -10,6 +10,7 @@ export default function ExerciseLayout() {
       <Stack.Screen name="[id]" options={{ title: '' }} />
       <Stack.Screen name="swap" />
       <Stack.Screen name="video" />
+      <Stack.Screen name="picture" />
     </Stack>
   );
 }

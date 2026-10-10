@@ -67,11 +67,25 @@ export type Skeleton = {
   bones: [Vec, Vec][];
 };
 
-export type Tone = 'figure' | 'ghost' | 'gear' | 'ghostGear' | 'scene' | 'arrow';
+export type Tone =
+  | 'figure'
+  | 'ghost'
+  | 'gear'
+  | 'ghostGear'
+  | 'scene'
+  | 'arrow'
+  /** Obrys sylwetki — gruba kreska rysowana pod wypełnieniem. */
+  | 'bodyInk'
+  /** Wypełnienie sylwetki. */
+  | 'bodyFill'
+  /** Kończyna po drugiej stronie ciała — ciemniejsza, rysowana za tułowiem. */
+  | 'bodyFar'
+  /** Mięsień pracujący w tym ruchu. */
+  | 'work';
 
 export type Shape =
-  | { shape: 'line'; from: Vec; to: Vec; tone: Tone }
-  | { shape: 'circle'; at: Vec; r: number; tone: Tone; filled?: boolean }
+  | { shape: 'line'; from: Vec; to: Vec; tone: Tone; width?: number }
+  | { shape: 'circle'; at: Vec; r: number; tone: Tone; filled?: boolean; width?: number }
   /** `bounds` to punkty skrajne ścieżki — tylko do kadrowania, nie do rysowania. */
   | { shape: 'path'; d: string; tone: Tone; bounds: Vec[] };
 
@@ -121,6 +135,11 @@ export type Illustration = {
    * dwie klatki tego samego ruchu.
    */
   spread?: number;
+  /**
+   * Części ciała, które w tym ruchu pracują — zapalają się kolorem. Nie jest to mapa mięśni,
+   * tylko wskazanie, gdzie ma iść uwaga: przy podciąganiu plecy i ramiona, a nie nogi.
+   */
+  work?: BodyPart[];
 };
 
 const rad = (deg: number) => (deg * Math.PI) / 180;
@@ -188,6 +207,106 @@ export function reach(from: Vec, to: Vec, bend: 1 | -1, foot?: number): Limb {
   const lower = Math.atan2(knee.y - to.y, to.x - knee.x);
   const degrees = 180 / Math.PI;
   return { upper: upper * degrees, lower: lower * degrees, foot };
+}
+
+/**
+ * Grubość poszczególnych części ciała. Sylwetkę rysujemy grubymi kreskami z zaokrąglonymi
+ * końcami, a nie wielokątami: kreski same się ze sobą zlewają w jedną bryłę, więc w miejscu
+ * stawu nie ma szwu ani kanta, który trzeba by maskować.
+ */
+export const Girth = {
+  torso: 10.5,
+  neck: 4.6,
+  upperArm: 5.2,
+  forearm: 4.4,
+  thigh: 6.8,
+  shin: 5.2,
+  foot: 3.4,
+} as const;
+
+export type BodyPart = keyof typeof Girth;
+
+/** Kość razem z nazwą części ciała — stąd wiadomo, jak gruba jest i czy akurat pracuje. */
+type Segment = { from: Vec; to: Vec; part: BodyPart };
+
+const limbSegments = (skeleton: Skeleton): Segment[] => {
+  const segments: Segment[] = [];
+  for (const arm of skeleton.arms) {
+    segments.push({ from: skeleton.shoulder, to: arm.elbow, part: 'upperArm' });
+    segments.push({ from: arm.elbow, to: arm.hand, part: 'forearm' });
+  }
+  for (const leg of skeleton.legs) {
+    segments.push({ from: skeleton.hip, to: leg.knee, part: 'thigh' });
+    segments.push({ from: leg.knee, to: leg.ankle, part: 'shin' });
+    segments.push({ from: leg.ankle, to: leg.toe, part: 'foot' });
+  }
+  return segments;
+};
+
+const trunkSegments = (skeleton: Skeleton): Segment[] => [
+  { from: skeleton.hip, to: skeleton.shoulder, part: 'torso' },
+  { from: skeleton.shoulder, to: skeleton.neck, part: 'neck' },
+];
+
+/**
+ * Przesunięcie kończyny po drugiej stronie ciała. W widoku z boku pozy opisują jedną rękę
+ * i jedną nogę — narysowana sama sylwetka wychodzi wtedy bryłą bez kończyn. Druga strona,
+ * odsunięta o kilka jednostek w głąb i ciemniejsza, przywraca człowieka.
+ */
+const FAR: Vec = { x: -3.2, y: 1.4 };
+
+const shifted = (segment: Segment): Segment => ({
+  part: segment.part,
+  from: { x: segment.from.x + FAR.x, y: segment.from.y + FAR.y },
+  to: { x: segment.to.x + FAR.x, y: segment.to.y + FAR.y },
+});
+
+/** O tyle obrys jest grubszy od wypełnienia — na tę różnicę widać kreskę konturu. */
+const INK = 1.8;
+
+/**
+ * Sylwetka z krwi i kości zamiast patyczaka. Rysujemy ją dwoma przebiegami: najpierw cały
+ * obrys, potem całe wypełnienie. Odwrotna kolejność — część po części — zostawiałaby kreski
+ * konturu w poprzek sąsiednich kończyn.
+ */
+export function bodyShapes(skeleton: Skeleton, work: BodyPart[] = []): Shape[] {
+  const limbs = limbSegments(skeleton);
+  // Jedna ręka albo jedna noga znaczy widok z boku: drugą stronę dorysowujemy za tułowiem.
+  const sideView = skeleton.arms.length < 2 || skeleton.legs.length < 2;
+  const far = sideView ? limbs.map(shifted) : [];
+
+  const inkOf = (segments: Segment[]): Shape[] =>
+    segments.map((segment) => ({
+      shape: 'line',
+      from: segment.from,
+      to: segment.to,
+      tone: 'bodyInk',
+      width: Girth[segment.part] + INK,
+    }));
+
+  const fillOf = (segments: Segment[], tone: (part: BodyPart) => Tone): Shape[] =>
+    segments.map((segment) => ({
+      shape: 'line',
+      from: segment.from,
+      to: segment.to,
+      tone: tone(segment.part),
+      width: Girth[segment.part],
+    }));
+
+  const trunk = trunkSegments(skeleton);
+  const near = (part: BodyPart): Tone => (work.includes(part) ? 'work' : 'bodyFill');
+
+  return [
+    // Kolejność to głębia: najpierw druga strona ciała, potem tułów, na końcu kończyny bliższe.
+    ...inkOf(far),
+    ...fillOf(far, () => 'bodyFar'),
+    ...inkOf(trunk),
+    ...fillOf(trunk, near),
+    { shape: 'circle', at: skeleton.head, r: Bones.head + INK / 2, tone: 'bodyInk', filled: true },
+    { shape: 'circle', at: skeleton.head, r: Bones.head, tone: 'bodyFill', filled: true },
+    ...inkOf(limbs),
+    ...fillOf(limbs, near),
+  ];
 }
 
 function figureShapes(skeleton: Skeleton, tone: Tone): Shape[] {
@@ -486,6 +605,49 @@ function frameFor(shapes: Shape[]): string {
 }
 
 /** Składa cały rysunek: otoczenie, faza wyjściowa cieniem, faza końcowa i strzałka ruchu. */
+/** Jedna faza ruchu: własny rysunek i podpis, co się na nim dzieje. */
+export type Panel = { shapes: Shape[]; caption: string };
+
+const CAPTIONS = ['Pozycja startowa', 'Pozycja końcowa'];
+
+/**
+ * Rozkłada ćwiczenie na osobne, podpisane fazy — zamiast nakładać je na siebie w jednym kadrze.
+ * Dwa rysunki obok siebie mówią wprost, od czego się zaczyna i czym kończy, a cieniem rysowana
+ * poza wyjściowa zawsze wymagała domyślania się.
+ *
+ * Kadr jest jeden dla wszystkich faz: liczony ze wszystkich figur naraz, żeby sylwetka nie
+ * zmieniała rozmiaru między obrazkami i dało się je czytać jako jeden ruch.
+ */
+export function buildPanels(illustration: Illustration): { panels: Panel[]; viewBox: string } {
+  const gear: Gear[] = illustration.gear ? [illustration.gear].flat() : [];
+  const props: Prop[] = illustration.props ?? [{ prop: 'floor' }];
+  const work = illustration.work ?? [];
+  const skeletons = illustration.phases.map(buildSkeleton);
+  const scenery = props.flatMap(propShapes);
+
+  const panels: Panel[] = skeletons.map((skeleton, index) => ({
+    caption: skeletons.length === 1 ? 'Pozycja do utrzymania' : (CAPTIONS[index] ?? `Faza ${index + 1}`),
+    shapes: [
+      ...scenery,
+      ...bodyShapes(skeleton, work),
+      ...gear.flatMap((g) => gearShapes(g, skeleton, 'gear')),
+    ],
+  }));
+
+  // Strzałka kierunku powtarza się na obu fazach — na pierwszej mówi „tędy”, na drugiej „stąd”.
+  if (skeletons.length > 1) {
+    const move = illustration.hint
+      ? arrow(illustration.hint.from, illustration.hint.to, false)
+      : motionArrow(skeletons[0], skeletons[skeletons.length - 1], illustration.arrow);
+    for (const panel of panels) panel.shapes.push(...move);
+  } else if (illustration.hint) {
+    panels[0].shapes.push(...arrow(illustration.hint.from, illustration.hint.to, false));
+  }
+
+  const viewBox = frameFor(panels.flatMap((panel) => panel.shapes));
+  return { panels, viewBox };
+}
+
 export function buildIllustration(illustration: Illustration): Drawing {
   const gear: Gear[] = illustration.gear ? [illustration.gear].flat() : [];
   const props: Prop[] = illustration.props ?? [{ prop: 'floor' }];

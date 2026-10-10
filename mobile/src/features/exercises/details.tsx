@@ -136,6 +136,12 @@ export function ExerciseDetails({ id, manageable = false }: ExerciseDetailsProps
         </View>
 
         <View style={styles.video}>
+          <Button
+            label={exercise.imageUrl ? 'Podmień obrazek' : 'Użyj własnego obrazka'}
+            icon="add_photo_alternate"
+            variant="secondary"
+            onPress={() => router.push({ pathname: '/exercise/picture', params: { id: exercise.id } })}
+          />
           <Button label={videoLabel(exercise.videoUrl)} icon="play_arrow" variant="secondary" onPress={openVideo} />
           <Button
             label={exercise.videoUrl ? 'Zmień przypięty film' : 'Przypnij własny film'}

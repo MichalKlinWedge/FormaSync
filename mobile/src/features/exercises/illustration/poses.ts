@@ -281,7 +281,7 @@ export const exerciseIllustrations: Record<string, Illustration> = {
     props: [{ prop: 'floor' }, { prop: 'bench', at: { x: 104, y: 92 }, angle: 0, length: 44 }],
     arrow: 'hand',
   },
-  'Podciąganie na drążku': pullup(true),
+  'Podciąganie na drążku': { ...pullup(true), work: ['torso', 'upperArm'] },
   'Ściąganie drążka wyciągu górnego': seatedPull(
     { gear: 'cable', pulley: { x: 128, y: 26 } },
     { upper: 52, lower: 40 },
@@ -433,7 +433,7 @@ export const exerciseIllustrations: Record<string, Illustration> = {
   },
 
   // Nogi
-  'Przysiad ze sztangą': squat({ gear: 'barbell' }, { arms: BACK_RACK }),
+  'Przysiad ze sztangą': { ...squat({ gear: 'barbell' }, { arms: BACK_RACK }), work: ['thigh'] },
   'Przysiad goblet': squat({ gear: 'kettlebell' }, { arms: { upper: -86, lower: 61 }, torso: 80 }),
   'Przysiad z masą ciała': squat({ gear: 'none' }, { arms: { upper: -8, lower: 4 }, torso: 76 }),
   'Wypychanie nogami na maszynie': {
