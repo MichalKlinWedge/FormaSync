@@ -192,6 +192,60 @@ function supine(torso: number, arms: Limb[], legs: Limb[], hipX = 76, hipY = LYI
 /** Nogi ugięte, stopy na podłodze — brzuszki, mostek. */
 const kneesUp: Limb = { upper: 150, lower: 210, foot: 180 };
 
+
+/** Pompka: stopy w miejscu, tułów opada i wraca. Ten sam ruch co pompki diamentowe. */
+function pushup(): Illustration {
+  const toes: Vec = { x: 48, y: FLOOR };
+  return {
+    phases: [
+      anchor(
+        { hip: { x: 78, y: 97 }, torso: 24, arms: [{ upper: -76, lower: -76 }], legs: [{ upper: 204, lower: 204, foot: -8 }] },
+        'toe',
+        toes,
+      ),
+      anchor(
+        { hip: { x: 78, y: 101 }, torso: 18, arms: [{ upper: -32, lower: -108 }], legs: [{ upper: 198, lower: 198, foot: -8 }] },
+        'toe',
+        toes,
+      ),
+    ],
+    arrow: 'head',
+  };
+}
+
+/** Maszyna z wałkiem przy kostkach: siedzimy, zmienia się kąt podudzia. */
+function seatedKnee(shin: [number, number], pad: Vec): Illustration {
+  const hip = { x: 84, y: 88 };
+  const base: Pose = { hip, torso: 94, arms: [{ upper: -24, lower: -16 }], legs: [{ upper: -8, lower: shin[0], foot: shin[0] - 70 }] };
+  return {
+    phases: [base, { ...base, legs: [{ upper: -8, lower: shin[1], foot: shin[1] - 70 }] }],
+    props: [{ prop: 'floor' }, SEAT, { prop: 'pad', at: pad, angle: 0, length: 12 }],
+    arrow: 'ankle',
+  };
+}
+
+/** Siedzące wypychanie przed siebie: wyciskanie na maszynie, motylek. */
+function seatedPush(from: Limb, to: Limb, both_ = false): Illustration {
+  const hip = { x: 84, y: 88 };
+  const legs = [legToFloor(hip, -42)];
+  const base: Pose = { hip, torso: 94, arms: both_ ? both(from) : [from], legs };
+  return {
+    phases: [base, { ...base, arms: both_ ? both(to) : [to] }],
+    props: [{ prop: 'floor' }, SEAT, { prop: 'pad', at: { x: 96, y: 74 }, angle: 90, length: 20 }],
+    arrow: 'hand',
+  };
+}
+
+/** Ruch na wyciągu w staniu: ręce idą z jednego ułożenia w drugie, linka z krocka. */
+function standingCable(from: Limb, to: Limb, pulley: Vec, top: number): Illustration {
+  return {
+    phases: [side(from), side(to)],
+    gear: { gear: 'cable', pulley },
+    props: [{ prop: 'floor' }, { prop: 'tower', x: pulley.x + 6, top }],
+    arrow: 'hand',
+  };
+}
+
 // ——— katalog ———
 
 export const exerciseIllustrations: Record<string, Illustration> = {
@@ -204,21 +258,7 @@ export const exerciseIllustrations: Record<string, Illustration> = {
     phases: [front({ upper: 8, lower: 2 }), front({ upper: -50, lower: -150 })],
     gear: { gear: 'dumbbells' },
   },
-  Pompki: {
-    phases: [
-      anchor(
-        { hip: { x: 78, y: 97 }, torso: 24, arms: [{ upper: -76, lower: -76 }], legs: [{ upper: 204, lower: 204, foot: -8 }] },
-        'toe',
-        { x: 48, y: FLOOR },
-      ),
-      anchor(
-        { hip: { x: 78, y: 101 }, torso: 18, arms: [{ upper: -32, lower: -108 }], legs: [{ upper: 198, lower: 198, foot: -8 }] },
-        'toe',
-        { x: 48, y: FLOOR },
-      ),
-    ],
-    arrow: 'head',
-  },
+  Pompki: pushup(),
   'Pompki na poręczach': {
     phases: [
       anchor(
@@ -653,6 +693,157 @@ export const exerciseIllustrations: Record<string, Illustration> = {
       supine(0, [{ upper: 188, lower: 186 }], [{ upper: 92, lower: 90, foot: 0 }]),
     ],
     arrow: 'ankle',
+  },
+
+  // Dorysowane do ćwiczeń z SEED_VERSION 6
+  'Prostowanie nóg na maszynie': seatedKnee([-86, -4], { x: 104, y: 92 }),
+  'Uginanie nóg siedząc na maszynie': seatedKnee([-10, -78], { x: 106, y: 80 }),
+  'Przysiad w suwnicy Smitha': squat({ gear: 'barbell' }, { arms: BACK_RACK, torso: 74 }),
+  'Hack przysiad na maszynie': {
+    ...squat({ gear: 'none' }, { arms: { upper: -70, lower: -74 }, torso: 104 }),
+    props: [{ prop: 'floor' }, { prop: 'pad', at: { x: 62, y: 60 }, angle: -74, length: 40 }],
+  },
+  'Wejścia na skrzynię z hantlami': {
+    ...lunge({ gear: 'dumbbells' }),
+    props: [{ prop: 'floor' }, { prop: 'box', at: { x: 92, y: 96 }, width: 26, height: 16 }],
+  },
+  'Wykroki chodzone z hantlami': lunge({ gear: 'dumbbells' }),
+  'Przysiad sumo z hantlem': squat(
+    { gear: 'dumbbells', single: true },
+    { arms: { upper: -88, lower: -90 }, torso: 82, depth: 96 },
+  ),
+  'Nordic curl': {
+    phases: [
+      { hip: { x: 86, y: 86 }, torso: 90, arms: [{ upper: -40, lower: -70 }], legs: [{ upper: -90, lower: -176, foot: -140 }] },
+      { hip: { x: 86, y: 90 }, torso: 40, arms: [{ upper: 10, lower: -40 }], legs: [{ upper: -90, lower: -176, foot: -140 }] },
+    ],
+    arrow: 'head',
+  },
+  'Martwy ciąg na prostych nogach': hinge({ gear: 'barbell' }, { torso: 16, hip: { x: 78, y: 80 }, knee: -86 }),
+  'Odwodzenie nóg na maszynie': {
+    phases: [
+      { hip: { x: 86, y: 86 }, torso: 90, arms: both({ upper: -40, lower: -60 }), legs: both({ upper: -76, lower: -84 }) },
+      { hip: { x: 86, y: 86 }, torso: 90, arms: both({ upper: -40, lower: -60 }), legs: both({ upper: -54, lower: -66 }) },
+    ],
+    props: [{ prop: 'floor' }, SEAT],
+    arrow: 'ankle',
+  },
+  'Przywodzenie nóg na maszynie': {
+    phases: [
+      { hip: { x: 86, y: 86 }, torso: 90, arms: both({ upper: -40, lower: -60 }), legs: both({ upper: -54, lower: -66 }) },
+      { hip: { x: 86, y: 86 }, torso: 90, arms: both({ upper: -40, lower: -60 }), legs: both({ upper: -78, lower: -86 }) },
+    ],
+    props: [{ prop: 'floor' }, SEAT],
+    arrow: 'ankle',
+  },
+  'Prostowanie biodra na wyciągu': {
+    phases: [
+      { hip: STAND, torso: 92, arms: [{ upper: -20, lower: -10 }], legs: [legToFloor(STAND, -90), { upper: -96, lower: -94, foot: -10 }] },
+      { hip: STAND, torso: 96, arms: [{ upper: -20, lower: -10 }], legs: [legToFloor(STAND, -90), { upper: -128, lower: -128, foot: -40 }] },
+    ],
+    props: [{ prop: 'floor' }, { prop: 'tower', x: 136, top: 96 }],
+    arrow: 'ankle',
+  },
+  'Wspięcia na palce siedząc na maszynie': {
+    phases: [
+      { hip: { x: 84, y: 88 }, torso: 94, arms: [{ upper: -70, lower: -80 }], legs: [{ upper: -8, lower: -88, foot: -40 }] },
+      { hip: { x: 84, y: 88 }, torso: 94, arms: [{ upper: -70, lower: -80 }], legs: [{ upper: -8, lower: -88, foot: 10 }] },
+    ],
+    props: [
+      { prop: 'floor' },
+      SEAT,
+      { prop: 'box', at: { x: 100, y: 108 }, width: 20, height: 8 },
+      { prop: 'pad', at: { x: 92, y: 80 }, angle: 0, length: 16 },
+    ],
+    arrow: 'none',
+    hint: { from: { x: 96, y: 104 }, to: { x: 96, y: 94 } },
+  },
+  'Hiperwyprosty na ławce rzymskiej': {
+    phases: [
+      { hip: { x: 80, y: 84 }, torso: 40, arms: [{ upper: 30, lower: 20 }], legs: [{ upper: -140, lower: -150, foot: -100 }] },
+      { hip: { x: 80, y: 84 }, torso: -16, arms: [{ upper: -26, lower: -40 }], legs: [{ upper: -140, lower: -150, foot: -100 }] },
+    ],
+    props: [
+      { prop: 'floor' },
+      { prop: 'pad', at: { x: 76, y: 90 }, angle: 40, length: 22 },
+      { prop: 'box', at: { x: 46, y: 104 }, width: 16, height: 14 },
+    ],
+    arrow: 'head',
+  },
+  'Wiosłowanie sztangą T': bentRow({ gear: 'barbell' }),
+  'Ściąganie drążka podchwytem wąsko': seatedPull(
+    { gear: 'cable', pulley: { x: 128, y: 26 } },
+    { upper: 58, lower: 50 },
+    { upper: -10, lower: 140 },
+    { prop: 'tower', x: 134, top: 24 },
+  ),
+  'Przyciąganie wyciągu prostymi rękami': standingCable(
+    { upper: 44, lower: 40 },
+    { upper: -74, lower: -78 },
+    { x: 128, y: 24 },
+    22,
+  ),
+  'Szrugsy z hantlami': {
+    phases: [front(HANGING)],
+    gear: { gear: 'dumbbells' },
+    hint: { from: { x: 104, y: 60 }, to: { x: 104, y: 44 } },
+  },
+  'Wyciskanie na maszynie siedząc': seatedPush({ upper: -172, lower: -8 }, { upper: -8, lower: -4 }),
+  'Motylek na maszynie': {
+    phases: [
+      { hip: { x: 86, y: 86 }, torso: 90, arms: both({ upper: 4, lower: 36 }), legs: [legToFloor({ x: 86, y: 86 }, -48), legToFloor({ x: 86, y: 86 }, -62, 180)] },
+      { hip: { x: 86, y: 86 }, torso: 90, arms: both({ upper: 40, lower: 72 }), legs: [legToFloor({ x: 86, y: 86 }, -48), legToFloor({ x: 86, y: 86 }, -62, 180)] },
+    ],
+    props: [{ prop: 'floor' }, SEAT],
+    arrow: 'hand',
+  },
+  'Pompki diamentowe': pushup(),
+  'Wyciskanie nad głowę na maszynie': overheadPress({ gear: 'none' }, true),
+  'Unoszenie ramienia bokiem na wyciągu': standingCable(
+    { upper: -78, lower: -82 },
+    { upper: 2, lower: 6 },
+    { x: 140, y: 104 },
+    98,
+  ),
+  'Unoszenie hantli przodem': {
+    phases: [front(HANGING), front({ upper: -4, lower: 0 })],
+    gear: { gear: 'dumbbells' },
+    arrow: 'hand',
+  },
+  'Uginanie ramion na modlitewniku': {
+    phases: [
+      { hip: { x: 84, y: 88 }, torso: 94, arms: [{ upper: -34, lower: -58 }], legs: [legToFloor({ x: 84, y: 88 }, -42)] },
+      { hip: { x: 84, y: 88 }, torso: 94, arms: [{ upper: -34, lower: 54 }], legs: [legToFloor({ x: 84, y: 88 }, -42)] },
+    ],
+    gear: { gear: 'ezbar' },
+    props: [{ prop: 'floor' }, SEAT, { prop: 'pad', at: { x: 92, y: 70 }, angle: -34, length: 24 }],
+    arrow: 'hand',
+  },
+  'Prostowanie ramion na wyciągu zza głowy': standingCable(
+    { upper: 62, lower: 150 },
+    { upper: 62, lower: 66 },
+    { x: 26, y: 92 },
+    88,
+  ),
+  'Spięcia brzucha na wyciągu': {
+    phases: [
+      { hip: { x: 84, y: 92 }, torso: 84, arms: [{ upper: 110, lower: 96 }], legs: [{ upper: -150, lower: -178, foot: -128 }] },
+      { hip: { x: 84, y: 92 }, torso: 44, arms: [{ upper: 70, lower: 56 }], legs: [{ upper: -150, lower: -178, foot: -128 }] },
+    ],
+    gear: { gear: 'cable', pulley: { x: 128, y: 22 } },
+    props: [{ prop: 'floor' }, { prop: 'tower', x: 134, top: 20 }],
+    arrow: 'head',
+  },
+  'Wznosy nóg na ławce': {
+    phases: [
+      supine(0, [{ upper: 188, lower: 186 }], [{ upper: 180, lower: 180, foot: 140 }], 76, 90),
+      supine(0, [{ upper: 188, lower: 186 }], [{ upper: 92, lower: 90, foot: 0 }], 76, 90),
+    ],
+    props: [{ prop: 'floor' }, { prop: 'bench', at: { x: 44, y: 94 }, angle: 0, length: 66 }],
+    arrow: 'ankle',
+  },
+  'Hollow hold': {
+    phases: [supine(-12, [{ upper: 168, lower: 170 }], [{ upper: 160, lower: 162, foot: 120 }], 78, LYING - 2)],
   },
 };
 
