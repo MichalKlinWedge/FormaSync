@@ -43,12 +43,16 @@ export type ActiveEnduranceSession = {
 };
 
 export function loadEnduranceSession(db: SyncDb, sessionId: number): ActiveEnduranceSession | null {
-  const session = db
-    .select()
+  // Plan dokładamy do zapytania, bo trening wczytany z zegarka na zaplanowany termin nie ma
+  // własnego tytułu — nazwę nosi plan („Taniec 60 minut”), a nie aktywność zmierzona zegarkiem.
+  const row = db
+    .select({ session: schema.workoutSessions, planTitle: schema.workoutPlans.title })
     .from(schema.workoutSessions)
+    .leftJoin(schema.workoutPlans, eq(schema.workoutSessions.planId, schema.workoutPlans.id))
     .where(eq(schema.workoutSessions.id, sessionId))
     .get();
-  if (!session) return null;
+  if (!row) return null;
+  const session = row.session;
 
   const segments = db
     .select()
@@ -66,7 +70,7 @@ export function loadEnduranceSession(db: SyncDb, sessionId: number): ActiveEndur
 
   return {
     id: session.id,
-    title: session.title,
+    title: session.title ?? row.planTitle,
     sport: session.sport,
     startTime: session.startTime,
     segments: rows.flatMap((row) => {

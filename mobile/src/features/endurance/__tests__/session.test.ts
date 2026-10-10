@@ -23,6 +23,17 @@ function planWithIntervals(db: ReturnType<typeof createTestDb>, repeats = 3) {
   });
 }
 
+describe('nazwa treningu', () => {
+  it('bez własnego tytułu bierze nazwę planu, a nie ogólne „Trening”', () => {
+    // Trening wczytany z zegarka na zaplanowany termin nie ma własnej nazwy — nosi ją plan.
+    const db = createTestDb({ seed: true });
+    const planId = planWithIntervals(db);
+    const sessionId = startSession(db, { kind: 'plan', planId });
+
+    expect(loadEnduranceSession(db, sessionId)?.title).toBe('Interwały');
+  });
+});
+
 describe('start treningu wytrzymałościowego', () => {
   it('rozwija grupę powtórzeń na tyle odcinków, ile iteracji', () => {
     const db = createTestDb({ seed: true });
