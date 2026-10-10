@@ -16,6 +16,7 @@ import m0011 from './0011_seeded_templates.sql';
 import m0012 from './0012_exercise_video.sql';
 import m0013 from './0013_term_plan_title.sql';
 import m0014 from './0014_hydration.sql';
+import m0015 from './0015_training_goals.sql';
 
   export default {
     journal,
@@ -34,7 +35,8 @@ m0010,
 m0011,
 m0012,
 m0013,
-m0014
+m0014,
+m0015
     }
   }
   

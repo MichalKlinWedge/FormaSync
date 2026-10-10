@@ -419,3 +419,69 @@ export const hydrationDays = sqliteTable('hydration_days', {
   dayKey: text('day_key').primaryKey(), // YYYY-MM-DD
   extraMl: integer('extra_ml').notNull().default(0),
 });
+
+// --- 8. Plan długoterminowy pod cel ---
+
+export const goalStatuses = ['ACTIVE', 'DONE', 'ABANDONED'] as const;
+export type GoalStatus = (typeof goalStatuses)[number];
+
+/** Faza cyklu. Nazwy za praktyką treningową: baza, budowanie, szczyt, roztrenowanie, start. */
+export const goalPhases = ['BASE', 'BUILD', 'PEAK', 'TAPER', 'RACE'] as const;
+export type GoalPhase = (typeof goalPhases)[number];
+
+/** Rodzaj jednostki w planie. Od tego zależą odcinki, tempo i nazwa treningu. */
+export const goalWorkoutKinds = ['EASY', 'LONG', 'TEMPO', 'INTERVALS', 'RACE'] as const;
+export type GoalWorkoutKind = (typeof goalWorkoutKinds)[number];
+
+/**
+ * Cel długoterminowy: zawody z datą i dystansem. Plan pod niego liczymy z formy odczytanej
+ * z historii, więc tu trzymamy tylko to, czego aplikacja sama nie wie — kiedy start, na jakim
+ * dystansie, w jakim czasie i w które dni tygodnia da się trenować.
+ */
+export const trainingGoals = sqliteTable('training_goals', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  sport: text('sport', { enum: sports }).notNull().default('RUNNING'),
+  title: text('title').notNull(),
+  eventDate: text('event_date').notNull(), // YYYY-MM-DD
+  distanceMeters: real('distance_meters').notNull(),
+  /** Czas docelowy w sekundach; null, gdy chodzi o samo dojechanie do mety. */
+  targetSeconds: integer('target_seconds'),
+  /** Dni tygodnia rozdzielone spacją, 0 = poniedziałek. */
+  weekDays: text('week_days').notNull(),
+  status: text('status', { enum: goalStatuses }).notNull().default('ACTIVE'),
+  /** Czym ułożono plan: regułami w aplikacji czy modelem. Null dla planu jeszcze niewygenerowanego. */
+  plannedBy: text('planned_by'),
+  notes: text('notes'),
+  createdAt: createdAt(),
+});
+
+/**
+ * Jednostka wygenerowanego planu. Trzymamy ją osobno od `scheduled_workouts`, bo plan powstaje
+ * cały naraz i ma być widoczny przed wpisaniem do kalendarza — a po wpisaniu musi pozostać
+ * wiadomo, który termin należy do którego celu, żeby dało się go przeliczyć albo przesunąć.
+ */
+export const goalWorkouts = sqliteTable(
+  'goal_workouts',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    goalId: integer('goal_id')
+      .notNull()
+      .references(() => trainingGoals.id, { onDelete: 'cascade' }),
+    weekIndex: integer('week_index').notNull(),
+    phase: text('phase', { enum: goalPhases }).notNull(),
+    plannedDate: text('planned_date').notNull(), // YYYY-MM-DD
+    kind: text('kind', { enum: goalWorkoutKinds }).notNull(),
+    title: text('title').notNull(),
+    distanceMeters: real('distance_meters'),
+    durationSeconds: integer('duration_seconds'),
+    /** Tempo w sekundach na kilometr; null, gdy nie da się go wyliczyć. */
+    paceSeconds: integer('pace_seconds'),
+    notes: text('notes'),
+    /** Plan i termin powstałe z tej jednostki; null, dopóki nie trafiła do kalendarza. */
+    planId: integer('plan_id').references(() => workoutPlans.id, { onDelete: 'set null' }),
+    scheduledId: integer('scheduled_id').references(() => scheduledWorkouts.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (t) => [index('goal_workouts_goal_idx').on(t.goalId), index('goal_workouts_date_idx').on(t.plannedDate)],
+);

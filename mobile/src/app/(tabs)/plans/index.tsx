@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Button } from '@/components/button';
 import { Icon } from '@/components/icon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -49,6 +50,15 @@ export default function PlansScreen() {
           </View>
 
           <SportSwitcher />
+
+          {/* Cel długoterminowy stoi nad planami, bo to on je wypełnia: plan pod zawody
+              produkuje zwykłe plany i terminy, a nie osobny rodzaj treningu. */}
+          <Button
+            label="Cele i plany pod zawody"
+            icon="flag"
+            variant="secondary"
+            onPress={() => router.push('/goal')}
+          />
 
           <Section title="Moje plany">
             {own.length === 0 ? (

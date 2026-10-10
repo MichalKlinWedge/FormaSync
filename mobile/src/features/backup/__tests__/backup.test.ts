@@ -96,6 +96,7 @@ describe('createBackup', () => {
       'exercises',
       'garmin_activity_metrics',
       'garmin_daily_health',
+      'goal_workouts',
       'hydration_days',
       'hydration_logs',
       'logged_segments',
@@ -106,6 +107,7 @@ describe('createBackup', () => {
       'seeded_templates',
       'session_exercises',
       'session_segments',
+      'training_goals',
       'workout_plans',
       'workout_sessions',
     ]);
