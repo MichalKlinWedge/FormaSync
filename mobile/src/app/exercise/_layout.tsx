@@ -8,6 +8,7 @@ export default function ExerciseLayout() {
   return (
     <Stack screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}>
       <Stack.Screen name="[id]" options={{ title: '' }} />
+      <Stack.Screen name="swap" />
     </Stack>
   );
 }

@@ -20,6 +20,7 @@ import {
   loadSession,
   reopenSet,
   startSession,
+  swapSessionExercise,
   updateSet,
 } from '../repository';
 
@@ -268,5 +269,46 @@ describe('abandonSession', () => {
         .where(and(eq(schema.loggedSets.sessionId, id)))
         .all(),
     ).toHaveLength(1);
+  });
+});
+
+describe('swapSessionExercise', () => {
+  it('przepisuje ćwiczenie i zostawia serie nietknięte', () => {
+    const { db, planId, plank } = setup();
+    const id = startSession(db, { kind: 'plan', planId }, T0);
+    const squat = loadSession(db, id)!.exercises[0];
+    completeSet(db, squat.sets[0].id, { repsCompleted: 8, weightKg: 60 }, at(60));
+
+    swapSessionExercise(db, squat.id, plank.id);
+
+    const after = loadSession(db, id)!.exercises[0];
+    expect(after.exerciseId).toBe(plank.id);
+    expect(after.name).toBe(plank.name);
+    expect(after.sets.map((set) => [set.repsCompleted, set.weightKg])).toEqual(
+      squat.sets.map((set) => [set.repsCompleted, set.weightKg]),
+    );
+  });
+
+  it('przenosi serie do analityki nowego ćwiczenia', () => {
+    const { db, planId, squat: squatExercise, plank } = setup();
+    const id = startSession(db, { kind: 'plan', planId }, T0);
+    const squat = loadSession(db, id)!.exercises[0];
+    completeSet(db, squat.sets[0].id, { repsCompleted: 8, weightKg: 60 }, at(60));
+
+    swapSessionExercise(db, squat.id, plank.id);
+
+    // `logged_sets` trzyma własną kopię identyfikatora — bez jej przepisania tonaż i rekordy
+    // dalej liczyłyby się staremu ćwiczeniu.
+    const byExercise = (exerciseId: number) =>
+      db.select().from(schema.loggedSets).where(eq(schema.loggedSets.exerciseId, exerciseId)).all();
+    expect(byExercise(squatExercise.id)).toHaveLength(0);
+    expect(byExercise(plank.id).length).toBeGreaterThan(0);
+  });
+
+  it('nie podmienia na ćwiczenie, którego nie ma', () => {
+    const { db, planId } = setup();
+    const id = startSession(db, { kind: 'plan', planId }, T0);
+    const squat = loadSession(db, id)!.exercises[0];
+    expect(() => swapSessionExercise(db, squat.id, 99999)).toThrow();
   });
 });

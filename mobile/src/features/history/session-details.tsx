@@ -138,18 +138,35 @@ export function SessionDetails({ id, updatePlanRoute, footer }: SessionDetailsPr
                   }}
                 />
               ))}
-              <Pressable
-                onPress={() => {
-                  completeSet(db, addSet(db, exercise.id));
-                  reload();
-                }}
-                style={styles.addSet}
-                hitSlop={4}>
-                <Icon name="add" size={18} color={theme.accent} />
-                <ThemedText type="small" style={{ color: theme.accent }}>
-                  Dodaj serię
-                </ThemedText>
-              </Pressable>
+              <View style={styles.cardActions}>
+                <Pressable
+                  onPress={() => {
+                    completeSet(db, addSet(db, exercise.id));
+                    reload();
+                  }}
+                  style={styles.addSet}
+                  hitSlop={4}>
+                  <Icon name="add" size={18} color={theme.accent} />
+                  <ThemedText type="small" style={{ color: theme.accent }}>
+                    Dodaj serię
+                  </ThemedText>
+                </Pressable>
+                {/* Serie zostają na miejscu — podmieniamy tylko to, do czego są przypisane. */}
+                <Pressable
+                  onPress={() =>
+                    router.push({
+                      pathname: '/exercise/swap',
+                      params: { id: exercise.id, tracking: exercise.trackingType },
+                    })
+                  }
+                  style={styles.addSet}
+                  hitSlop={4}>
+                  <Icon name="swap_horiz" size={18} color={theme.accent} />
+                  <ThemedText type="small" style={{ color: theme.accent }}>
+                    Zamień ćwiczenie
+                  </ThemedText>
+                </Pressable>
+              </View>
             </ThemedView>
           ))}
 
@@ -276,6 +293,7 @@ const styles = StyleSheet.create({
   content: { padding: Spacing.four, gap: Spacing.four, paddingBottom: Spacing.six },
   stats: { flexDirection: 'row', gap: Spacing.two },
   stat: { flex: 1, borderRadius: 12, padding: Spacing.three, gap: Spacing.half },
+  cardActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.four, flexWrap: 'wrap' },
   card: { borderRadius: 16, padding: Spacing.three, gap: Spacing.one },
   setRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.one },
   setNumber: { width: 18, textAlign: 'center' },

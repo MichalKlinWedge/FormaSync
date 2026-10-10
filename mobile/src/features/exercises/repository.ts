@@ -1,4 +1,4 @@
-import { count, eq } from 'drizzle-orm';
+import { count, eq, sql } from 'drizzle-orm';
 
 import * as schema from '@/db/schema';
 import type { DifficultyLevel, TrackingType } from '@/db/schema';
@@ -56,6 +56,30 @@ export function saveExercise(db: SyncDb, rawInput: ExerciseInput, id?: number): 
     }
     return exerciseId;
   });
+}
+
+/**
+ * Ćwiczenie spoza katalogu, zapisane w trakcie treningu — ma samą nazwę. Partii mięśniowej,
+ * sprzętu ani opisu nie wymagamy, bo przy sztandze nikt nie wypełnia formularza; to, czego
+ * brakuje, dopisuje się później w katalogu albo podmienia na gotowe ćwiczenie w historii.
+ */
+export function createQuickExercise(db: SyncDb, rawName: string): number {
+  const name = rawName.trim();
+  if (!name) throw new ExerciseValidationError('Podaj nazwę ćwiczenia.');
+
+  // Ta sama nazwa drugi raz to zwykle to samo ćwiczenie — odzyskujemy je, zamiast mnożyć bliźniaki.
+  const existing = db
+    .select({ id: schema.exercises.id })
+    .from(schema.exercises)
+    .where(sql`lower(${schema.exercises.name}) = lower(${name})`)
+    .get();
+  if (existing) return existing.id;
+
+  return db
+    .insert(schema.exercises)
+    .values({ name, isCustom: true })
+    .returning({ id: schema.exercises.id })
+    .get().id;
 }
 
 export type ExerciseUsage = { plans: number; loggedSets: number };

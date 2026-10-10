@@ -364,6 +364,27 @@ export function addSessionExercise(db: SyncDb, sessionId: number, exerciseId: nu
   });
 }
 
+/**
+ * Podmienia ćwiczenie w zapisanym treningu, zostawiając serie takimi, jakie były. `logged_sets`
+ * trzyma własną kopię identyfikatora ćwiczenia (dla analityki), więc przepisujemy oba miejsca —
+ * inaczej tonaż i rekordy dalej liczyłyby się staremu ćwiczeniu.
+ */
+export function swapSessionExercise(db: SyncDb, sessionExerciseId: number, exerciseId: number): void {
+  db.transaction((tx) => {
+    const exercise = tx.select().from(schema.exercises).where(eq(schema.exercises.id, exerciseId)).get();
+    if (!exercise) throw new Error('Ćwiczenie nie istnieje');
+
+    tx.update(schema.sessionExercises)
+      .set({ exerciseId })
+      .where(eq(schema.sessionExercises.id, sessionExerciseId))
+      .run();
+    tx.update(schema.loggedSets)
+      .set({ exerciseId })
+      .where(eq(schema.loggedSets.sessionExerciseId, sessionExerciseId))
+      .run();
+  });
+}
+
 export function removeSessionExercise(db: SyncDb, sessionExerciseId: number): void {
   db.delete(schema.sessionExercises).where(eq(schema.sessionExercises.id, sessionExerciseId)).run();
 }

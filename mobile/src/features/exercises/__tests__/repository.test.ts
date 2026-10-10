@@ -8,6 +8,7 @@ import * as schema from '@/db/schema';
 import { createTestDb } from '@/db/test-utils';
 
 import {
+  createQuickExercise,
   deleteExercise,
   type ExerciseInput,
   ExerciseInUseError,
@@ -66,6 +67,36 @@ describe('saveExercise', () => {
     const { db, input } = setup();
     expect(() => saveExercise(db, { ...input, name: ' ' })).toThrow(ExerciseValidationError);
     expect(() => saveExercise(db, { ...input, categoryId: null })).toThrow(ExerciseValidationError);
+  });
+});
+
+describe('createQuickExercise', () => {
+  it('zapisuje ćwiczenie z samą nazwą, bez partii i sprzętu', () => {
+    const { db } = setup();
+    const id = createQuickExercise(db, '  Maszyna przy oknie  ');
+
+    expect(db.select().from(schema.exercises).where(eq(schema.exercises.id, id)).get()).toMatchObject({
+      name: 'Maszyna przy oknie',
+      isCustom: true,
+      categoryId: null,
+      equipmentId: null,
+      trackingType: 'REPS',
+    });
+  });
+
+  it('nie mnoży bliźniaków — ta sama nazwa wskazuje to samo ćwiczenie', () => {
+    const { db } = setup();
+    const first = createQuickExercise(db, 'Wiosło na linach');
+
+    expect(createQuickExercise(db, 'wiosło NA linach')).toBe(first);
+    expect(createQuickExercise(db, 'Przysiad ze sztangą')).toBe(
+      db.select().from(schema.exercises).where(eq(schema.exercises.name, 'Przysiad ze sztangą')).get()!.id,
+    );
+  });
+
+  it('wymaga nazwy', () => {
+    const { db } = setup();
+    expect(() => createQuickExercise(db, '   ')).toThrow(ExerciseValidationError);
   });
 });
 
