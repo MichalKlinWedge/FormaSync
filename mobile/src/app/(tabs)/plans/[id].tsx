@@ -13,6 +13,7 @@ import { deleteMessage } from '@/features/plans/labels';
 import { deletePlan, draftFromPlan, loadPlanDraft } from '@/features/plans/repository';
 import { EndurancePlanDetails } from '@/features/endurance/plan-details';
 import { usePlanDetails } from '@/features/plans/use-plans';
+import { MuscleOverview } from '@/features/muscles/muscle-overview';
 import { isEndurance } from '@/features/sports/sport';
 import { SendToGarminButton } from '@/features/garmin/connect/send-button';
 import { proposeProgression } from '@/features/progress/progression';
@@ -84,6 +85,8 @@ export default function PlanDetailsScreen() {
           <ThemedText type="subtitle">{plan.title}</ThemedText>
           {plan.description && <ThemedText themeColor="textSecondary">{plan.description}</ThemedText>}
         </View>
+
+        <MuscleOverview exerciseIds={items.map((item) => item.exerciseId)} />
 
         <View style={styles.items}>
           {items.map((item, index) => (

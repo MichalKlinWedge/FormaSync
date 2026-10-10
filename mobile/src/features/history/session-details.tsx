@@ -15,6 +15,7 @@ import { ExerciseLink } from '@/features/exercises/exercise-link';
 
 import { EnduranceSessionDetails } from '@/features/endurance/session-details';
 import { SessionHealth } from '@/features/health/session-health';
+import { MuscleOverview } from '@/features/muscles/muscle-overview';
 import { isEndurance } from '@/features/sports/sport';
 import { formatTarget } from '@/features/plans/draft';
 import { type ActiveExercise, type ActiveSet, countSets, formatClock, sessionTonnage } from '@/features/workout/logic';
@@ -113,6 +114,8 @@ export function SessionDetails({ id, updatePlanRoute, footer }: SessionDetailsPr
             <Stat label="Serie" value={String(completed)} />
             <Stat label="Tonaż" value={`${Math.round(tonnage)} kg`} />
           </View>
+
+          <MuscleOverview exerciseIds={session.exercises.map((exercise) => exercise.exerciseId)} />
 
           {session.exercises.map((exercise) => (
             <ThemedView key={exercise.id} type="backgroundElement" style={styles.card}>

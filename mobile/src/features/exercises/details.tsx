@@ -17,6 +17,7 @@ import { ExerciseIllustration } from '@/features/exercises/illustration/exercise
 import { illustrationFor } from '@/features/exercises/illustration/poses';
 import { difficultyLabels, trackingTypeLabels } from '@/features/exercises/labels';
 import { deleteExercise, ExerciseInUseError } from '@/features/exercises/repository';
+import { MuscleOverview } from '@/features/muscles/muscle-overview';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDate, toDateKey } from '@/lib/date';
 import { formatNumber, pluralWith } from '@/lib/number';
@@ -130,6 +131,8 @@ export function ExerciseDetails({ id, manageable = false }: ExerciseDetailsProps
           <Fact label="Poziom" value={exercise.difficultyLevel ? difficultyLabels[exercise.difficultyLevel] : null} />
           <Fact label="Rejestracja" value={trackingTypeLabels[exercise.trackingType]} />
         </View>
+
+        <MuscleOverview exerciseIds={[id]} />
 
         {done !== null && (
           <>
