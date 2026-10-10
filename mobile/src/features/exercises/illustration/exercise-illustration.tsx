@@ -38,7 +38,8 @@ export function ExerciseIllustration({ illustration, style }: ExerciseIllustrati
     <View style={[styles.frame, style]}>
       {panels.map((panel) => (
         <View key={panel.caption} style={styles.panel}>
-          <Svg viewBox={viewBox} style={styles.canvas}>
+          <View style={styles.canvas}>
+          <Svg width="100%" height="100%" viewBox={viewBox}>
             {panel.shapes.map((shape, index) => {
               const { color, opacity } = pen[shape.tone];
               const width = ('width' in shape ? shape.width : undefined) ?? pen[shape.tone].width;
@@ -69,6 +70,7 @@ export function ExerciseIllustration({ illustration, style }: ExerciseIllustrati
               return <Path key={index} d={shape.d} fill="none" {...stroke} />;
             })}
           </Svg>
+          </View>
           <ThemedText type="small" themeColor="textSecondary" style={styles.caption}>
             {panel.caption}
           </ThemedText>
@@ -82,5 +84,6 @@ const styles = StyleSheet.create({
   frame: { flex: 1, alignSelf: 'stretch', flexDirection: 'row', padding: 8, gap: 4 },
   panel: { flex: 1, gap: 2 },
   canvas: { flex: 1 },
-  caption: { textAlign: 'center' },
+  // Stała wysokość podpisu: rysunek kurczy się o tyle, ile trzeba, zamiast spychać go poza kadr.
+  caption: { height: 16, textAlign: 'center' },
 });
