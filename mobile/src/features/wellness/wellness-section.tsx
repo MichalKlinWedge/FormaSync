@@ -24,7 +24,7 @@ export function WellnessSection() {
         'Pobrano',
         result.sessions === 0 && result.days === 0
           ? `Garmin Connect nie zwrócił danych z ostatnich ${WELLNESS_DAYS} dni. Sprawdź, czy zegarek zsynchronizował się z telefonem.`
-          : `${describeCounts(result.counts, WELLNESS_DAYS)}\n\nTreningi z tętnem: ${result.sessions}.`,
+          : `${describeCounts(result.counts, WELLNESS_DAYS)}\n\nTreningi z tętnem: ${result.sessions}.\nRekordy życiowe z Garmina: ${result.records}.`,
       );
     } catch (e) {
       Alert.alert('Nie udało się pobrać', describe(e));
@@ -41,6 +41,8 @@ export function WellnessSection() {
       <ThemedText type="small" themeColor="textSecondary">
         Tętno spoczynkowe, sen, HRV, ciśnienie i kalorie czytamy wprost z Garmin Connect — tym samym
         połączeniem, którym wysyłamy plany na zegarek. Odświeżamy ostatnie {WELLNESS_DAYS} dni.
+        Przy tej samej okazji dochodzą rekordy życiowe, które Garmin pamięta od początku konta —
+        widać je w statystykach biegania jako punkt odniesienia.
       </ThemedText>
       <ThemedText type="small" themeColor="textSecondary">
         Tą drogą nie przychodzą metryki własne Garmina: Body Battery, poziom stresu ani gotowość

@@ -2,7 +2,9 @@ import { db } from '@/db/client';
 import { getSetting, setSetting } from '@/db/settings';
 import { fetchGarminActivities } from '@/features/garmin/connect/activities';
 import { GarminNotConnectedError, isConnected } from '@/features/garmin/connect/client';
+import { fetchGarminRecords } from '@/features/garmin/connect/records';
 import {
+  accountName,
   fetchBloodPressure,
   fetchDailyHeartRate,
   fetchDailySummary,
@@ -14,6 +16,7 @@ import {
   parseSleepMinutes,
   parseSummary,
 } from '@/features/garmin/connect/wellness';
+import { saveGarminRecords } from '@/features/garmin/records-store';
 import { dayKeysBetween, summarizeHeartRate, type Sample } from '@/features/health/mapping';
 import { saveDailyHealth, saveHeartRateMetrics, sessionsSince } from '@/features/health/repository';
 import { toDateKey } from '@/lib/date';
@@ -42,6 +45,8 @@ export const lastSyncAt = (): string | null => getSetting(db, LAST_SYNC_KEY);
 export type SyncResult = {
   sessions: number;
   days: number;
+  /** Ile rekordów życiowych przyszło z Garmina. Zero znaczy, że ich tam nie ma albo nie dał. */
+  records: number;
   /** Ile dni przyniosło daną wartość. Zero przy wszystkich dniach znaczy, że tego Garmin nie dał. */
   counts: Record<MetricName, number>;
 };
@@ -98,8 +103,23 @@ export async function syncWellness(now: Date = new Date()): Promise<SyncResult> 
   }
 
   const sessions = await measureSessions(from, now);
+  // Rekordy życiowe idą tą samą drogą, bo to jedno zapytanie na całe pobranie, nie na każdy
+  // dzień — a bez nich plan pod zawody nie ma od czego odmierzyć tempa docelowego.
+  const records = await pullRecords();
   setSetting(db, LAST_SYNC_KEY, now.toISOString());
-  return { sessions, days, counts };
+  return { sessions, days, counts, records };
+}
+
+/**
+ * Rekordy życiowe z Garmina. Nieudana próba nie może przewrócić całego pobrania — reszta danych
+ * jest ważniejsza, a o braku rekordów i tak mówi liczba w podsumowaniu.
+ */
+async function pullRecords(): Promise<number> {
+  try {
+    return saveGarminRecords(db, await fetchGarminRecords(await accountName()));
+  } catch {
+    return 0;
+  }
 }
 
 /**

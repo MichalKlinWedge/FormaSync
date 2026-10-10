@@ -485,3 +485,27 @@ export const goalWorkouts = sqliteTable(
   },
   (t) => [index('goal_workouts_goal_idx').on(t.goalId), index('goal_workouts_date_idx').on(t.plannedDate)],
 );
+
+// --- 9. Rekordy z Garmin Connect ---
+
+/**
+ * Rekordy życiowe prowadzone przez Garmina. Nasze własne liczymy z odcinków w historii, ale
+ * sięgają one tylko tam, gdzie sięga wczytana historia — a Garmin pamięta wszystko od początku
+ * konta. To punkt odniesienia dla planu: od niego wychodzą realne tempa docelowe.
+ *
+ * Trzymamy wyłącznie rekordy, które umiemy rozpoznać i których wartość mieści się w zdrowym
+ * zakresie. Rekord opisany źle jest gorszy niż brak rekordu, bo na jego podstawie ustawia się
+ * tempa całego cyklu.
+ */
+export const garminRecords = sqliteTable('garmin_records', {
+  /** Nasz klucz rodzaju, np. `DIST_5K` — po nim rozpoznajemy rekord przy kolejnym odczycie. */
+  recordKey: text('record_key').primaryKey(),
+  sport: text('sport', { enum: sports }).notNull().default('RUNNING'),
+  label: text('label').notNull(),
+  /** Dystans rekordu; null dla rekordów, w których dystans jest samą wartością. */
+  distanceMeters: real('distance_meters'),
+  /** Czas rekordu w sekundach; null dla rekordów dystansowych. */
+  seconds: integer('seconds'),
+  achievedOn: text('achieved_on'), // YYYY-MM-DD
+  syncedAt: createdAt(),
+});

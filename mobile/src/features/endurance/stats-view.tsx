@@ -1,3 +1,4 @@
+import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { useMemo } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
@@ -5,7 +6,9 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
+import { garminRecords } from '@/db/schema';
 import type { Sport } from '@/db/schema';
+import { listGarminRecords } from '@/features/garmin/records-store';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDate } from '@/lib/date';
 import { pluralWith } from '@/lib/number';
@@ -25,6 +28,16 @@ export function EnduranceStats({ sport }: { sport: Sport }) {
   const summary = useMemo(() => summarizeEndurance(workouts), [workouts]);
   const weeks = useMemo(() => weeklyVolume(workouts), [workouts]);
   const records = useMemo(() => sportRecords(workouts, sport), [workouts, sport]);
+  // Rekordy z Garmina sięgają dalej niż wczytana historia — pokazujemy je osobno, żeby było
+  // jasne, że to nie nasz rachunek z odcinków, tylko to, co Garmin pamięta od początku konta.
+  const { data: recordSignal } = useLiveQuery(
+    db.select({ recordKey: garminRecords.recordKey }).from(garminRecords),
+  );
+  const fromGarmin = useMemo(
+    () => listGarminRecords(db, sport),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sygnał zmiany, dane pobiera listGarminRecords
+    [recordSignal, sport],
+  );
 
   if (workouts.length === 0) {
     return (
@@ -90,6 +103,30 @@ export function EnduranceStats({ sport }: { sport: Sport }) {
           </ThemedText>
         )}
       </View>
+
+      {fromGarmin.length > 0 && (
+        <View style={styles.group}>
+          <ThemedText type="smallBold" themeColor="textSecondary">
+            REKORDY ŻYCIOWE Z GARMINA
+          </ThemedText>
+          {fromGarmin.map((record) => (
+            <Record
+              key={record.recordKey}
+              label={record.label}
+              value={
+                record.seconds === null
+                  ? formatDistance(record.distanceMeters ?? 0)
+                  : formatSeconds(record.seconds)
+              }
+              note={record.achievedOn === null ? 'data nieznana' : formatDate(record.achievedOn)}
+            />
+          ))}
+          <ThemedText type="small" themeColor="textSecondary">
+            Te liczby prowadzi Garmin od początku konta, więc sięgają dalej niż wczytana tu
+            historia. Od nich warto odmierzać czas docelowy na zawodach.
+          </ThemedText>
+        </View>
+      )}
 
       <View style={styles.group}>
         <ThemedText type="smallBold" themeColor="textSecondary">

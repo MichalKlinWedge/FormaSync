@@ -35,6 +35,7 @@ const TABLES = [
   schema.hydrationDays,
   schema.trainingGoals,
   schema.goalWorkouts,
+  schema.garminRecords,
   schema.archivedActivities,
   // Pamięć seeda jedzie razem z danymi — inaczej po przywróceniu kopii wróciłyby szablony,
   // które użytkownik wcześniej usunął.
