@@ -21,6 +21,8 @@ import {
 import { FASTEST_PLAUSIBLE_PACE } from '@/features/endurance/records';
 import { toDateKey } from '@/lib/date';
 
+import type { Sport } from '@/db/schema';
+
 import type { ImportCandidate, InventoryEntry, WatchActivity } from './mapping';
 import {
   alreadySettled,
@@ -119,10 +121,34 @@ export async function importWatchActivityToTerm(
   return sessionId;
 }
 
-/** Okna historii do wyboru. Rok wstecz to u Garmina kilka stron listy, nie jedna. */
-export const HISTORY_DAYS = [90, 180, 365];
+/**
+ * Okresy historii do wyboru. Rok wstecz to u Garmina kilka stron listy, pięć lat — kilkadziesiąt.
+ * Dłuższe okna mają sens, bo rekordy życiowe rzadko padają w ostatnim sezonie.
+ */
+export const HISTORY_PERIODS = [
+  { days: 90, label: '90 dni' },
+  { days: 365, label: 'rok' },
+  { days: 730, label: '2 lata' },
+  { days: 1825, label: '5 lat' },
+];
+
+/** Najdłuższy okres — tyle wstecz sięga przeliczanie dyscyplin. */
+export const LONGEST_HISTORY_DAYS = HISTORY_PERIODS[HISTORY_PERIODS.length - 1].days;
 
 export type HistoryImport = { seen: number; imported: number; skipped: number };
+
+/** Odczyt i zapis to dwa osobne czekania, więc ekran musi je rozróżniać. */
+export type HistoryProgress = { phase: 'FETCH' | 'SAVE'; count: number };
+
+export type HistoryOptions = {
+  /** Dyscyplina do wczytania; null wczytuje wszystko. */
+  sport?: Sport | null;
+  /** Postęp — przy pięciu latach to kilkadziesiąt zapytań i tysiące zapisów. */
+  onProgress?: (progress: HistoryProgress) => void;
+};
+
+/** Co ile zapisów oddajemy sterowanie, żeby ekran zdążył się odrysować. */
+const YIELD_EVERY = 25;
 
 /**
  * Ściąga całą historię z wybranego okresu do historii aplikacji — jednym przebiegiem, bez
@@ -133,10 +159,20 @@ export type HistoryImport = { seen: number; imported: number; skipped: number };
  * w aplikacji. Okrążeń tą drogą nie pobieramy — to osobne zapytanie na każdą aktywność, więc przy
  * dwustu treningach czekałoby się minuty. Dociąga je przycisk okrążeń, już po wczytaniu.
  */
-export async function importHistory(days: number, now: Date = new Date()): Promise<HistoryImport> {
+export async function importHistory(
+  days: number,
+  options: HistoryOptions = {},
+  now: Date = new Date(),
+): Promise<HistoryImport> {
   if (!(await isConnected())) throw new GarminNotConnectedError();
 
-  const activities = await fetchGarminActivities(days, now);
+  const fetched = await fetchGarminActivities(days, now, (count) =>
+    options.onProgress?.({ phase: 'FETCH', count }),
+  );
+  // Zawężenie do jednej dyscypliny liczy się przy długich oknach: pięć lat wszystkiego to także
+  // każdy spacer i każda joga, a po rekordy biegowe sięga się po same biegi.
+  const activities =
+    options.sport == null ? fetched : fetched.filter((activity) => activity.sport === options.sport);
   const fromIso = new Date(now.getTime() - days * 24 * 3600 * 1000).toISOString();
   const sessions = sessionWindows(db, fromIso);
   const imported = new Set([...importedActivityIds(db), ...alreadySettled(activities, sessions)]);
@@ -153,13 +189,26 @@ export async function importHistory(days: number, now: Date = new Date()): Promi
     if (findOverlappingSession(activity, sessions) !== null) continue;
     createSessionFromActivity(db, activity);
     added += 1;
+    if (added % YIELD_EVERY === 0) {
+      options.onProgress?.({ phase: 'SAVE', count: added });
+      // Zapis idzie w pętli na wątku interfejsu: bez oddania sterowania pasek stałby w miejscu,
+      // a przy tysiącu treningów aplikacja wyglądałaby na zawieszoną.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
   }
 
   return { seen: activities.length, imported: added, skipped: activities.length - added };
 }
 
 /** Ile treningów dostało okrążenia i ile okrążeń razem doszło. */
-export type LapBackfill = { candidates: number; filled: number; laps: number };
+export type LapBackfill = { candidates: number; filled: number; laps: number; left: number };
+
+/**
+ * Ile treningów bierzemy na jeden przebieg. Okrążenia to osobne zapytanie na każdy trening,
+ * a po wczytaniu pięciu lat historii kandydatów bywa półtora tysiąca — jeden przycisk nie może
+ * oznaczać półtora tysiąca zapytań pod rząd.
+ */
+export const LAP_BATCH = 100;
 
 /**
  * Dociąga okrążenia do treningów z zegarka, które mają w bazie tylko sumy. Wcześniejsze
@@ -172,7 +221,8 @@ export type LapBackfill = { candidates: number; filled: number; laps: number };
 export async function backfillLaps(): Promise<LapBackfill> {
   if (!(await isConnected())) throw new GarminNotConnectedError();
 
-  const candidates = sessionsMissingLaps(db);
+  const waiting = sessionsMissingLaps(db);
+  const candidates = waiting.slice(0, LAP_BATCH);
   let filled = 0;
   let laps = 0;
 
@@ -187,7 +237,12 @@ export async function backfillLaps(): Promise<LapBackfill> {
     laps += fetched.length;
   }
 
-  return { candidates: candidates.length, filled, laps };
+  return {
+    candidates: candidates.length,
+    filled,
+    laps,
+    left: Math.max(0, waiting.length - candidates.length),
+  };
 }
 
 export type SportRepair = { checked: number; fixed: number };

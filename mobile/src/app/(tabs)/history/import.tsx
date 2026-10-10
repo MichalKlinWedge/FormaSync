@@ -8,13 +8,20 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 
-import type { ImportCandidate, InventoryEntry, WatchActivities } from '@/features/activities/import';
+import type { Sport } from '@/db/schema';
+import type {
+  HistoryProgress,
+  ImportCandidate,
+  InventoryEntry,
+  WatchActivities,
+} from '@/features/activities/import';
 import {
   archiveWatchActivity,
   backfillLaps,
   GarminNotConnectedError,
-  HISTORY_DAYS,
+  HISTORY_PERIODS,
   importHistory,
+  LONGEST_HISTORY_DAYS,
   repairSports,
   importWatchActivity,
   importWatchActivityToTerm,
@@ -35,6 +42,7 @@ import {
 } from '@/features/activities/mapping';
 import { GarminAuthExpired, GarminError } from '@/features/garmin/connect/client';
 import { formatDistance } from '@/features/endurance/format';
+import { GOAL_SPORTS } from '@/features/goals/planner';
 import { SPORT_LABELS } from '@/features/sports/sport';
 import { formatClock } from '@/features/workout/logic';
 import { formatDateTime } from '@/lib/date';
@@ -57,6 +65,10 @@ export default function ImportActivitiesScreen() {
   const [showSeen, setShowSeen] = useState(false);
   const [laps, setLaps] = useState(false);
   const [history, setHistory] = useState<number | null>(null);
+  const [progress, setProgress] = useState<HistoryProgress | null>(null);
+  // Przy pięciu latach wszystkiego dochodzi każdy spacer i każda joga; po rekordy biegowe
+  // sięga się po same biegi, więc zawężenie musi być pod ręką.
+  const [onlySport, setOnlySport] = useState<Sport | null>(null);
   const [sports, setSports] = useState(false);
 
   const apply = (result: WatchActivities) => {
@@ -160,10 +172,13 @@ export default function ImportActivitiesScreen() {
   const pullHistory = (days: number) =>
     run('Nie udało się ściągnąć historii', async () => {
       setHistory(days);
+      setProgress(null);
       try {
-        Alert.alert('Historia', describeHistoryImport(await importHistory(days)));
+        const result = await importHistory(days, { sport: onlySport, onProgress: setProgress });
+        Alert.alert('Historia', describeHistoryImport(result));
       } finally {
         setHistory(null);
+        setProgress(null);
       }
     });
 
@@ -171,7 +186,7 @@ export default function ImportActivitiesScreen() {
     run('Nie udało się przeliczyć dyscyplin', async () => {
       setSports(true);
       try {
-        Alert.alert('Dyscypliny', describeSportRepair(await repairSports(HISTORY_DAYS.at(-1)!)));
+        Alert.alert('Dyscypliny', describeSportRepair(await repairSports(LONGEST_HISTORY_DAYS)));
       } finally {
         setSports(false);
       }
@@ -214,24 +229,33 @@ export default function ImportActivitiesScreen() {
             <ThemedText type="small" themeColor="textSecondary">
               Dopisuje do historii wszystkie treningi z wybranego okresu naraz — bez pytania
               o każdy osobno. Przydaje się na start: plan pod zawody liczy formę właśnie z tego,
-              co w historii leży. Pomijamy treningi już wczytane, odłożone i te prowadzone
-              w aplikacji.
+              co w historii leży, a rekordy życiowe rzadko padają w ostatnim sezonie. Pomijamy
+              treningi już wczytane, odłożone i te prowadzone w aplikacji.
             </ThemedText>
             <View style={styles.chips}>
-              {HISTORY_DAYS.map((days) => (
+              <Chip
+                label="Wszystko"
+                selected={onlySport === null}
+                onPress={() => setOnlySport(null)}
+              />
+              {GOAL_SPORTS.map((sport) => (
+                <Chip
+                  key={sport}
+                  label={SPORT_LABELS[sport]}
+                  selected={onlySport === sport}
+                  onPress={() => setOnlySport(sport)}
+                />
+              ))}
+            </View>
+            <View style={styles.chips}>
+              {HISTORY_PERIODS.map((period) => (
                 <Button
-                  key={days}
-                  label={
-                    history === days
-                      ? 'Ściągam…'
-                      : days >= 365
-                        ? 'Ostatni rok'
-                        : `Ostatnie ${days} dni`
-                  }
+                  key={period.days}
+                  label={history === period.days ? describeProgress(progress) : period.label}
                   icon="history"
                   variant="secondary"
-                  onPress={() => void pullHistory(days)}
-                  disabled={history !== null || laps || busy || activities === null}
+                  onPress={() => void pullHistory(period.days)}
+                  disabled={history !== null || sports || laps || busy || activities === null}
                 />
               ))}
             </View>
@@ -471,6 +495,12 @@ function ActivityCard({ activity, busy, onAdd, onAddToTerm, onLink, onArchive }:
       <Button label="Odłóż" icon="archive" variant="secondary" onPress={onArchive} disabled={busy} />
     </ThemedView>
   );
+}
+
+/** Co robimy w tej chwili — odczyt z Garmina i zapis do bazy trwają osobno. */
+function describeProgress(progress: HistoryProgress | null): string {
+  if (progress === null) return 'Ściągam…';
+  return progress.phase === 'FETCH' ? `Ściągam… ${progress.count}` : `Zapisuję… ${progress.count}`;
 }
 
 type Problem = { message: string; retryable: boolean };

@@ -111,8 +111,12 @@ export function toActivityFromGarmin(row: GarminActivityRow): WatchActivity | nu
 /** Ile pozycji bierzemy w jednym zapytaniu. Garmin oddaje listę stronami. */
 const PAGE = 50;
 
-/** Zapora na wypadek, gdyby Garmin przestał zwracać pustą stronę na końcu historii. */
-const MAX_PAGES = 40;
+/**
+ * Zapora na wypadek, gdyby Garmin przestał zwracać pustą stronę na końcu historii. Pięć lat
+ * codziennego trenowania to około dwóch tysięcy aktywności, więc sufit musi być wyraźnie wyżej —
+ * ale nie nieskończony, bo zapętlony odczyt pytałby bez końca.
+ */
+const MAX_PAGES = 150;
 
 /**
  * Aktywności z Garmin Connect z ostatnich `days` dni.
@@ -123,7 +127,11 @@ const MAX_PAGES = 40;
  * poprosi. Zapora na liczbę stron jest po to, żeby błąd po stronie Garmina nie zamienił tego
  * w nieskończone pytanie.
  */
-export async function fetchGarminActivities(days: number, now: Date = new Date()): Promise<WatchActivity[]> {
+export async function fetchGarminActivities(
+  days: number,
+  now: Date = new Date(),
+  onPage?: (fetched: number) => void,
+): Promise<WatchActivity[]> {
   const from = now.getTime() - days * 24 * 3600 * 1000;
   const activities: WatchActivity[] = [];
 
@@ -136,6 +144,9 @@ export async function fetchGarminActivities(days: number, now: Date = new Date()
       .map(toActivityFromGarmin)
       .filter((activity): activity is WatchActivity => activity !== null);
     activities.push(...parsed.filter((activity) => Date.parse(activity.startTime) >= from));
+    // Przy pięciu latach historii odczyt trwa kilkadziesiąt stron, więc ekran musi mieć co
+    // pokazywać — inaczej wygląda jak zawieszony.
+    onPage?.(activities.length);
 
     // Strona z czymś starszym od okna znaczy, że dalej jest już tylko starsze.
     if (parsed.some((activity) => Date.parse(activity.startTime) < from)) break;

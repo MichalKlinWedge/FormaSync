@@ -50,16 +50,24 @@ export function describeLapBackfill(result: {
   candidates: number;
   filled: number;
   laps: number;
+  left: number;
 }): string {
   if (result.candidates === 0) return 'Wszystkie treningi z zegarka mają już okrążenia.';
+
+  // Kolejka zostaje po długiej historii: jeden przebieg bierze setkę treningów, nie wszystkie.
+  const queue =
+    result.left === 0
+      ? ''
+      : ` Czeka jeszcze ${pluralWith(result.left, 'trening', 'treningi', 'treningów')} — naciśnij ponownie.`;
+
   if (result.filled === 0) {
-    return `Garmin nie podał okrążeń dla żadnego z ${pluralWith(result.candidates, 'treningu', 'treningów', 'treningów')}. Rekordy zostają liczone ze średnich.`;
+    return `Garmin nie podał okrążeń dla żadnego z ${pluralWith(result.candidates, 'treningu', 'treningów', 'treningów')}. Rekordy zostają liczone ze średnich.${queue}`;
   }
   const rest = result.candidates - result.filled;
   const done = `Okrążenia doszły do ${result.filled} z ${result.candidates}: razem ${pluralWith(result.laps, 'okrążenie', 'okrążenia', 'okrążeń')}.`;
   return rest === 0
-    ? done
-    : `${done} Dla pozostałych ${pluralWith(rest, 'treningu', 'treningów', 'treningów')} Garmin okrążeń nie ma.`;
+    ? `${done}${queue}`
+    : `${done} Dla pozostałych ${pluralWith(rest, 'treningu', 'treningów', 'treningów')} Garmin okrążeń nie ma.${queue}`;
 }
 
 /**
