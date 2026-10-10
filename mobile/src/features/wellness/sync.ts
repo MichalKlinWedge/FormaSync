@@ -18,6 +18,8 @@ import { dayKeysBetween, summarizeHeartRate, type Sample } from '@/features/heal
 import { saveDailyHealth, saveHeartRateMetrics, sessionsSince } from '@/features/health/repository';
 import { toDateKey } from '@/lib/date';
 
+import type { MetricName } from './report';
+
 /**
  * Dane zdrowotne pobierane wprost z Garmin Connect: tętno spoczynkowe, sen, HRV, ciśnienie
  * i kalorie, a do tego tętno treningów prowadzonych w aplikacji.
@@ -37,7 +39,14 @@ export const WELLNESS_DAYS = 7;
 
 export const lastSyncAt = (): string | null => getSetting(db, LAST_SYNC_KEY);
 
-export type SyncResult = { sessions: number; days: number };
+export type SyncResult = {
+  sessions: number;
+  days: number;
+  /** Ile dni przyniosło daną wartość. Zero przy wszystkich dniach znaczy, że tego Garmin nie dał. */
+  counts: Record<MetricName, number>;
+};
+
+
 
 /** Pobiera dane zdrowotne i zapisuje je lokalnie. Zwraca, ile dni i treningów przyniosło wartości. */
 export async function syncWellness(now: Date = new Date()): Promise<SyncResult> {
@@ -49,6 +58,14 @@ export async function syncWellness(now: Date = new Date()): Promise<SyncResult> 
   // wypadają codziennie, więc pytanie o każdy dzień osobno byłoby samą stratą czasu.
   const pressure = parseBloodPressure(await fetchBloodPressure(dayKeys[0], dayKeys[dayKeys.length - 1]));
 
+  const counts: Record<MetricName, number> = {
+    restingHeartRate: 0,
+    sleep: 0,
+    hrv: 0,
+    pressure: 0,
+    calories: 0,
+  };
+
   let days = 0;
   for (const dayKey of dayKeys) {
     const [summary, sleep, hrv] = await Promise.all([
@@ -58,12 +75,20 @@ export async function syncWellness(now: Date = new Date()): Promise<SyncResult> 
     ]);
     const { restingHeartRate, activeCalories } = parseSummary(summary);
     const measured = pressure.get(dayKey) ?? null;
+    const hrvAvgMs = parseHrv(hrv);
+    const sleepDurationMinutes = parseSleepMinutes(sleep);
+
+    if (restingHeartRate !== null) counts.restingHeartRate += 1;
+    if (sleepDurationMinutes !== null) counts.sleep += 1;
+    if (hrvAvgMs !== null) counts.hrv += 1;
+    if (measured !== null) counts.pressure += 1;
+    if (activeCalories !== null) counts.calories += 1;
 
     const saved = saveDailyHealth(db, {
       summaryDate: dayKey,
       restingHeartRate,
-      hrvAvgMs: parseHrv(hrv),
-      sleepDurationMinutes: parseSleepMinutes(sleep),
+      hrvAvgMs,
+      sleepDurationMinutes,
       bloodPressureSystolic: measured?.systolic ?? null,
       bloodPressureDiastolic: measured?.diastolic ?? null,
       activeCalories,
@@ -74,7 +99,7 @@ export async function syncWellness(now: Date = new Date()): Promise<SyncResult> 
 
   const sessions = await measureSessions(from, now);
   setSetting(db, LAST_SYNC_KEY, now.toISOString());
-  return { sessions, days };
+  return { sessions, days, counts };
 }
 
 /**

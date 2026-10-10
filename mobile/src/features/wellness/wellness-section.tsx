@@ -7,6 +7,7 @@ import { Spacing } from '@/constants/theme';
 import { GarminAuthExpired, GarminNotConnectedError } from '@/features/garmin/connect/client';
 import { formatDateTime } from '@/lib/date';
 
+import { describeCounts } from './report';
 import { lastSyncAt, syncWellness, WELLNESS_DAYS } from './sync';
 
 /** Sekcja Ustawień z ręcznym pobraniem danych zdrowotnych z Garmin Connect. */
@@ -23,7 +24,7 @@ export function WellnessSection() {
         'Pobrano',
         result.sessions === 0 && result.days === 0
           ? `Garmin Connect nie zwrócił danych z ostatnich ${WELLNESS_DAYS} dni. Sprawdź, czy zegarek zsynchronizował się z telefonem.`
-          : `Dni z pomiarami: ${result.days}. Treningi z tętnem: ${result.sessions}.`,
+          : `${describeCounts(result.counts, WELLNESS_DAYS)}\n\nTreningi z tętnem: ${result.sessions}.`,
       );
     } catch (e) {
       Alert.alert('Nie udało się pobrać', describe(e));
