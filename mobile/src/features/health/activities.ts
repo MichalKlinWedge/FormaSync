@@ -4,8 +4,8 @@ import { db } from '@/db/client';
 import { attachSession, openTermsOn } from '@/features/calendar/repository';
 import { toDateKey } from '@/lib/date';
 
-import type { ImportCandidate, WatchActivity } from './activities-mapping';
-import { selectImportable, toWatchActivity } from './activities-mapping';
+import type { ImportCandidate, InventoryEntry, WatchActivity } from './activities-mapping';
+import { inventory, selectImportable, toWatchActivity } from './activities-mapping';
 import {
   archiveActivity,
   archivedActivityIds,
@@ -25,13 +25,15 @@ import {
   HISTORY_DAYS,
 } from './sync';
 
-export type { ImportCandidate, SessionWindow, WatchActivity } from './activities-mapping';
+export type { ActivityStatus, ImportCandidate, InventoryEntry, SessionWindow, WatchActivity } from './activities-mapping';
 
 /** Lista aktywności razem z informacją, czy dystans w ogóle mógł dojść. */
 export type WatchActivities = {
   activities: ImportCandidate[];
   /** false, gdy brakuje zgody na odczyt dystansu — wtedy biegi przychodzą bez kilometrów. */
   distanceAvailable: boolean;
+  /** Wszystko, co Health Connect zwrócił w oknie odczytu — także to, co lista pomija. */
+  inventory: InventoryEntry[];
 };
 
 /**
@@ -94,14 +96,13 @@ export async function listWatchActivities(now: Date = new Date()): Promise<Watch
     .map((record) => toWatchActivity(record, samples, calorieBlocks, distanceBlocks))
     .filter((activity): activity is WatchActivity => activity !== null);
 
+  const imported = importedActivityIds(db);
+  const archived = archivedActivityIds(db);
+
   return {
     distanceAvailable,
-    activities: selectImportable(
-      activities,
-      importedActivityIds(db),
-      archivedActivityIds(db),
-      sessionWindows(db, fromIso),
-    ),
+    inventory: inventory(activities, imported, archived),
+    activities: selectImportable(activities, imported, archived, sessionWindows(db, fromIso)),
   };
 }
 

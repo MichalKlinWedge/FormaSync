@@ -4,6 +4,7 @@ import {
   describeRefresh,
   exerciseTypeName,
   findOverlappingSession,
+  inventory,
   selectImportable,
   sportForExerciseType,
   toWatchActivity,
@@ -213,5 +214,47 @@ describe('sportForExerciseType', () => {
     expect(sportForExerciseType(0)).toBe('OTHER');
     expect(sportForExerciseType(83)).toBe('OTHER');
     expect(sportForExerciseType(9999)).toBe('OTHER');
+  });
+});
+
+describe('inventory', () => {
+  const make = (recordId: string, startTime: string): WatchActivity => ({
+    recordId,
+    title: 'Trening',
+    sport: 'OTHER',
+    startTime,
+    endTime: startTime,
+    durationSeconds: 0,
+    distanceMeters: null,
+    avgHeartRate: null,
+    maxHeartRate: null,
+    caloriesBurned: null,
+  });
+
+  it('wymienia także to, co lista do wczytania pomija', () => {
+    // O to w spisie chodzi: brak treningu na liście ma dwie różne przyczyny i trzeba je rozróżnić.
+    const result = inventory(
+      [
+        make('nowy', '2026-10-01T10:00:00.000Z'),
+        make('wczytany', '2026-10-02T10:00:00.000Z'),
+        make('odlozony', '2026-10-03T10:00:00.000Z'),
+      ],
+      new Set(['wczytany']),
+      new Set(['odlozony']),
+    );
+    expect(result.map((item) => [item.recordId, item.status])).toEqual([
+      ['odlozony', 'ARCHIVED'],
+      ['wczytany', 'IMPORTED'],
+      ['nowy', 'NEW'],
+    ]);
+  });
+
+  it('czego Health Connect nie zwrócił, tego nie wymyśla', () => {
+    expect(inventory([], new Set(['wczytany']), new Set())).toEqual([]);
+  });
+
+  it('wczytanie liczy się przed odłożeniem, bo trening jest już w historii', () => {
+    const result = inventory([make('a', '2026-10-01T10:00:00.000Z')], new Set(['a']), new Set(['a']));
+    expect(result[0].status).toBe('IMPORTED');
   });
 });

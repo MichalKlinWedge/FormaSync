@@ -8,7 +8,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 
-import type { ImportCandidate, WatchActivities } from '@/features/health/activities';
+import type { ImportCandidate, InventoryEntry, WatchActivities } from '@/features/health/activities';
 import {
   archiveWatchActivity,
   importWatchActivity,
@@ -28,7 +28,7 @@ import {
   requestDistancePermission,
   requestExercisePermission,
 } from '@/features/health/sync';
-import { describeRefresh } from '@/features/health/activities-mapping';
+import { describeRefresh, STATUS_LABELS } from '@/features/health/activities-mapping';
 import { formatDistance } from '@/features/endurance/format';
 import { SPORT_LABELS } from '@/features/sports/sport';
 import { formatClock } from '@/features/workout/logic';
@@ -48,10 +48,13 @@ export default function ImportActivitiesScreen() {
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [seen, setSeen] = useState<InventoryEntry[]>([]);
+  const [showSeen, setShowSeen] = useState(false);
 
   const apply = (result: WatchActivities) => {
     setActivities(result.activities);
     setDistanceAvailable(result.distanceAvailable);
+    setSeen(result.inventory);
     setProblem(null);
   };
 
@@ -248,6 +251,36 @@ export default function ImportActivitiesScreen() {
             ))}
           </View>
         )}
+
+        {problem === null && seen.length > 0 && (
+          <View style={styles.group}>
+            <Button
+              label={showSeen ? 'Ukryj spis z Health Connect' : `Co odczytano z Health Connect (${seen.length})`}
+              icon="list"
+              variant="secondary"
+              onPress={() => setShowSeen((value) => !value)}
+            />
+            {showSeen && (
+              <ThemedView type="backgroundElement" style={styles.card}>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Wszystko, co Health Connect zwrócił za ostatnie {HISTORY_DAYS} dni — razem z tym, co
+                  lista wyżej pomija. Czego nie ma w tym spisie, tego Garmin Connect nie zapisał do
+                  Health Connect i aplikacja nie ma tego skąd wziąć.
+                </ThemedText>
+                {seen.map((item) => (
+                  <View key={item.recordId} style={styles.row}>
+                    <ThemedText type="small" style={styles.rowText}>
+                      {formatDateTime(item.startTime)} · {item.title}
+                    </ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {STATUS_LABELS[item.status]}
+                    </ThemedText>
+                  </View>
+                ))}
+              </ThemedView>
+            )}
+          </View>
+        )}
       </ScrollView>
     </ThemedView>
   );
@@ -391,4 +424,6 @@ const styles = StyleSheet.create({
   busy: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   group: { gap: Spacing.two },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  rowText: { flex: 1 },
 });

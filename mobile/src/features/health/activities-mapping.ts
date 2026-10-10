@@ -170,3 +170,51 @@ export function selectImportable(
     .sort((a, b) => Date.parse(b.startTime) - Date.parse(a.startTime))
     .map((activity) => ({ ...activity, matchingSession: findOverlappingSession(activity, sessions) }));
 }
+
+/**
+ * Dlaczego aktywności nie ma na liście do wczytania: jest nowa, już trafiła do historii
+ * albo została odłożona.
+ */
+export type ActivityStatus = 'NEW' | 'IMPORTED' | 'ARCHIVED';
+
+/** Jedna pozycja spisu tego, co Health Connect naprawdę zwrócił. */
+export type InventoryEntry = {
+  recordId: string;
+  title: string;
+  startTime: string;
+  status: ActivityStatus;
+};
+
+/**
+ * Spis wszystkiego, co przyszło z Health Connect w oknie odczytu — razem z tym, co lista
+ * do wczytania pomija. Bez niego brak treningu znaczy jednocześnie dwie różne rzeczy:
+ * że Garmin go tam nie zapisał albo że jest, ale aplikacja go ukrywa. Pierwszego nie naprawi
+ * nic po naszej stronie, drugie naprawia jedno dotknięcie, więc trzeba je dać rozróżnić.
+ */
+export function inventory(
+  activities: WatchActivity[],
+  imported: Set<string>,
+  archived: Set<string>,
+): InventoryEntry[] {
+  return activities
+    .map(({ recordId, title, startTime }) => ({
+      recordId,
+      title,
+      startTime,
+      status: statusOf(recordId, imported, archived),
+    }))
+    .sort((a, b) => Date.parse(b.startTime) - Date.parse(a.startTime));
+}
+
+const statusOf = (recordId: string, imported: Set<string>, archived: Set<string>): ActivityStatus => {
+  if (imported.has(recordId)) return 'IMPORTED';
+  if (archived.has(recordId)) return 'ARCHIVED';
+  return 'NEW';
+};
+
+/** Podpis statusu na spisie. */
+export const STATUS_LABELS: Record<ActivityStatus, string> = {
+  NEW: 'Do wczytania',
+  IMPORTED: 'W historii',
+  ARCHIVED: 'Odłożony',
+};
