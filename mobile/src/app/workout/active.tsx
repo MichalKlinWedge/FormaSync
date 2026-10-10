@@ -51,7 +51,13 @@ import { useSession } from '@/features/workout/use-session';
 import { useNow } from '@/hooks/use-now';
 import { useTheme } from '@/hooks/use-theme';
 
-const EXTEND_SECONDS = 30;
+const EXTEND_SECONDS = 15;
+
+/**
+ * Przezroczystość tła pasków fazy. Dopisana do koloru z motywu daje delikatne tło, które działa
+ * i na białym, i na czarnym — bez drugiego zestawu kolorów w palecie.
+ */
+const TINT = '1F';
 
 /** Ręczna korekta bieżącej przerwy. Wiązana z konkretną przerwą przez jej pierwotny koniec. */
 type RestOverride = { baseEndsAt: number; delta: number | 'skip' };
@@ -110,6 +116,9 @@ export default function ActiveWorkoutScreen() {
     timed === null
       ? null
       : (session?.exercises.find((e) => e.sets.some((set) => set.id === timed.setId))?.name ?? null);
+
+  /** Przerwa albo praca; seria na czas jest pracą, więc bierze górę nad odliczaniem przerwy. */
+  const resting = restActive && timed === null;
 
   /**
    * Jedno odliczanie naraz. Seria na czas ma pierwszeństwo: jeśli trwa, to znaczy, że przerwa
@@ -217,6 +226,12 @@ export default function ActiveWorkoutScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        {/*
+          Z drugiego końca pokoju nie widać cyfr, więc fazę treningu niesie kolor: zielony pasek
+          pod nagłówkiem znaczy „pracuj”, niebieski — „odpoczywaj”. Napisy w licznikach zostają,
+          bo sam kolor nie wystarczy przy wadzie wzroku.
+        */}
+        <View style={[styles.phaseBar, { backgroundColor: resting ? theme.chart1 : theme.success }]} />
         <View style={styles.header}>
           <View style={styles.headerText}>
             <ThemedText type="smallBold" numberOfLines={1}>
@@ -235,9 +250,9 @@ export default function ActiveWorkoutScreen() {
         </View>
 
         {timed && (
-          <ThemedView type="backgroundSelected" style={styles.rest}>
+          <View style={[styles.rest, { backgroundColor: theme.success + TINT, borderLeftColor: theme.success }]}>
             <View style={styles.restText}>
-              <ThemedText type="smallBold" themeColor="textSecondary" numberOfLines={1}>
+              <ThemedText type="smallBold" style={{ color: theme.success }} numberOfLines={1}>
                 SERIA · {timedName ?? 'na czas'}
               </ThemedText>
               {/*
@@ -262,13 +277,13 @@ export default function ActiveWorkoutScreen() {
                 Odrzuć
               </ThemedText>
             </Pressable>
-          </ThemedView>
+          </View>
         )}
 
         {rest && !timed && (
-          <ThemedView type="backgroundSelected" style={styles.rest}>
+          <View style={[styles.rest, { backgroundColor: theme.chart1 + TINT, borderLeftColor: theme.chart1 }]}>
             <View style={styles.restText}>
-              <ThemedText type="smallBold" themeColor="textSecondary" numberOfLines={1}>
+              <ThemedText type="smallBold" style={{ color: theme.chart1 }} numberOfLines={1}>
                 PRZERWA · {rest.exerciseName}
               </ThemedText>
               <ThemedText type="subtitle">{formatClock(rest.remainingSeconds)}</ThemedText>
@@ -283,7 +298,7 @@ export default function ActiveWorkoutScreen() {
                 Pomiń
               </ThemedText>
             </Pressable>
-          </ThemedView>
+          </View>
         )}
 
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -371,6 +386,7 @@ const styles = StyleSheet.create({
   },
   headerText: { flex: 1 },
   clock: { fontSize: 40, lineHeight: 46 },
+  phaseBar: { height: 8 },
   rest: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -378,6 +394,7 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.four,
     marginTop: Spacing.two,
     borderRadius: 14,
+    borderLeftWidth: 6,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
   },
