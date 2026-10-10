@@ -11,6 +11,7 @@ import { seedDatabase } from '@/db/seed';
 import { backUpInBackground } from '@/features/backup/remote-backup';
 import { syncWorkoutReminders } from '@/features/calendar/reminders';
 import { usePoolStore } from '@/features/endurance/pool-store';
+import { syncHydrationReminders } from '@/features/hydration/reminders';
 import { useSportStore } from '@/features/sports/sport-store';
 import migrations from '../../drizzle/migrations';
 
@@ -26,6 +27,9 @@ function initDatabase() {
     // Android kasuje zaplanowane alarmy przy aktualizacji aplikacji — odtwarzamy je przy starcie.
     // Ewentualny błąd powiadomień nie może zablokować uruchomienia aplikacji.
     void syncWorkoutReminders().catch(() => {});
+    // Przypomnienia o piciu planujemy od nowa także tutaj: kreska „ile już powinno być wypite”
+    // przesuwa się z godziną, a alarmów nie da się uzależnić od warunku po ich ustawieniu.
+    void syncHydrationReminders().catch(() => {});
     // Kopia na serwer raz na dobę. Idzie w tle i po cichu: szyfrowanie trwa chwilę, a brak
     // internetu przy starcie to rzecz zwyczajna, nie powód do komunikatu. O nieudanych kopiach
     // mówi data ostatniej udanej w Ustawieniach, która przestaje się zmieniać.

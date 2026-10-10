@@ -31,6 +31,8 @@ const TABLES = [
   schema.garminActivityMetrics,
   schema.garminDailyHealth,
   schema.bodyMeasurements,
+  schema.hydrationLogs,
+  schema.hydrationDays,
   schema.archivedActivities,
   // Pamięć seeda jedzie razem z danymi — inaczej po przywróceniu kopii wróciłyby szablony,
   // które użytkownik wcześniej usunął.

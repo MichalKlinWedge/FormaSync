@@ -9,6 +9,7 @@ import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
 import { useScheduledRange } from '@/features/calendar/use-calendar';
+import { HydrationCard } from '@/features/hydration/hydration-card';
 import { usePlanList } from '@/features/plans/use-plans';
 import { SportSwitcher } from '@/features/sports/sport-switcher';
 import { useActiveSport } from '@/features/sports/sport-store';
@@ -63,6 +64,8 @@ export default function TodayScreen() {
           </View>
 
           <SportSwitcher />
+
+          <HydrationCard />
 
           {active ? (
             <Pressable

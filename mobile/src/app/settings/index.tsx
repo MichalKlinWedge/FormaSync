@@ -153,6 +153,22 @@ export default function SettingsScreen() {
           )}
         </View>
 
+        <View style={styles.section}>
+          <ThemedText type="smallBold" themeColor="textSecondary">
+            NAWODNIENIE
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Cel dnia liczony z masy ciała i dzisiejszego treningu, a przypomnienia tylko wtedy, gdy
+            jesteś poniżej kreski na daną godzinę.
+          </ThemedText>
+          <Button
+            label="Pilnowanie nawodnienia"
+            icon="water_drop"
+            variant="secondary"
+            onPress={() => router.push('/hydration/settings')}
+          />
+        </View>
+
         <RemoteBackupSection />
 
         <WellnessSection />

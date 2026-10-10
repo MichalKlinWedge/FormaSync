@@ -385,3 +385,37 @@ export const appSettings = sqliteTable('app_settings', {
   key: text('key').primaryKey(),
   value: text('value'),
 });
+
+// --- 7. Nawodnienie ---
+
+export const hydrationSources = ['APP', 'GARMIN'] as const;
+export type HydrationSource = (typeof hydrationSources)[number];
+
+/**
+ * Wypite porcje — wiersz na każdą, a nie licznik dzienny. Dzięki temu da się pokazać oś czasu
+ * dnia i cofnąć pomyłkę, a tygodniowe słupki wychodzą ze zwykłego sumowania.
+ *
+ * Dzień trzymamy osobno od znacznika czasu, bo doba wodna to doba lokalna, nie UTC: licząc ją
+ * za każdym razem z `logged_at`, szklanka wypita o 23:30 wpadałaby do jutra.
+ */
+export const hydrationLogs = sqliteTable(
+  'hydration_logs',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    loggedAt: text('logged_at').notNull(),
+    dayKey: text('day_key').notNull(), // YYYY-MM-DD
+    milliliters: integer('milliliters').notNull(),
+    source: text('source', { enum: hydrationSources }).notNull().default('APP'),
+  },
+  (t) => [index('hydration_logs_day_idx').on(t.dayKey)],
+);
+
+/**
+ * Dzienna korekta celu — upał, sauna, długi lot. Leży tu wyłącznie to, co użytkownik sam dołożył:
+ * wypite mililitry liczymy z logu, a cel z masy ciała i treningu, więc nie ma tu nic, co dałoby
+ * się wyliczyć skądinąd i z czasem rozjechać.
+ */
+export const hydrationDays = sqliteTable('hydration_days', {
+  dayKey: text('day_key').primaryKey(), // YYYY-MM-DD
+  extraMl: integer('extra_ml').notNull().default(0),
+});
