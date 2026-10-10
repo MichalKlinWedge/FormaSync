@@ -2,13 +2,18 @@ import { and, asc, desc, eq, isNull, ne } from 'drizzle-orm';
 
 import * as schema from '@/db/schema';
 import type { SyncDb } from '@/db/types';
-import { scheduleWorkouts } from '@/features/calendar/repository';
+import {
+  ScheduleConflictError,
+  scheduleWorkouts,
+  updateScheduled,
+} from '@/features/calendar/repository';
 import { saveEndurancePlan } from '@/features/endurance/repository';
 import { todayKey } from '@/lib/date';
 
 import { serializeWeekDays } from './brief';
 import { draftFor } from './materialize';
 import type { PlannedWeek } from './planner';
+import { shiftToDays } from './reschedule';
 
 /**
  * Cele i ich plany. Plan zapisujemy w całości naraz i trzymamy osobno od kalendarza, żeby dało
@@ -206,6 +211,120 @@ export function materializeGoal(db: SyncDb, goalId: number, options: Materialize
   }
 
   return written;
+}
+
+export type MovedTerm = {
+  scheduledId: number;
+  planId: number;
+  /** Numer wpisu w kalendarzu Garmina; null, gdy termin tam nie trafił. */
+  garminScheduleId: string | null;
+  from: string;
+  to: string;
+};
+
+export type GoalShift = {
+  moved: number;
+  /** Jednostki z przyszłości, które zostały na swoim dniu — zabrakło dla nich miejsca. */
+  frozen: number;
+  /** Jednostki z przeszłości i sam start: tych nie ruszamy nigdy. */
+  anchored: number;
+  /** Terminy w kalendarzu, które poszły za planem — po nich poznajemy, co poprawić u Garmina. */
+  terms: MovedTerm[];
+};
+
+/**
+ * Przestawia gotowy plan na inne dni tygodnia. Układ zostaje: te same jednostki, te same
+ * objętości i te same tygodnie — zmieniają się wyłącznie daty, a za nimi terminy w kalendarzu.
+ *
+ * Dni zapisujemy też na samym celu, żeby kolejne przeliczenie planu nie wróciło do tych, które
+ * okazały się pomyłką.
+ */
+export function moveGoalDays(
+  db: SyncDb,
+  goalId: number,
+  weekDays: number[],
+  from: string = todayKey(),
+): GoalShift {
+  const days = [...new Set(weekDays)].sort((a, b) => a - b);
+  if (days.length === 0) {
+    throw new GoalValidationError('Wybierz przynajmniej jeden dzień tygodnia na treningi.');
+  }
+
+  const workouts = goalPlan(db, goalId);
+  const shift = shiftToDays(workouts, days, from);
+  const byId = new Map(workouts.map((workout) => [workout.id, workout]));
+
+  let moved = 0;
+  let frozen = shift.frozen;
+  const terms: MovedTerm[] = [];
+
+  for (const move of shift.moves) {
+    const workout = byId.get(move.id);
+    if (workout === undefined) continue;
+
+    if (workout.scheduledId !== null) {
+      const entry = db
+        .select({
+          planId: schema.scheduledWorkouts.planId,
+          scheduledTime: schema.scheduledWorkouts.scheduledTime,
+          reminderOffsetMinutes: schema.scheduledWorkouts.reminderOffsetMinutes,
+          isCompleted: schema.scheduledWorkouts.isCompleted,
+          garminScheduleId: schema.scheduledWorkouts.garminScheduleId,
+        })
+        .from(schema.scheduledWorkouts)
+        .where(eq(schema.scheduledWorkouts.id, workout.scheduledId))
+        .get();
+
+      // Termin odhaczony jako zrobiony zostaje na dniu, w którym się odbył.
+      if (entry === undefined || entry.isCompleted) {
+        frozen += 1;
+        continue;
+      }
+
+      try {
+        updateScheduled(db, workout.scheduledId, {
+          scheduledDate: move.to,
+          scheduledTime: entry.scheduledTime,
+          reminderOffsetMinutes: entry.reminderOffsetMinutes,
+        });
+      } catch (error) {
+        // Dzień zajęty przez ten sam plan: zostawiamy jednostkę, zamiast zlewać dwa terminy.
+        if (error instanceof ScheduleConflictError) {
+          frozen += 1;
+          continue;
+        }
+        throw error;
+      }
+
+      terms.push({
+        scheduledId: workout.scheduledId,
+        planId: entry.planId,
+        garminScheduleId: entry.garminScheduleId,
+        from: move.from,
+        to: move.to,
+      });
+    }
+
+    db.update(schema.goalWorkouts)
+      .set({ plannedDate: move.to })
+      .where(eq(schema.goalWorkouts.id, move.id))
+      .run();
+    moved += 1;
+  }
+
+  db.update(schema.trainingGoals)
+    .set({ weekDays: serializeWeekDays(days) })
+    .where(eq(schema.trainingGoals.id, goalId))
+    .run();
+
+  return {
+    moved,
+    frozen,
+    anchored: workouts.filter(
+      (workout) => workout.kind === 'RACE' || workout.plannedDate < from,
+    ).length,
+    terms,
+  };
 }
 
 export type GoalProgress = {

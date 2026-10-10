@@ -12,13 +12,23 @@ import { syncWorkoutReminders } from '@/features/calendar/reminders';
 import { formatDistance, formatPace, formatSeconds } from '@/features/endurance/format';
 import { GeminiError, NoApiKeyError, planWithGemini, PlanReplyError } from '@/features/goals/ai/gemini';
 import { hasConsent, setConsent } from '@/features/goals/ai/tokens';
-import { buildBrief, currentForm } from '@/features/goals/brief';
+import { buildBrief, currentForm, parseWeekDays } from '@/features/goals/brief';
 import { planGoal } from '@/features/goals/planner';
-import { deleteGoal, materializeGoal, savePlan, setGoalStatus } from '@/features/goals/repository';
+import {
+  deleteGoal,
+  GoalValidationError,
+  materializeGoal,
+  moveGoalDays,
+  savePlan,
+  setGoalStatus,
+  type MovedTerm,
+} from '@/features/goals/repository';
 import { KIND_LABELS, PHASE_LABELS } from '@/features/goals/shapes';
+import { toggleValue } from '@/features/exercises/filter';
+import { moveGarminSchedule } from '@/features/garmin/connect/move-schedule';
 import { useGoal, weeksLeft } from '@/features/goals/use-goals';
 import { SPORT_LABELS } from '@/features/sports/sport';
-import { formatDate, todayKey } from '@/lib/date';
+import { formatDate, todayKey, WEEKDAYS_LONG, WEEKDAYS_SHORT } from '@/lib/date';
 import { pluralWith } from '@/lib/number';
 
 const REMINDERS: { label: string; minutes: number | null }[] = [
@@ -37,6 +47,7 @@ export default function GoalScreen() {
   const [time, setTime] = useState<string | null>('07:00');
   const [reminder, setReminder] = useState<number | null>(60);
   const [asking, setAsking] = useState(false);
+  const [days, setDays] = useState<number[]>(() => parseWeekDays(goal?.weekDays ?? ''));
 
   if (goal === null) {
     return (
@@ -134,6 +145,53 @@ export default function GoalScreen() {
     );
   };
 
+  /**
+   * Przestawienie gotowego planu na inne dni. Osobno od przeliczenia, bo to inna potrzeba:
+   * pomyłka przy wyborze dni nie znaczy, że plan jest zły — znaczy, że stoi w złych kratkach.
+   */
+  const shiftDays = () => {
+    const chosen = [...days].sort((a, b) => a - b);
+    Alert.alert(
+      'Przesunąć plan?',
+      `Jednostki z przyszłości przejdą na: ${chosen.map((day) => WEEKDAYS_LONG[day]).join(', ')}. Przeszłość i dzień zawodów zostają na swoim miejscu.`,
+      [
+        { text: 'Anuluj', style: 'cancel' },
+        { text: 'Przesuń', onPress: applyDays },
+      ],
+    );
+  };
+
+  const applyDays = () => {
+    let shift;
+    try {
+      shift = moveGoalDays(db, goalId, days);
+    } catch (e) {
+      Alert.alert(
+        'Nie udało się',
+        e instanceof GoalValidationError ? e.message : 'Nieznany błąd.',
+      );
+      return;
+    }
+
+    void syncWorkoutReminders();
+    void moveGarminTerms(shift.terms);
+    Alert.alert(
+      shift.moved === 0 ? 'Nic się nie zmieniło' : 'Przesunięte',
+      [
+        shift.moved === 0
+          ? 'Plan stoi już na tych dniach.'
+          : `Przesunięte jednostki: ${shift.moved}.`,
+        shift.terms.length === 0 ? null : `W tym terminów w kalendarzu: ${shift.terms.length}.`,
+        shift.frozen === 0
+          ? null
+          : `Zostało na miejscu: ${shift.frozen} — w tych tygodniach zabrakło wolnego dnia.`,
+        shift.anchored === 0 ? null : `Nietknięte: ${shift.anchored} (przeszłość i sam start).`,
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    );
+  };
+
   const remove = () =>
     Alert.alert('Usunąć cel?', 'Plan zniknie. Terminy już wpisane do kalendarza zostaną.', [
       { text: 'Anuluj', style: 'cancel' },
@@ -223,6 +281,36 @@ export default function GoalScreen() {
         {workouts.length > 0 && (
           <View style={styles.section}>
             <ThemedText type="smallBold" themeColor="textSecondary">
+              DNI TRENINGOWE
+            </ThemedText>
+            <View style={styles.chips}>
+              {WEEKDAYS_SHORT.map((label, day) => (
+                <Chip
+                  key={label}
+                  label={label}
+                  selected={days.includes(day)}
+                  onPress={() => setDays(toggleValue(days, day))}
+                />
+              ))}
+            </View>
+            <Button
+              label="Przesuń plan na te dni"
+              icon="event_repeat"
+              variant="secondary"
+              onPress={shiftDays}
+              disabled={days.length === 0}
+            />
+            <ThemedText type="small" themeColor="textSecondary">
+              Przesunięcie zostawia plan taki, jaki jest — te same jednostki i objętości, tylko
+              w innych kratkach tygodnia. Kolejność zostaje, więc długie wybieganie ląduje na
+              ostatnim zaznaczonym dniu. Terminy już wpisane do kalendarza idą razem z nim.
+            </ThemedText>
+          </View>
+        )}
+
+        {workouts.length > 0 && (
+          <View style={styles.section}>
+            <ThemedText type="smallBold" themeColor="textSecondary">
               GODZINA I PRZYPOMNIENIE
             </ThemedText>
             <View style={styles.chips}>
@@ -303,6 +391,36 @@ export default function GoalScreen() {
       </ScrollView>
     </ThemedView>
   );
+}
+
+/**
+ * Przeniesienie wpisów w kalendarzu Garmina za przesuniętymi terminami. Idzie w tle i po kolei:
+ * każdy wpis to u Garmina zdjęcie i założenie od nowa, więc hurtem nie ma jak.
+ */
+async function moveGarminTerms(terms: MovedTerm[]): Promise<void> {
+  const pending = terms.filter((term) => term.garminScheduleId !== null);
+  if (pending.length === 0) return;
+
+  let left = 0;
+  for (const term of pending) {
+    const outcome = await moveGarminSchedule({
+      scheduledId: term.scheduledId,
+      planId: term.planId,
+      scheduleId: term.garminScheduleId as string,
+      fromDate: term.from,
+      toDate: term.to,
+    });
+    // Konto odłączone: dalsze próby i tak nic nie dadzą, a każda to osobne zapytanie.
+    if (outcome.kind === 'NOT_CONNECTED') return;
+    if (outcome.kind !== 'MOVED') left += 1;
+  }
+
+  if (left > 0) {
+    Alert.alert(
+      'Kalendarz Garmina niepełny',
+      `W telefonie plan stoi na nowych dniach, ale u Garmina ${left} wpisów nie dało się przenieść. Popraw je w szczegółach terminu albo wyślij plan do Garmina jeszcze raz.`,
+    );
+  }
 }
 
 /** Błąd modelu po ludzku. Odczyt planu odróżniamy od awarii sieci, bo rada jest inna. */
