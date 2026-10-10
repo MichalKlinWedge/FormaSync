@@ -1,5 +1,5 @@
 import type { GoalWorkoutKind } from '@/db/schema';
-import { addDays, startOfWeek } from '@/lib/date';
+import { addDays, startOfWeek, weekdayIndex } from '@/lib/date';
 
 /**
  * Przesunięcie gotowego planu na inne dni tygodnia.
@@ -8,13 +8,15 @@ import { addDays, startOfWeek } from '@/lib/date';
  * od nowa jest na to młotem: zmienia objętości, rodzaje jednostek i wszystko, co zdążyłeś
  * obejrzeć. Tutaj zostaje układ planu, zmieniają się same daty.
  *
- * Reguły, które z tego wynikają:
+ * Przesunięcie opisujemy wprost: z którego dnia na który. Zbiór dni sam w sobie by nie wystarczył
+ * — przy trzech jednostkach i trzech dniach trzeba jeszcze wiedzieć, która gdzie idzie, a każda
+ * reguła zgadywania tego za użytkownika jest regułą, której nie widać na ekranie.
+ *
+ * Reguły, które zostają:
  * — przeszłość zostaje nietknięta; trening, który się odbył albo przepadł, to już nie plan,
  * — dzień zawodów nie jest dniem treningowym i nie przesuwa się nigdy,
- * — kolejność w tygodniu zostaje zachowana, licząc od końca: jednostka, która była ostatnia,
- *   ląduje na ostatnim wybranym dniu. Długie wybiegania zostają więc tam, gdzie był na nie czas,
- * — jednostka, dla której w tygodniu zabrakło dnia, zostaje na swoim miejscu, zamiast wchodzić
- *   na cudzy dzień. Lepiej zostawić ślad pomyłki widoczny, niż zlać dwa treningi w jeden.
+ * — jednostka, dla której dzień docelowy jest zajęty albo już minął, zostaje na swoim miejscu.
+ *   Widoczny ślad pomyłki jest lepszy niż dwa treningi zlane w jeden.
  */
 
 export type PlannedDay = {
@@ -27,71 +29,67 @@ export type DayMove = { id: number; from: string; to: string };
 
 export type DayShift = {
   moves: DayMove[];
-  /** Jednostki z przyszłości, które zostają tam, gdzie były — zabrakło dla nich dnia. */
+  /** Jednostki z przyszłości, które zostają tam, gdzie były — dzień docelowy był zajęty. */
   frozen: number;
 };
 
-/**
- * Łączy jednostki z wolnymi dniami w jednym kawałku tygodnia. Zwraca, ile zostało na miejscu.
- * Parujemy od końca, a zostają te najwcześniejsze: tydzień kończy się długą jednostką i to ona
- * ma trafić na dzień, na którym Ci zależy.
- */
-function pair(movers: PlannedDay[], open: string[], moves: DayMove[]): number {
-  const queue = [...movers];
-  let free = [...open];
-  let stayed = 0;
-
-  while (queue.length > free.length && queue.length > 0) {
-    const staying = queue.shift() as PlannedDay;
-    stayed += 1;
-    // Dzień, na którym została, przestaje być wolny — inaczej wskoczyłaby na nią następna.
-    free = free.filter((date) => date !== staying.plannedDate);
-  }
-
-  const chosen = free.slice(free.length - queue.length);
-  queue.forEach((workout, index) => {
-    if (chosen[index] !== workout.plannedDate) {
-      moves.push({ id: workout.id, from: workout.plannedDate, to: chosen[index] });
-    }
-  });
-  return stayed;
-}
+/** Przesunięcie: z dnia tygodnia na dzień tygodnia, 0 = poniedziałek. */
+export type DayMap = Record<number, number>;
 
 /** Daty, które się nie ruszają: zawody i wszystko, co już minęło. */
 const anchored = (workout: PlannedDay, from: string): boolean =>
   workout.kind === 'RACE' || workout.plannedDate < from;
 
-export function shiftToDays(workouts: PlannedDay[], weekDays: number[], from: string): DayShift {
-  const days = [...new Set(weekDays)]
-    .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6)
-    .sort((a, b) => a - b);
+/**
+ * Dni tygodnia, na których stoi plan — licząc tylko to, co jeszcze przed Tobą. To od nich zaczyna
+ * się przesunięcie: ekran ma pokazać stan faktyczny planu, a nie dni zapisane kiedyś przy celu.
+ */
+export function planDays(workouts: PlannedDay[], from: string): number[] {
+  return [
+    ...new Set(
+      workouts
+        .filter((workout) => !anchored(workout, from))
+        .map((workout) => weekdayIndex(workout.plannedDate)),
+    ),
+  ].sort((a, b) => a - b);
+}
 
-  const movable = workouts.filter((workout) => !anchored(workout, from));
-  if (days.length === 0) return { moves: [], frozen: movable.length };
+export function shiftByDays(workouts: PlannedDay[], map: DayMap, from: string): DayShift {
+  const movable = workouts
+    .filter((workout) => !anchored(workout, from))
+    .sort((a, b) => a.plannedDate.localeCompare(b.plannedDate));
 
-  const anchors = workouts.filter((workout) => anchored(workout, from)).map((w) => w.plannedDate);
+  // Dni zajęte przez to, co się nie rusza. Jednostka nie ma prawa wejść na zawody ani na kolegę.
+  const taken = new Set(
+    workouts.filter((workout) => anchored(workout, from)).map((workout) => workout.plannedDate),
+  );
+
+  const wanted = movable.map((workout) => {
+    const target = map[weekdayIndex(workout.plannedDate)];
+    if (target === undefined) return workout.plannedDate;
+    return addDays(startOfWeek(workout.plannedDate), target);
+  });
+
+  // Najpierw dni tych, które zostają: inaczej następna jednostka weszłaby na zajęte miejsce.
+  movable.forEach((workout, index) => {
+    if (wanted[index] === workout.plannedDate || wanted[index] < from) taken.add(workout.plannedDate);
+  });
+
   const moves: DayMove[] = [];
   let frozen = 0;
 
-  for (const weekStart of [...new Set(movable.map((w) => startOfWeek(w.plannedDate)))].sort()) {
-    const inWeek = movable
-      .filter((workout) => startOfWeek(workout.plannedDate) === weekStart)
-      .sort((a, b) => a.plannedDate.localeCompare(b.plannedDate));
-    const bounds = anchors.filter((date) => startOfWeek(date) === weekStart);
-    const slots = days
-      .map((day) => addDays(weekStart, day))
-      .filter((date) => date >= from && !bounds.includes(date));
-
-    // Dzień zawodów dzieli tydzień: rozruch sprzed startu nie ma prawa wylądować po nim.
-    const part = (date: string): number => bounds.filter((bound) => bound < date).length;
-    for (let index = 0; index <= bounds.length; index += 1) {
-      frozen += pair(
-        inWeek.filter((workout) => part(workout.plannedDate) === index),
-        slots.filter((date) => part(date) === index),
-        moves,
-      );
+  movable.forEach((workout, index) => {
+    const to = wanted[index];
+    if (to === workout.plannedDate) return;
+    // Dzień docelowy w tym tygodniu już minął albo jest zajęty — zostawiamy jednostkę na miejscu.
+    if (to < from || taken.has(to)) {
+      frozen += 1;
+      taken.add(workout.plannedDate);
+      return;
     }
-  }
+    taken.add(to);
+    moves.push({ id: workout.id, from: workout.plannedDate, to });
+  });
 
   return { moves, frozen };
 }

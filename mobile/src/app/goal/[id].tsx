@@ -12,7 +12,7 @@ import { syncWorkoutReminders } from '@/features/calendar/reminders';
 import { formatDistance, formatPace, formatSeconds } from '@/features/endurance/format';
 import { GeminiError, NoApiKeyError, planWithGemini, PlanReplyError } from '@/features/goals/ai/gemini';
 import { hasConsent, setConsent } from '@/features/goals/ai/tokens';
-import { buildBrief, currentForm, parseWeekDays } from '@/features/goals/brief';
+import { buildBrief, currentForm } from '@/features/goals/brief';
 import { planGoal } from '@/features/goals/planner';
 import {
   deleteGoal,
@@ -23,12 +23,12 @@ import {
   setGoalStatus,
   type MovedTerm,
 } from '@/features/goals/repository';
+import { planDays } from '@/features/goals/reschedule';
 import { KIND_LABELS, PHASE_LABELS } from '@/features/goals/shapes';
-import { toggleValue } from '@/features/exercises/filter';
 import { moveGarminSchedule } from '@/features/garmin/connect/move-schedule';
 import { useGoal, weeksLeft } from '@/features/goals/use-goals';
 import { SPORT_LABELS } from '@/features/sports/sport';
-import { formatDate, todayKey, WEEKDAYS_LONG, WEEKDAYS_SHORT } from '@/lib/date';
+import { formatDate, todayKey, weekdayIndex, WEEKDAYS_LONG, WEEKDAYS_SHORT } from '@/lib/date';
 import { pluralWith } from '@/lib/number';
 
 const REMINDERS: { label: string; minutes: number | null }[] = [
@@ -47,7 +47,9 @@ export default function GoalScreen() {
   const [time, setTime] = useState<string | null>('07:00');
   const [reminder, setReminder] = useState<number | null>(60);
   const [asking, setAsking] = useState(false);
-  const [days, setDays] = useState<number[]>(() => parseWeekDays(goal?.weekDays ?? ''));
+  // Wybór dni trzymamy jako odstępstwa od stanu planu: po przesunięciu ekran wraca do tego,
+  // co faktycznie stoi w kalendarzu, zamiast pokazywać poprzedni wybór.
+  const [picked, setPicked] = useState<Record<number, number>>({});
 
   if (goal === null) {
     return (
@@ -60,6 +62,12 @@ export default function GoalScreen() {
   }
 
   const left = weeksLeft(goal);
+
+  const standing = planDays(workouts, todayKey());
+  const target = (day: number): number => picked[day] ?? day;
+  const mapping = Object.fromEntries(standing.map((day) => [day, target(day)]));
+  const moved = standing.some((day) => target(day) !== day);
+  const clash = new Set(standing.map(target)).size !== standing.length;
 
   const plan = () => {
     const weeks = planGoal(buildBrief(db, goal), todayKey());
@@ -150,10 +158,13 @@ export default function GoalScreen() {
    * pomyłka przy wyborze dni nie znaczy, że plan jest zły — znaczy, że stoi w złych kratkach.
    */
   const shiftDays = () => {
-    const chosen = [...days].sort((a, b) => a - b);
+    const described = standing
+      .filter((day) => target(day) !== day)
+      .map((day) => `${WEEKDAYS_LONG[day]} → ${WEEKDAYS_LONG[target(day)]}`)
+      .join('\n');
     Alert.alert(
       'Przesunąć plan?',
-      `Jednostki z przyszłości przejdą na: ${chosen.map((day) => WEEKDAYS_LONG[day]).join(', ')}. Przeszłość i dzień zawodów zostają na swoim miejscu.`,
+      `${described}\n\nPrzeszłość i dzień zawodów zostają na swoim miejscu.`,
       [
         { text: 'Anuluj', style: 'cancel' },
         { text: 'Przesuń', onPress: applyDays },
@@ -164,7 +175,7 @@ export default function GoalScreen() {
   const applyDays = () => {
     let shift;
     try {
-      shift = moveGoalDays(db, goalId, days);
+      shift = moveGoalDays(db, goalId, mapping);
     } catch (e) {
       Alert.alert(
         'Nie udało się',
@@ -175,6 +186,7 @@ export default function GoalScreen() {
 
     void syncWorkoutReminders();
     void moveGarminTerms(shift.terms);
+    setPicked({});
     Alert.alert(
       shift.moved === 0 ? 'Nic się nie zmieniło' : 'Przesunięte',
       [
@@ -283,27 +295,44 @@ export default function GoalScreen() {
             <ThemedText type="smallBold" themeColor="textSecondary">
               DNI TRENINGOWE
             </ThemedText>
-            <View style={styles.chips}>
-              {WEEKDAYS_SHORT.map((label, day) => (
-                <Chip
-                  key={label}
-                  label={label}
-                  selected={days.includes(day)}
-                  onPress={() => setDays(toggleValue(days, day))}
-                />
-              ))}
-            </View>
+            <ThemedText type="small" themeColor="textSecondary">
+              {standing.length === 0
+                ? 'Przed Tobą nie ma już jednostek do przesunięcia.'
+                : `Plan stoi teraz na: ${standing.map((day) => WEEKDAYS_LONG[day]).join(', ')}. Wskaż przy każdym dniu ten, na który ma przejść.`}
+            </ThemedText>
+            {standing.map((day) => (
+              <View key={day} style={styles.section}>
+                <ThemedText type="small">
+                  {`${WEEKDAYS_LONG[day]} → ${WEEKDAYS_LONG[target(day)]}`}
+                </ThemedText>
+                <View style={styles.chips}>
+                  {WEEKDAYS_SHORT.map((label, option) => (
+                    <Chip
+                      key={label}
+                      label={label}
+                      selected={target(day) === option}
+                      onPress={() => setPicked({ ...picked, [day]: option })}
+                    />
+                  ))}
+                </View>
+              </View>
+            ))}
+            {clash && (
+              <ThemedText type="small" themeColor="textSecondary">
+                Dwa dni planu trafiłyby na ten sam dzień tygodnia — popraw wybór.
+              </ThemedText>
+            )}
             <Button
-              label="Przesuń plan na te dni"
+              label="Przesuń plan"
               icon="event_repeat"
               variant="secondary"
               onPress={shiftDays}
-              disabled={days.length === 0}
+              disabled={!moved || clash}
             />
             <ThemedText type="small" themeColor="textSecondary">
               Przesunięcie zostawia plan taki, jaki jest — te same jednostki i objętości, tylko
-              w innych kratkach tygodnia. Kolejność zostaje, więc długie wybieganie ląduje na
-              ostatnim zaznaczonym dniu. Terminy już wpisane do kalendarza idą razem z nim.
+              w innych kratkach tygodnia. Terminy już wpisane do kalendarza idą razem z nim.
+              Przeszłość i dzień zawodów zostają nietknięte.
             </ThemedText>
           </View>
         )}
@@ -344,7 +373,7 @@ export default function GoalScreen() {
               {inWeek.map((workout) => (
                 <View key={workout.id} style={styles.workout}>
                   <ThemedText type="small" themeColor="textSecondary" style={styles.date}>
-                    {formatDate(workout.plannedDate).slice(0, 5)}
+                    {`${WEEKDAYS_SHORT[weekdayIndex(workout.plannedDate)]} ${formatDate(workout.plannedDate).slice(0, 5)}`}
                   </ThemedText>
                   <View style={styles.rowText}>
                     <ThemedText type="small">{workout.title}</ThemedText>
@@ -439,6 +468,6 @@ const styles = StyleSheet.create({
   section: { gap: Spacing.two },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   workout: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two },
-  date: { width: 44 },
+  date: { width: 62 },
   rowText: { flex: 1, gap: Spacing.half },
 });

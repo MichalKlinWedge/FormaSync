@@ -205,7 +205,7 @@ describe('moveGoalDays', () => {
     const goalId = planned(db);
     expect(daysUsed(db, goalId)).toEqual([1, 3, 5, 6]);
 
-    const shift = moveGoalDays(db, goalId, [0, 2, 4, 5], FROM);
+    const shift = moveGoalDays(db, goalId, { 1: 0, 3: 2, 5: 4, 6: 5 }, FROM);
 
     expect(shift.moved).toBeGreaterThan(50);
     expect(shift.frozen).toBe(0);
@@ -215,8 +215,8 @@ describe('moveGoalDays', () => {
   it('zapamiętuje nowe dni na celu, żeby przeliczenie planu do starych nie wróciło', () => {
     const db = createTestDb({ seed: true });
     const goalId = planned(db);
-    moveGoalDays(db, goalId, [0, 2, 4], FROM);
-    expect(parseWeekDays(loadGoal(db, goalId)!.weekDays)).toEqual([0, 2, 4]);
+    moveGoalDays(db, goalId, { 1: 0, 3: 2, 5: 4, 6: 6 }, FROM);
+    expect(parseWeekDays(loadGoal(db, goalId)!.weekDays)).toEqual([0, 2, 4, 6]);
   });
 
   it('przesuwa też terminy już wpisane do kalendarza', () => {
@@ -224,7 +224,7 @@ describe('moveGoalDays', () => {
     const goalId = planned(db);
     materializeGoal(db, goalId, { scheduledTime: '07:00', reminderOffsetMinutes: 30, from: FROM });
 
-    const shift = moveGoalDays(db, goalId, [0, 2, 4, 5], FROM);
+    const shift = moveGoalDays(db, goalId, { 1: 0, 3: 2, 5: 4, 6: 5 }, FROM);
     expect(shift.terms.length).toBe(shift.moved);
 
     // Termin ma iść za jednostką co do dnia, z zachowaną godziną i przypomnieniem.
@@ -245,7 +245,7 @@ describe('moveGoalDays', () => {
     const before = goalPlan(db, goalId);
     const later = '2026-11-16';
 
-    moveGoalDays(db, goalId, [0, 2, 4, 5], later);
+    moveGoalDays(db, goalId, { 1: 0, 3: 2, 5: 4, 6: 5 }, later);
 
     const after = new Map(goalPlan(db, goalId).map((workout) => [workout.id, workout.plannedDate]));
     const past = before.filter((workout) => workout.plannedDate < later);
@@ -259,14 +259,19 @@ describe('moveGoalDays', () => {
   it('bez wybranego dnia odmawia, zamiast wyczyścić plan', () => {
     const db = createTestDb({ seed: true });
     const goalId = planned(db);
-    expect(() => moveGoalDays(db, goalId, [], FROM)).toThrow(GoalValidationError);
+    expect(() => moveGoalDays(db, goalId, {}, FROM)).toThrow(GoalValidationError);
   });
 
-  it('powtórzone przesunięcie na te same dni niczego nie rusza', () => {
+  it('dwa dni na jeden to odmowa, a nie dwa treningi w jednej kratce', () => {
     const db = createTestDb({ seed: true });
     const goalId = planned(db);
-    moveGoalDays(db, goalId, [0, 2, 4], FROM);
-    expect(moveGoalDays(db, goalId, [0, 2, 4], FROM).moved).toBe(0);
+    expect(() => moveGoalDays(db, goalId, { 1: 0, 3: 0 }, FROM)).toThrow(GoalValidationError);
+  });
+
+  it('przesunięcie dnia na niego samego niczego nie rusza', () => {
+    const db = createTestDb({ seed: true });
+    const goalId = planned(db);
+    expect(moveGoalDays(db, goalId, { 1: 1, 3: 3, 5: 5, 6: 6 }, FROM).moved).toBe(0);
   });
 });
 

@@ -13,7 +13,7 @@ import { todayKey } from '@/lib/date';
 import { serializeWeekDays } from './brief';
 import { draftFor } from './materialize';
 import type { PlannedWeek } from './planner';
-import { shiftToDays } from './reschedule';
+import { shiftByDays, type DayMap } from './reschedule';
 
 /**
  * Cele i ich plany. Plan zapisujemy w całości naraz i trzymamy osobno od kalendarza, żeby dało
@@ -242,16 +242,19 @@ export type GoalShift = {
 export function moveGoalDays(
   db: SyncDb,
   goalId: number,
-  weekDays: number[],
+  map: DayMap,
   from: string = todayKey(),
 ): GoalShift {
-  const days = [...new Set(weekDays)].sort((a, b) => a - b);
+  const days = [...new Set(Object.values(map))].sort((a, b) => a - b);
   if (days.length === 0) {
     throw new GoalValidationError('Wybierz przynajmniej jeden dzień tygodnia na treningi.');
   }
+  if (days.length !== Object.keys(map).length) {
+    throw new GoalValidationError('Dwa dni planu trafiłyby na ten sam dzień tygodnia.');
+  }
 
   const workouts = goalPlan(db, goalId);
-  const shift = shiftToDays(workouts, days, from);
+  const shift = shiftByDays(workouts, map, from);
   const byId = new Map(workouts.map((workout) => [workout.id, workout]));
 
   let moved = 0;
