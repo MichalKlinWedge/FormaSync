@@ -38,7 +38,7 @@ export function ExerciseIllustration({ illustration, style }: ExerciseIllustrati
     <View style={[styles.frame, style]}>
       {panels.map((panel) => (
         <View key={panel.caption} style={styles.panel}>
-          <Svg width="100%" height="100%" viewBox={viewBox} style={styles.canvas}>
+          <Svg viewBox={viewBox} style={styles.canvas}>
             {panel.shapes.map((shape, index) => {
               const { color, opacity } = pen[shape.tone];
               const width = ('width' in shape ? shape.width : undefined) ?? pen[shape.tone].width;
@@ -80,7 +80,7 @@ export function ExerciseIllustration({ illustration, style }: ExerciseIllustrati
 
 const styles = StyleSheet.create({
   frame: { flex: 1, alignSelf: 'stretch', flexDirection: 'row', padding: 8, gap: 4 },
-  panel: { flex: 1 },
+  panel: { flex: 1, gap: 2 },
   canvas: { flex: 1 },
   caption: { textAlign: 'center' },
 });

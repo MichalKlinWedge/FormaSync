@@ -569,6 +569,10 @@ const MIN_WIDTH = 118;
  * układu współrzędnych, a stojące całą wysokość; wspólna ramka zostawiałaby jednym pustkę nad
  * głową, a drugim ciasnotę.
  */
+/** Linia podłogi — jedyny element rozciągnięty na cały kadr. */
+const isFloor = (shape: Shape): boolean =>
+  shape.shape === 'line' && shape.from.x === 4 && shape.to.x === Frame.width - 4 && shape.from.y === Frame.floor;
+
 function frameFor(shapes: Shape[]): string {
   let minX = Infinity;
   let minY = Infinity;
@@ -644,8 +648,11 @@ export function buildPanels(illustration: Illustration): { panels: Panel[]; view
     panels[0].shapes.push(...arrow(illustration.hint.from, illustration.hint.to, false));
   }
 
-  const viewBox = frameFor(panels.flatMap((panel) => panel.shapes));
-  return { panels, viewBox };
+  // Podłoga biegnie przez całą szerokość kadru, a panel jest o połowę węższy niż dawny wspólny
+  // rysunek — licząc ją do kadrowania, dostalibyśmy szeroki, pusty obrazek z figurką w środku.
+  // Kadr biorą więc same figury i sprzęt, a podłoga wystaje poza nie i zostaje przycięta.
+  const framing = panels.flatMap((panel) => panel.shapes).filter((shape) => !isFloor(shape));
+  return { panels, viewBox: frameFor(framing) };
 }
 
 export function buildIllustration(illustration: Illustration): Drawing {

@@ -233,7 +233,8 @@ const styles = StyleSheet.create({
   video: { gap: Spacing.two },
   content: { padding: Spacing.four, gap: Spacing.three, paddingBottom: Spacing.six },
   image: {
-    height: 200,
+    // Wyższy kadr niż sam rysunek: pod figurami stoją jeszcze podpisy faz.
+    height: 230,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
