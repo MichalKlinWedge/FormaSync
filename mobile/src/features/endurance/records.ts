@@ -83,38 +83,6 @@ export const FASTEST_PLAUSIBLE_PACE: Record<Sport, number> = {
   OTHER: 60,
 };
 
-/**
- * O ile szybszy od swojego zwykłego tempa można być na rekordowym odcinku. Czterdzieści procent
- * to zapas z grubą rezerwą: start na piątce bywa szybszy od spokojnego biegu o kilkanaście
- * procent, rzadko o więcej.
- *
- * Sam próg „niemożliwe dla człowieka” okazał się za słaby. Odrzucał 0:39 na kilometrze, ale
- * przepuszczał 2:00 — bo to wciąż szybciej, niż ktokolwiek biega w treningu, a wolniej niż
- * rekord świata. Śmieci w zapisie rzadko są absurdalne aż tak bardzo; zwykle sadowią się właśnie
- * tuż nad takim progiem. Tempo liczone względem własnej historii trafia w nie znacznie lepiej.
- */
-const RELATIVE_FLOOR = 0.6;
-
-/** Mniej niż tyle treningów nie wystarcza, by wiedzieć, jakie tempo jest dla kogoś zwykłe. */
-const MIN_WORKOUTS_FOR_RELATIVE = 3;
-
-/**
- * Najszybsze tempo, które uznajemy za prawdziwe: nie szybsze od granicy gatunku i nie szybsze
- * od sześćdziesięciu procent własnego zwykłego tempa. Bierzemy medianę, nie średnią — jedna
- * zepsuta pozycja przesuwa średnią, a medianą nie potrząśnie.
- */
-export function paceFloor(workouts: RecordWorkout[], sport: Sport): number {
-  const species = FASTEST_PLAUSIBLE_PACE[sport];
-  const paces = workouts
-    .map((workout) => workout.workPace ?? workout.pace)
-    .filter((pace): pace is number => pace !== null && pace > 0)
-    .sort((a, b) => a - b);
-  if (paces.length < MIN_WORKOUTS_FOR_RELATIVE) return species;
-
-  const median = paces[Math.floor(paces.length / 2)];
-  return Math.max(species, Math.round(median * RELATIVE_FLOOR));
-}
-
 export const RECORD_DISTANCES: Record<Sport, number[]> = {
   STRENGTH: [],
   RUNNING: [1000, 5000, 10000, 21097],
@@ -124,13 +92,27 @@ export const RECORD_DISTANCES: Record<Sport, number[]> = {
 };
 
 /**
- * Najszybszy fragment treningu o długości co najmniej `target`. Okno przesuwamy po odcinkach
- * i trzymamy najkrótsze z możliwych — zostawiony z przodu nadmiarowy odcinek dokładałby do
- * rekordu kawałek, którego do pokonania dystansu wcale nie było potrzeba.
+ * Ile razy dystans rekordu może obejmować okno, zanim przestaniemy je wydłużać. Dalej tempo jest
+ * już średnią z kawałka, którego do pokonania dystansu nie było potrzeba.
+ */
+const WINDOW_SPAN = 3;
+
+/**
+ * Odcinek z dystansem, ale bez zmierzonego czasu. Taki wiersz zostaje, gdy zegarek podał
+ * okrążenie bez czasu albo gdy odcinek zatwierdzono bez pomiaru — i jest groźniejszy od zwykłego
+ * braku danych, bo rekord sumuje metry i sekundy osobno. Wpuszczony do okna dokładał metry bez
+ * sekund i z treningu po 5:00/km robił rekord 1:40/km.
+ */
+const untrusted = (split: Split): boolean => split.meters > 0 && split.seconds <= 0;
+
+/**
+ * Najszybszy fragment treningu o długości co najmniej `target`. Przeglądamy każde spójne okno
+ * odcinków, bo listy są krótkie — kilkadziesiąt okrążeń na trening — a przybliżenie oknem
+ * najkrótszym z możliwych potrafiło podać czas wolniejszy od prawdziwie najszybszego.
  *
  * Odcinki bez dystansu (przerwy) wchodzą do okna razem z pozostałymi: dokładają sekundy, nie
  * dokładając metrów, i słusznie psują tempo. Przebiegnięcie piątki z postojem w środku nie jest
- * rekordem na piątce.
+ * rekordem na piątce. Odcinek z dystansem bez czasu okno przerywa — patrz `untrusted`.
  */
 export function bestEffort(
   splits: Split[],
@@ -138,32 +120,35 @@ export function bestEffort(
   fastestPlausiblePace = 0,
 ): { seconds: number; source: RecordSource } | null {
   let best: { seconds: number; source: RecordSource } | null = null;
-  let left = 0;
-  let meters = 0;
-  let seconds = 0;
 
-  for (let right = 0; right < splits.length; right += 1) {
-    meters += splits[right].meters;
-    seconds += splits[right].seconds;
+  for (let from = 0; from < splits.length; from += 1) {
+    if (untrusted(splits[from])) continue;
+    let meters = 0;
+    let seconds = 0;
 
-    while (left < right && meters - splits[left].meters >= target) {
-      meters -= splits[left].meters;
-      seconds -= splits[left].seconds;
-      left += 1;
+    for (let to = from; to < splits.length; to += 1) {
+      // Odcinek z dystansem, ale bez czasu, przerywa okno. Gdyby do niego wejść, dołożyłby
+      // metry bez sekund i rekord wyszedłby tyle razy szybszy, ile tego dystansu brakuje czasu.
+      if (untrusted(splits[to])) break;
+
+      meters += splits[to].meters;
+      seconds += splits[to].seconds;
+      if (meters < target || seconds <= 0) continue;
+
+      // Okno prawie nigdy nie kończy się dokładnie na rekordowym dystansie, więc czas skracamy
+      // proporcjonalnie. To szacunek z tempa tego fragmentu, a nie odczyt z linii mety.
+      const scaled = Math.round((seconds * target) / meters);
+      if ((scaled * 1000) / target >= fastestPlausiblePace && (best === null || scaled < best.seconds)) {
+        // Okno objęło cały trening, więc nie ma w nim żadnego wyróżnionego fragmentu — to po
+        // prostu średnia całości, i tak ją podpisujemy.
+        const source: RecordSource = to - from + 1 < splits.length ? 'SPLIT' : 'WORKOUT';
+        best = { seconds: scaled, source };
+      }
+
+      // Okno dłuższe niż trzykrotność dystansu nie ma już jak być najszybsze: jego tempo jest
+      // średnią, a krótsze okno w środku zostało sprawdzone osobno.
+      if (meters >= target * WINDOW_SPAN) break;
     }
-
-    if (meters < target || seconds <= 0) continue;
-
-    // Okno prawie nigdy nie kończy się dokładnie na rekordowym dystansie, więc czas skracamy
-    // proporcjonalnie. To szacunek z tempa tego fragmentu, a nie odczyt z linii mety.
-    const scaled = Math.round((seconds * target) / meters);
-    // Tempo nie z tego świata znaczy, że zapis tego fragmentu jest zepsuty — nie że ktoś
-    // pobiegł szybciej niż rekordzista świata.
-    if ((scaled * 1000) / target < fastestPlausiblePace) continue;
-    // Okno objęło cały trening, więc nie ma w nim żadnego wyróżnionego fragmentu — to po prostu
-    // średnia całości, i tak ją podpisujemy.
-    const source: RecordSource = right - left + 1 < splits.length ? 'SPLIT' : 'WORKOUT';
-    if (best === null || scaled < best.seconds) best = { seconds: scaled, source };
   }
 
   return best;
@@ -194,15 +179,21 @@ function bestBy(
 export function sportRecords(workouts: RecordWorkout[], sport: Sport): SportRecords {
   const efforts: EffortRecord[] = [];
 
-  const fastest = paceFloor(workouts, sport);
-  const suspect = new Set<number>();
+  const fastest = FASTEST_PLAUSIBLE_PACE[sport];
+  // Treningi, których zapis nie daje się czytać jako rekord. Liczymy je, bo bez tej liczby
+  // zniknięcie rekordu wyglądałoby jak zgubienie go.
+  const suspect = new Set(
+    workouts
+      .filter((workout) => workout.splits.some(untrusted))
+      .map((workout) => workout.sessionId),
+  );
 
   for (const target of RECORD_DISTANCES[sport]) {
     let best: EffortRecord | null = null;
     for (const workout of workouts) {
       const effort = bestEffort(workout.splits, target, fastest);
-      // Trening, który na tym dystansie coś pokazuje, ale dopiero po zdjęciu progu, ma zepsuty
-      // zapis. Liczymy takie, bo bez tej liczby zniknięcie rekordu wyglądałoby jak zgubienie go.
+      // Trening, który na tym dystansie coś pokazuje, ale dopiero po zdjęciu progu tempa,
+      // też ma zepsuty zapis.
       if (effort === null) {
         if (bestEffort(workout.splits, target) !== null) suspect.add(workout.sessionId);
         continue;

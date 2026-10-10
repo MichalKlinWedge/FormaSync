@@ -84,21 +84,25 @@ export function lapsMatchTotal(laps: Lap[], meters: number | null): boolean {
 const MIN_CHECKED_METERS = 100;
 
 /**
- * Czy wśród okrążeń nie ma takiego, którego tempo jest niemożliwe. Jedno zepsute okrążenie —
- * zgubiony sygnał, ucięty pomiar — wystarczy, żeby zostało rekordem na zawsze, bo rekord bierze
- * minimum z całej historii. Suma dystansów takiego zestawu bywa poprawna, więc samo porównanie
- * z podsumowaniem tego nie wyłapie.
+ * Czy zestaw okrążeń da się uznać za wiarygodny podział treningu.
  *
- * Przy jednym podejrzanym okrążeniu odrzucamy cały podział i zostajemy przy sumach z listy
- * aktywności: lepiej mieć średnią całego treningu niż rekord z usterki.
+ * Dwie rzeczy go dyskwalifikują. Pierwsza to okrążenie z dystansem, ale **bez czasu**: rekordy
+ * sumują metry i sekundy osobno, więc takie okrążenie dokłada dystans bez czasu i z treningu
+ * biegniętego po 5:00/km robi rekord 1:40/km. To zdradliwszy przypadek od zwykłej usterki, bo
+ * suma dystansów zostaje poprawna i porównanie z podsumowaniem aktywności nic nie zauważa.
+ *
+ * Druga to tempo nie do utrzymania przez człowieka — zgubiony sygnał albo ucięty pomiar.
+ *
+ * W obu wypadkach odrzucamy cały podział i zostajemy przy sumach z listy aktywności: lepiej mieć
+ * średnią całego treningu niż rekord z usterki.
  */
 export function lapsPlausible(laps: Lap[], fastestPlausiblePace: number): boolean {
-  return !laps.some(
-    (lap) =>
-      lap.meters >= MIN_CHECKED_METERS &&
-      lap.seconds > 0 &&
-      (lap.seconds * 1000) / lap.meters < fastestPlausiblePace,
-  );
+  return !laps.some((lap) => {
+    if (lap.meters <= 0) return false;
+    // Dystans bez czasu dyskwalifikuje niezależnie od długości okrążenia.
+    if (lap.seconds <= 0) return true;
+    return lap.meters >= MIN_CHECKED_METERS && (lap.seconds * 1000) / lap.meters < fastestPlausiblePace;
+  });
 }
 
 /** Numer aktywności ze ścieżki adresu; `null`, gdy identyfikator nie pochodzi z Garmina. */

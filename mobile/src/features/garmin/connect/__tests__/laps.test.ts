@@ -121,8 +121,14 @@ describe('lapsPlausible', () => {
     expect(lapsPlausible([lap(1000, 300), lap(40, 1)], 120)).toBe(true);
   });
 
-  it('pomija okrążenia bez zmierzonego czasu, zamiast je odrzucać', () => {
-    expect(lapsPlausible([lap(1000, 300), lap(500, 0)], 120)).toBe(true);
+  it('odrzuca podział, w którym okrążenie ma dystans bez czasu', () => {
+    // To właśnie z tego wychodził rekord 1:40/km przy bieganiu po 5:00/km: rekord sumuje metry
+    // i sekundy osobno, więc takie okrążenie dokłada dystans, nie dokładając czasu.
+    expect(lapsPlausible([lap(1000, 300), lap(500, 0)], 120)).toBe(false);
+  });
+
+  it('okrążenie bez dystansu i bez czasu nikomu nie szkodzi', () => {
+    expect(lapsPlausible([lap(1000, 300), lap(0, 0)], 120)).toBe(true);
   });
 
   it('bez progu nie ma czego sprawdzać', () => {

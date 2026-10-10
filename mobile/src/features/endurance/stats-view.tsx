@@ -106,7 +106,7 @@ export function EnduranceStats({ sport }: { sport: Sport }) {
         )}
         {records.skipped > 0 && (
           <ThemedText type="small" themeColor="textSecondary">
-            {`Pominięto ${pluralWith(records.skipped, 'trening', 'treningi', 'treningów')} o tempie nie do utrzymania przez człowieka — to zepsuty zapis, nie rekord. Zajrzyj do historii i popraw albo usuń taki wpis, bo jego dystans wchodzi do objętości tygodniowej.`}
+            {`Pominięto ${pluralWith(records.skipped, 'trening', 'treningi', 'treningów')} z zapisem, którego nie da się czytać jako rekordu: odcinek z dystansem bez zmierzonego czasu albo tempo nie do utrzymania przez człowieka. Dystans takiego wpisu nadal wchodzi do objętości tygodniowej, więc warto go w historii poprawić albo usunąć.`}
           </ThemedText>
         )}
       </View>
