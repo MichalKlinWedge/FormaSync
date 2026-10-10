@@ -60,6 +60,15 @@ const HALF_SQUAT: Vec = { x: 86, y: 88 };
 const FLAT_BENCH: Prop = { prop: 'bench', at: { x: 46, y: 86 }, angle: 0, length: 62 };
 const SEAT: Prop = { prop: 'bench', at: { x: 64, y: 92 }, angle: 0, length: 40 };
 
+/** Biodro siedzącej figury — tak dobrane, żeby stopa stanęła na podłodze. */
+const SEATED_HIP: Vec = { x: 82, y: 92 };
+
+/**
+ * Nogi siedzącego: udo w przód, podudzie pionowo w dół. Poprowadzone jedną prostą z biodra
+ * do podłogi — jak przy staniu — czytały się jak pochylnia, a nie jak ktoś siedzący.
+ */
+const SEATED_LEGS: Limb[] = [{ upper: -8, lower: -90, foot: 0 }];
+
 // ——— wzorce ———
 
 /** Wyciskanie na ławce: płasko (0°) albo skośnie (ok. 26°). */
@@ -215,23 +224,34 @@ function pushup(): Illustration {
 
 /** Maszyna z wałkiem przy kostkach: siedzimy, zmienia się kąt podudzia. */
 function seatedKnee(shin: [number, number], pad: Vec): Illustration {
-  const hip = { x: 84, y: 88 };
-  const base: Pose = { hip, torso: 94, arms: [{ upper: -24, lower: -16 }], legs: [{ upper: -8, lower: shin[0], foot: shin[0] - 70 }] };
+  const base: Pose = {
+    hip: SEATED_HIP,
+    torso: 94,
+    arms: [{ upper: -24, lower: -16 }],
+    legs: [{ upper: -8, lower: shin[0], foot: shin[0] - 70 }],
+  };
   return {
     phases: [base, { ...base, legs: [{ upper: -8, lower: shin[1], foot: shin[1] - 70 }] }],
-    props: [{ prop: 'floor' }, SEAT, { prop: 'pad', at: pad, angle: 0, length: 12 }],
+    props: [
+      { prop: 'floor' },
+      { prop: 'bench', at: { x: 56, y: 96 }, angle: 0, length: 34 },
+      { prop: 'pad', at: pad, angle: 0, length: 12 },
+    ],
     arrow: 'ankle',
   };
 }
 
 /** Siedzące wypychanie przed siebie: wyciskanie na maszynie, motylek. */
-function seatedPush(from: Limb, to: Limb, both_ = false): Illustration {
-  const hip = { x: 84, y: 88 };
-  const legs = [legToFloor(hip, -42)];
-  const base: Pose = { hip, torso: 94, arms: both_ ? both(from) : [from], legs };
+function seatedPush(from: Limb, to: Limb): Illustration {
+  const base: Pose = { hip: SEATED_HIP, torso: 94, arms: [from], legs: SEATED_LEGS };
   return {
-    phases: [base, { ...base, arms: both_ ? both(to) : [to] }],
-    props: [{ prop: 'floor' }, SEAT, { prop: 'pad', at: { x: 96, y: 74 }, angle: 90, length: 20 }],
+    phases: [base, { ...base, arms: [to] }],
+    props: [
+      { prop: 'floor' },
+      { prop: 'bench', at: { x: 56, y: 96 }, angle: 0, length: 34 },
+      // Oparcie za plecami — stąd wiadomo, że to maszyna, a nie wyciskanie na wolnym ciężarze.
+      { prop: 'pad', at: { x: 78, y: 92 }, angle: 96, length: 26 },
+    ],
     arrow: 'hand',
   };
 }
@@ -789,12 +809,18 @@ export const exerciseIllustrations: Record<string, Illustration> = {
     hint: { from: { x: 104, y: 60 }, to: { x: 104, y: 44 } },
   },
   'Wyciskanie na maszynie siedząc': seatedPush({ upper: -172, lower: -8 }, { upper: -8, lower: -4 }),
+  // Motylek rysujemy z boku: z przodu zbiegające się ramię nachodzi na drugie i całość czyta
+  // się jak „ręce w górę”. Z profilu widać to, o co chodzi — ramię zgarnia łukiem do przodu.
   'Motylek na maszynie': {
     phases: [
-      { hip: { x: 86, y: 86 }, torso: 90, arms: both({ upper: 4, lower: 36 }), legs: [legToFloor({ x: 86, y: 86 }, -48), legToFloor({ x: 86, y: 86 }, -62, 180)] },
-      { hip: { x: 86, y: 86 }, torso: 90, arms: both({ upper: 40, lower: 72 }), legs: [legToFloor({ x: 86, y: 86 }, -48), legToFloor({ x: 86, y: 86 }, -62, 180)] },
+      { hip: SEATED_HIP, torso: 94, arms: [{ upper: -168, lower: 84 }], legs: SEATED_LEGS },
+      { hip: SEATED_HIP, torso: 94, arms: [{ upper: -24, lower: 76 }], legs: SEATED_LEGS },
     ],
-    props: [{ prop: 'floor' }, SEAT],
+    props: [
+      { prop: 'floor' },
+      { prop: 'bench', at: { x: 56, y: 96 }, angle: 0, length: 34 },
+      { prop: 'pad', at: { x: 78, y: 92 }, angle: 96, length: 26 },
+    ],
     arrow: 'hand',
   },
   'Pompki diamentowe': pushup(),
