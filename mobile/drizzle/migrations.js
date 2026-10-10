@@ -14,6 +14,7 @@ import m0009 from './0009_swim_equipment.sql';
 import m0010 from './0010_swim_template_strokes.sql';
 import m0011 from './0011_seeded_templates.sql';
 import m0012 from './0012_exercise_video.sql';
+import m0013 from './0013_term_plan_title.sql';
 
   export default {
     journal,
@@ -30,7 +31,8 @@ m0008,
 m0009,
 m0010,
 m0011,
-m0012
+m0012,
+m0013
     }
   }
   

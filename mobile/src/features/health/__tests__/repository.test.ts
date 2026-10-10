@@ -10,7 +10,7 @@ import { createSegment, emptyEnduranceDraft } from '@/features/endurance/draft';
 import { saveEndurancePlan } from '@/features/endurance/repository';
 import { completeSegment, loadEnduranceSession } from '@/features/endurance/session';
 import { loadEnduranceWorkouts } from '@/features/endurance/stats';
-import { attachSession, openTermsOn, scheduleWorkouts } from '@/features/calendar/repository';
+import { adoptTermPlan, attachSession, openTermsOn, scheduleWorkouts } from '@/features/calendar/repository';
 import { listHistory } from '@/features/history/repository';
 import { finishSession, startSession } from '@/features/workout/repository';
 
@@ -307,5 +307,35 @@ describe('aktywność z zegarka wprost do terminu', () => {
     expect(stored.isCompleted).toBe(true);
     // Termin przestaje być wolny, więc drugiej aktywności nie da się na niego nałożyć.
     expect(openTermsOn(db, '2026-10-06', 'SWIMMING')).toEqual([]);
+  });
+
+  it('trening przejmuje nazwę z planu, a nie z zegarka', () => {
+    // Garmin mierzy „Kardio”, a w kalendarzu stoi „Taniec” — to termin mówi, co to były za zajęcia.
+    const db = createTestDb({ seed: true });
+    const plan = db.select().from(schema.workoutPlans).all().find((p) => p.sport === 'SWIMMING')!;
+    scheduleWorkouts(db, {
+      planId: plan.id,
+      dates: ['2026-10-06'],
+      scheduledTime: '15:00',
+      reminderOffsetMinutes: null,
+    });
+    const [term] = openTermsOn(db, '2026-10-06', 'SWIMMING');
+    const sessionId = createSessionFromActivity(db, {
+      recordId: 'garmin:1',
+      title: 'Kardio',
+      sport: 'SWIMMING',
+      startTime: '2026-10-06T13:45:00.000Z',
+      endTime: '2026-10-06T14:17:40.000Z',
+      durationSeconds: 1960,
+      distanceMeters: null,
+      avgHeartRate: null,
+      maxHeartRate: null,
+      caloriesBurned: null,
+    });
+
+    attachSession(db, term.id, sessionId);
+    adoptTermPlan(db, sessionId, term.id);
+
+    expect(listHistory(db).find((item) => item.id === sessionId)?.title).toBe(plan.title);
   });
 });

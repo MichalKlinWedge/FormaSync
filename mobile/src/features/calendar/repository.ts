@@ -200,6 +200,28 @@ export function attachSession(db: SyncDb, scheduledId: number, sessionId: number
   });
 }
 
+/**
+ * Trening wczytany na termin przejmuje jego plan. Aktywność z zegarka przychodzi z nazwą nadaną
+ * przez Garmina — „Kardio”, „Trening siłowy” — a w kalendarzu stało „Taniec 60 minut”. To termin
+ * mówi, co to było za zajęcie; zegarek wie tylko, jak je zmierzył.
+ *
+ * Własnego tytułu nie ruszamy: nazwa wpisana ręcznie jest decyzją użytkownika, nie etykietą
+ * z zewnątrz.
+ */
+export function adoptTermPlan(db: SyncDb, sessionId: number, scheduledId: number): void {
+  const term = db
+    .select({ planId: schema.scheduledWorkouts.planId })
+    .from(schema.scheduledWorkouts)
+    .where(eq(schema.scheduledWorkouts.id, scheduledId))
+    .get();
+  if (!term) return;
+
+  db.update(schema.workoutSessions)
+    .set({ planId: term.planId, title: null })
+    .where(eq(schema.workoutSessions.id, sessionId))
+    .run();
+}
+
 /** Odpina trening od terminu. Sam trening zostaje w historii nietknięty. */
 export function detachSession(db: SyncDb, sessionId: number): void {
   db.transaction((tx) => {

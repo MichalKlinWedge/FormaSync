@@ -1,5 +1,5 @@
 import { db } from '@/db/client';
-import { attachSession, openTermsOn } from '@/features/calendar/repository';
+import { adoptTermPlan, attachSession, openTermsOn } from '@/features/calendar/repository';
 import { fetchGarminActivities } from '@/features/garmin/connect/activities';
 import { GarminNotConnectedError, isConnected } from '@/features/garmin/connect/client';
 import {
@@ -87,6 +87,8 @@ export const termsForActivity = (activity: WatchActivity) =>
 export function importWatchActivityToTerm(scheduledId: number, activity: WatchActivity): number {
   const sessionId = createSessionFromActivity(db, activity);
   attachSession(db, scheduledId, sessionId);
+  // Nazwa ma iść z planu, a nie z zegarka: w kalendarzu stał „Taniec”, Garmin zmierzył „Kardio”.
+  adoptTermPlan(db, sessionId, scheduledId);
   return sessionId;
 }
 
