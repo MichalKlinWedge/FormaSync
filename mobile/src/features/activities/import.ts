@@ -2,6 +2,7 @@ import { db } from '@/db/client';
 import { adoptTermPlan, attachSession, openTermsOn } from '@/features/calendar/repository';
 import { fetchGarminActivities } from '@/features/garmin/connect/activities';
 import { GarminNotConnectedError, isConnected } from '@/features/garmin/connect/client';
+import { fetchGarminLaps, lapsMatchTotal } from '@/features/garmin/connect/laps';
 import {
   archiveActivity,
   archivedActivityIds,
@@ -10,7 +11,9 @@ import {
   linkActivityToSession,
   linkCandidates,
   listArchivedActivities,
+  replaceSegmentsWithLaps,
   restoreActivity,
+  sessionsMissingLaps,
   sessionWindows,
 } from '@/features/health/repository';
 import { toDateKey } from '@/lib/date';
@@ -63,13 +66,23 @@ export async function listWatchActivities(now: Date = new Date()): Promise<Watch
   };
 }
 
+/**
+ * Okrążenia aktywności, o ile zgadzają się z jej podsumowaniem. Pobieramy je dopiero przy
+ * wczytaniu, a nie przy budowaniu listy: osobne zapytanie na każdą z pięćdziesięciu aktywności
+ * kazałoby czekać na ekran, którego większość pozycji nikt tego dnia nie tknie.
+ */
+async function lapsFor(activity: WatchActivity) {
+  const laps = await fetchGarminLaps(activity.recordId);
+  return lapsMatchTotal(laps, activity.distanceMeters) ? laps : [];
+}
+
 /** Dopisuje aktywność do historii i zwraca identyfikator utworzonej sesji. */
-export const importWatchActivity = (activity: WatchActivity): number =>
-  createSessionFromActivity(db, activity);
+export const importWatchActivity = async (activity: WatchActivity): Promise<number> =>
+  createSessionFromActivity(db, activity, await lapsFor(activity));
 
 /** Dopina pomiary z zegarka do treningu już zapisanego w aplikacji. */
-export const linkWatchActivity = (sessionId: number, activity: WatchActivity): void =>
-  linkActivityToSession(db, sessionId, activity);
+export const linkWatchActivity = async (sessionId: number, activity: WatchActivity): Promise<void> =>
+  linkActivityToSession(db, sessionId, activity, await lapsFor(activity));
 
 /**
  * Zaplanowane terminy tego samego dnia i tej samej dyscypliny, czekające na trening. Aktywność
@@ -84,12 +97,44 @@ export const termsForActivity = (activity: WatchActivity) =>
  * osobno nie mają sensu: trening bez terminu zostawiłby go pustym, a termin bez treningu nie ma
  * czego pokazać.
  */
-export function importWatchActivityToTerm(scheduledId: number, activity: WatchActivity): number {
-  const sessionId = createSessionFromActivity(db, activity);
+export async function importWatchActivityToTerm(
+  scheduledId: number,
+  activity: WatchActivity,
+): Promise<number> {
+  const sessionId = createSessionFromActivity(db, activity, await lapsFor(activity));
   attachSession(db, scheduledId, sessionId);
   // Nazwa ma iść z planu, a nie z zegarka: w kalendarzu stał „Taniec”, Garmin zmierzył „Kardio”.
   adoptTermPlan(db, sessionId, scheduledId);
   return sessionId;
+}
+
+/** Ile treningów dostało okrążenia i ile okrążeń razem doszło. */
+export type LapBackfill = { candidates: number; filled: number; laps: number };
+
+/**
+ * Dociąga okrążenia do treningów z zegarka, które mają w bazie tylko sumy. Wcześniejsze
+ * wczytania zapisywały jeden odcinek, bo okrążeń wtedy nie pobieraliśmy — bez tego przebiegu
+ * rekordy z całej dotychczasowej historii mogłyby wyjść wyłącznie ze średnich.
+ *
+ * Trening, dla którego Garmin nie ma okrążeń albo których suma nie zgadza się z dystansem,
+ * zostaje jak był. Lepiej zostawić średnią niż podmienić historii dystans.
+ */
+export async function backfillLaps(): Promise<LapBackfill> {
+  if (!(await isConnected())) throw new GarminNotConnectedError();
+
+  const candidates = sessionsMissingLaps(db);
+  let filled = 0;
+  let laps = 0;
+
+  for (const candidate of candidates) {
+    const fetched = await fetchGarminLaps(candidate.recordId);
+    if (!lapsMatchTotal(fetched, candidate.meters)) continue;
+    replaceSegmentsWithLaps(db, candidate.sessionId, fetched, candidate.startTime);
+    filled += 1;
+    laps += fetched.length;
+  }
+
+  return { candidates: candidates.length, filled, laps };
 }
 
 /** Treningi z okolic daty aktywności, z którymi można ją połączyć. */

@@ -22,8 +22,10 @@ import {
   linkActivityToSession,
   linkCandidates,
   listArchivedActivities,
+  replaceSegmentsWithLaps,
   restoreActivity,
   saveHeartRateMetrics,
+  sessionsMissingLaps,
   sessionWindows,
   unlinkActivity,
 } from '../repository';
@@ -51,6 +53,112 @@ const RUN = {
   durationSeconds: 5620,
   distanceMeters: 15000,
 };
+
+const LAPS = [
+  { meters: 1000, seconds: 300, avgHeartRate: 148 },
+  { meters: 1000, seconds: 282, avgHeartRate: 156 },
+  { meters: 1000, seconds: 294, avgHeartRate: 152 },
+];
+
+describe('okrążenia z zegarka', () => {
+  it('zapisuje każde okrążenie jako osobny odcinek', () => {
+    const db = createTestDb({ seed: true });
+    const sessionId = createSessionFromActivity(
+      db,
+      { ...RUN, distanceMeters: 3000, durationSeconds: 876 },
+      LAPS,
+    );
+
+    const segments = db
+      .select()
+      .from(schema.loggedSegments)
+      .where(eq(schema.loggedSegments.sessionId, sessionId))
+      .all();
+    expect(segments).toHaveLength(3);
+    expect(segments.map((segment) => segment.distanceMeters)).toEqual([1000, 1000, 1000]);
+    expect(segments.map((segment) => segment.avgHeartRate)).toEqual([148, 156, 152]);
+  });
+
+  it('układa okrążenia w kolejności, w jakiej padły', () => {
+    const db = createTestDb({ seed: true });
+    createSessionFromActivity(db, { ...RUN, distanceMeters: 3000, durationSeconds: 876 }, LAPS);
+
+    const [workout] = loadEnduranceWorkouts(db, 'RUNNING');
+    expect(workout.splits).toEqual([
+      { meters: 1000, seconds: 300 },
+      { meters: 1000, seconds: 282 },
+      { meters: 1000, seconds: 294 },
+    ]);
+    // Sumy muszą zostać te same, co w podsumowaniu aktywności.
+    expect(workout.meters).toBe(3000);
+    expect(workout.seconds).toBe(876);
+  });
+
+  it('bez okrążeń zapisuje trening jednym odcinkiem, jak dotąd', () => {
+    const db = createTestDb({ seed: true });
+    createSessionFromActivity(db, RUN);
+
+    const [workout] = loadEnduranceWorkouts(db, 'RUNNING');
+    expect(workout.splits).toHaveLength(1);
+  });
+
+  it('dopina okrążenia do treningu prowadzonego w aplikacji bez własnych odcinków', () => {
+    const db = createTestDb({ seed: true });
+    const sessionId = startSession(db, { kind: 'empty', sport: 'RUNNING' });
+    finishSession(db, sessionId);
+    linkActivityToSession(db, sessionId, { ...RUN, distanceMeters: 3000 }, LAPS);
+
+    const [workout] = loadEnduranceWorkouts(db, 'RUNNING');
+    expect(workout.splits).toHaveLength(3);
+  });
+});
+
+describe('dociąganie okrążeń do historii', () => {
+  it('wskazuje treningi z zegarka zapisane jednym odcinkiem', () => {
+    const db = createTestDb({ seed: true });
+    const sessionId = createSessionFromActivity(db, { ...RUN, distanceMeters: 3000 });
+
+    expect(sessionsMissingLaps(db)).toEqual([
+      { sessionId, recordId: 'rec-run', startTime: RUN.startTime, meters: 3000 },
+    ]);
+  });
+
+  it('pomija treningi, które okrążenia już mają', () => {
+    const db = createTestDb({ seed: true });
+    createSessionFromActivity(db, { ...RUN, distanceMeters: 3000 }, LAPS);
+
+    expect(sessionsMissingLaps(db)).toEqual([]);
+  });
+
+  it('pomija siłownię — tam nie ma czego dzielić', () => {
+    const db = createTestDb({ seed: true });
+    createSessionFromActivity(db, ACTIVITY);
+
+    expect(sessionsMissingLaps(db)).toEqual([]);
+  });
+
+  it('wymienia jeden odcinek z sumami na okrążenia', () => {
+    const db = createTestDb({ seed: true });
+    const sessionId = createSessionFromActivity(db, { ...RUN, distanceMeters: 3000, durationSeconds: 876 });
+    replaceSegmentsWithLaps(db, sessionId, LAPS, RUN.startTime);
+
+    const [workout] = loadEnduranceWorkouts(db, 'RUNNING');
+    // Trasa nie policzyła się dwa razy: stary odcinek z sumami zniknął.
+    expect(workout.meters).toBe(3000);
+    expect(workout.splits).toHaveLength(3);
+    expect(sessionsMissingLaps(db)).toEqual([]);
+  });
+
+  it('bez okrążeń nie rusza zapisanego treningu', () => {
+    const db = createTestDb({ seed: true });
+    const sessionId = createSessionFromActivity(db, { ...RUN, distanceMeters: 3000 });
+    replaceSegmentsWithLaps(db, sessionId, [], RUN.startTime);
+
+    const [workout] = loadEnduranceWorkouts(db, 'RUNNING');
+    expect(workout.meters).toBe(3000);
+    expect(workout.splits).toHaveLength(1);
+  });
+});
 
 describe('dystans z zegarka', () => {
   it('bieg zapisuje jako odcinek, żeby miał dystans i tempo', () => {

@@ -1,5 +1,7 @@
 import type { Sport } from '@/db/schema';
 
+import { pluralWith } from '@/lib/number';
+
 import type { Interval } from '@/features/health/mapping';
 
 /**
@@ -38,6 +40,26 @@ export function describeRefresh(fresh: number, waiting: number): string {
   if (fresh > 0) return `Nowe treningi: ${fresh}.`;
   if (waiting > 0) return `Nic nowego nie doszło. Na liście czeka ${waiting}.`;
   return 'Nic nowego. Jeśli trening jest na zegarku, ale nie ma go w Garmin Connect, zsynchronizuj zegarek z telefonem.';
+}
+
+/**
+ * Wynik dociągania okrążeń. Mówimy wprost, ilu treningów Garmin nie podzielił, bo to jedyny
+ * sygnał, że rekordy wciąż wychodzą ze średnich — a tego z samego ekranu statystyk nie widać.
+ */
+export function describeLapBackfill(result: {
+  candidates: number;
+  filled: number;
+  laps: number;
+}): string {
+  if (result.candidates === 0) return 'Wszystkie treningi z zegarka mają już okrążenia.';
+  if (result.filled === 0) {
+    return `Garmin nie podał okrążeń dla żadnego z ${pluralWith(result.candidates, 'treningu', 'treningów', 'treningów')}. Rekordy zostają liczone ze średnich.`;
+  }
+  const rest = result.candidates - result.filled;
+  const done = `Okrążenia doszły do ${result.filled} z ${result.candidates}: razem ${pluralWith(result.laps, 'okrążenie', 'okrążenia', 'okrążeń')}.`;
+  return rest === 0
+    ? done
+    : `${done} Dla pozostałych ${pluralWith(rest, 'treningu', 'treningów', 'treningów')} Garmin okrążeń nie ma.`;
 }
 
 /** Trening z aplikacji, na który nachodzi aktywność — kandydat do połączenia. */

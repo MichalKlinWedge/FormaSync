@@ -11,6 +11,7 @@ import { Spacing } from '@/constants/theme';
 import type { ImportCandidate, InventoryEntry, WatchActivities } from '@/features/activities/import';
 import {
   archiveWatchActivity,
+  backfillLaps,
   GarminNotConnectedError,
   importWatchActivity,
   importWatchActivityToTerm,
@@ -21,7 +22,12 @@ import {
   sessionsToLink,
   termsForActivity,
 } from '@/features/activities/import';
-import { describeRefresh, IMPORT_DAYS, STATUS_LABELS } from '@/features/activities/mapping';
+import {
+  describeLapBackfill,
+  describeRefresh,
+  IMPORT_DAYS,
+  STATUS_LABELS,
+} from '@/features/activities/mapping';
 import { GarminAuthExpired, GarminError } from '@/features/garmin/connect/client';
 import { formatDistance } from '@/features/endurance/format';
 import { SPORT_LABELS } from '@/features/sports/sport';
@@ -44,6 +50,7 @@ export default function ImportActivitiesScreen() {
   const [attempt, setAttempt] = useState(0);
   const [seen, setSeen] = useState<InventoryEntry[]>([]);
   const [showSeen, setShowSeen] = useState(false);
+  const [laps, setLaps] = useState(false);
 
   const apply = (result: WatchActivities) => {
     setActivities(result.activities);
@@ -96,10 +103,11 @@ export default function ImportActivitiesScreen() {
   const drop = (recordId: string) =>
     setActivities((current) => current?.filter((item) => item.recordId !== recordId) ?? null);
 
-  const run = (what: string, action: () => void) => {
+  /** Wspólna obsługa akcji na karcie. Okrążenia dochodzą z sieci, więc każda czeka na odpowiedź. */
+  const run = async (what: string, action: () => Promise<void> | void) => {
     setBusy(true);
     try {
-      action();
+      await action();
     } catch (e) {
       Alert.alert(what, e instanceof Error ? e.message : 'Nieznany błąd.');
     } finally {
@@ -108,22 +116,22 @@ export default function ImportActivitiesScreen() {
   };
 
   const add = (activity: ImportCandidate) =>
-    run('Nie udało się dodać', () => {
-      const sessionId = importWatchActivity(activity);
+    run('Nie udało się dodać', async () => {
+      const sessionId = await importWatchActivity(activity);
       drop(activity.recordId);
       router.replace({ pathname: '/history/[id]', params: { id: sessionId } });
     });
 
   const addToTerm = (activity: ImportCandidate, scheduledId: number) =>
-    run('Nie udało się przypisać', () => {
-      const sessionId = importWatchActivityToTerm(scheduledId, activity);
+    run('Nie udało się przypisać', async () => {
+      const sessionId = await importWatchActivityToTerm(scheduledId, activity);
       drop(activity.recordId);
       router.replace({ pathname: '/history/[id]', params: { id: sessionId } });
     });
 
   const link = (activity: ImportCandidate, sessionId: number) =>
-    run('Nie udało się połączyć', () => {
-      linkWatchActivity(sessionId, activity);
+    run('Nie udało się połączyć', async () => {
+      await linkWatchActivity(sessionId, activity);
       drop(activity.recordId);
       router.replace({ pathname: '/history/[id]', params: { id: sessionId } });
     });
@@ -140,6 +148,16 @@ export default function ImportActivitiesScreen() {
       restoreWatchActivity(recordId);
       setArchived(listArchived());
       retry();
+    });
+
+  const fetchLaps = () =>
+    run('Nie udało się dociągnąć okrążeń', async () => {
+      setLaps(true);
+      try {
+        Alert.alert('Okrążenia', describeLapBackfill(await backfillLaps()));
+      } finally {
+        setLaps(false);
+      }
     });
 
   return (
@@ -159,6 +177,22 @@ export default function ImportActivitiesScreen() {
             onPress={() => void checkForNew()}
             disabled={checking || busy || activities === null}
           />
+        )}
+
+        {problem === null && (
+          <View style={styles.group}>
+            <Button
+              label={laps ? 'Dociągam okrążenia…' : 'Dociągnij okrążenia do historii'}
+              icon="timeline"
+              variant="secondary"
+              onPress={() => void fetchLaps()}
+              disabled={laps || checking || busy || activities === null}
+            />
+            <ThemedText type="small" themeColor="textSecondary">
+              Treningi wczytane wcześniej mają w bazie tylko sumy. Okrążenia pozwalają wyliczyć
+              rekord z najszybszego fragmentu, a nie ze średniej całego treningu.
+            </ThemedText>
+          </View>
         )}
 
         {activities === null && (

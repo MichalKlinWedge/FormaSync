@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, isNotNull, ne } from 'drizzle-orm';
 
 import * as schema from '@/db/schema';
 import type { SyncDb } from '@/db/types';
@@ -235,7 +235,12 @@ export function linkCandidates(
  * Dopina pomiary z zegarka do treningu prowadzonego w aplikacji. Serie i powtórzenia zostają
  * te wpisane ręcznie — z zegarka dochodzi wyłącznie to, czego aplikacja sama nie zmierzy.
  */
-export function linkActivityToSession(db: SyncDb, sessionId: number, activity: ImportedActivity): void {
+export function linkActivityToSession(
+  db: SyncDb,
+  sessionId: number,
+  activity: ImportedActivity,
+  laps: MeasuredLap[] = [],
+): void {
   // Dystans z zegarka to też pomiar, którego aplikacja sama nie zrobi — ale dopisujemy go tylko
   // treningowi, który nie ma własnych odcinków. Inaczej policzylibyśmy tę samą trasę dwa razy.
   const sport = db
@@ -250,7 +255,8 @@ export function linkActivityToSession(db: SyncDb, sessionId: number, activity: I
       .where(eq(schema.loggedSegments.sessionId, sessionId))
       .all().length > 0;
   if (sport !== undefined && isEndurance(sport) && !hasSegments) {
-    insertMeasuredSegment(db, sessionId, activity);
+    if (laps.length > 0) insertLapSegments(db, sessionId, laps, activity.startTime);
+    else insertMeasuredSegment(db, sessionId, activity);
   }
 
   db.insert(schema.garminActivityMetrics)
@@ -272,6 +278,78 @@ export function linkActivityToSession(db: SyncDb, sessionId: number, activity: I
       },
     })
     .run();
+}
+
+/**
+ * Treningi z zegarka zapisane jednym odcinkiem — czyli samymi sumami, bez okrążeń. Takie
+ * zostały po wcześniejszych wczytaniach, gdy okrążeń jeszcze nie pobieraliśmy, i dopóki ich
+ * nie dociągniemy, rekord na dystansie może z nich wyjść tylko ze średniej całości.
+ */
+export function sessionsMissingLaps(
+  db: SyncDb,
+): { sessionId: number; recordId: string; startTime: string; meters: number | null }[] {
+  const linked = db
+    .select({
+      sessionId: schema.workoutSessions.id,
+      recordId: schema.garminActivityMetrics.garminActivityId,
+      startTime: schema.workoutSessions.startTime,
+    })
+    .from(schema.workoutSessions)
+    .innerJoin(
+      schema.garminActivityMetrics,
+      eq(schema.garminActivityMetrics.sessionId, schema.workoutSessions.id),
+    )
+    .where(
+      and(
+        isNotNull(schema.garminActivityMetrics.garminActivityId),
+        ne(schema.workoutSessions.sport, 'STRENGTH'),
+      ),
+    )
+    .all();
+
+  // Liczbę odcinków sprawdzamy po stronie JavaScriptu: treningów z zegarka jest w historii
+  // kilkadziesiąt, a grupowanie w SQL-u zaciemniłoby zapytanie bardziej, niż tu zyskujemy.
+  const segments = db
+    .select({
+      sessionId: schema.loggedSegments.sessionId,
+      distanceMeters: schema.loggedSegments.distanceMeters,
+    })
+    .from(schema.loggedSegments)
+    .all();
+  const tally = new Map<number, { count: number; meters: number }>();
+  for (const segment of segments) {
+    const current = tally.get(segment.sessionId) ?? { count: 0, meters: 0 };
+    tally.set(segment.sessionId, {
+      count: current.count + 1,
+      meters: current.meters + (segment.distanceMeters ?? 0),
+    });
+  }
+
+  return linked
+    .flatMap((row) => {
+      const counted = tally.get(row.sessionId);
+      if (row.recordId === null || counted === undefined || counted.count !== 1) return [];
+      // Dystans z jedynego odcinka: po nim poznamy, czy okrążenia opisują ten sam trening.
+      return [{ ...row, recordId: row.recordId, meters: counted.meters > 0 ? counted.meters : null }];
+    });
+}
+
+/**
+ * Wymienia odcinki treningu na okrążenia z zegarka. Stary zapis usuwamy w całości, bo był
+ * jednym odcinkiem z sumami — zostawiony obok okrążeń policzyłby tę samą trasę dwa razy.
+ */
+export function replaceSegmentsWithLaps(
+  db: SyncDb,
+  sessionId: number,
+  laps: MeasuredLap[],
+  startTime: string,
+): void {
+  if (laps.length === 0) return;
+  db.transaction((tx) => {
+    tx.delete(schema.loggedSegments).where(eq(schema.loggedSegments.sessionId, sessionId)).run();
+    tx.delete(schema.sessionSegments).where(eq(schema.sessionSegments.sessionId, sessionId)).run();
+    insertLapSegments(tx, sessionId, laps, startTime);
+  });
 }
 
 /** Aktywności odłożone przez użytkownika — pomijamy je przy kolejnych odczytach. */
@@ -311,6 +389,13 @@ export function restoreActivity(db: SyncDb, recordId: string): void {
   db.delete(schema.archivedActivities).where(eq(schema.archivedActivities.recordId, recordId)).run();
 }
 
+/**
+ * Okrążenie przeliczone na to, co trzyma baza. Kształt powtarza `Lap` z odczytu Garmina, ale
+ * trzymamy go tutaj po swojemu — tak jak `ImportedActivity` — żeby zapis do bazy nie zależał
+ * od modułu sieciowego.
+ */
+export type MeasuredLap = { meters: number; seconds: number; avgHeartRate: number | null };
+
 export type ImportedActivity = {
   recordId: string;
   title: string;
@@ -323,6 +408,47 @@ export type ImportedActivity = {
   maxHeartRate: number | null;
   caloriesBurned: number | null;
 };
+
+/**
+ * Zapisuje okrążenia jako kolejne odcinki robocze. Czas zakończenia liczymy narastająco od
+ * startu aktywności: Garmin nie zawsze podaje godzinę okrążenia, a statystyki układają odcinki
+ * po tej właśnie kolumnie — rekord na fragmencie wymaga kolejności, w jakiej faktycznie padły.
+ */
+function insertLapSegments(
+  db: SyncDb,
+  sessionId: number,
+  laps: MeasuredLap[],
+  startTime: string,
+): void {
+  let at = Date.parse(startTime);
+  laps.forEach((lap, index) => {
+    at += lap.seconds * 1000;
+    const segment = db
+      .insert(schema.sessionSegments)
+      .values({
+        sessionId,
+        orderIndex: index,
+        kind: 'WORK',
+        durationType: lap.meters > 0 ? 'DISTANCE' : 'TIME',
+        distanceMeters: lap.meters > 0 ? lap.meters : null,
+        durationSeconds: lap.seconds > 0 ? lap.seconds : null,
+      })
+      .returning({ id: schema.sessionSegments.id })
+      .get();
+    db.insert(schema.loggedSegments)
+      .values({
+        sessionId,
+        sessionSegmentId: segment.id,
+        orderIndex: index,
+        iteration: 1,
+        distanceMeters: lap.meters > 0 ? lap.meters : null,
+        durationSeconds: lap.seconds > 0 ? lap.seconds : null,
+        avgHeartRate: lap.avgHeartRate,
+        completedAt: new Date(at).toISOString(),
+      })
+      .run();
+  });
+}
 
 /**
  * Zapisuje pokonany dystans jako jeden odcinek roboczy. Zegarek nie dzieli aktywności na odcinki
@@ -362,7 +488,11 @@ function insertMeasuredSegment(db: SyncDb, sessionId: number, activity: Imported
  * udostępnia, więc w historii pokaże się czas, biometria i — przy bieganiu, rowerze i pływaniu —
  * dystans zapisany jako jeden odcinek.
  */
-export function createSessionFromActivity(db: SyncDb, activity: ImportedActivity): number {
+export function createSessionFromActivity(
+  db: SyncDb,
+  activity: ImportedActivity,
+  laps: MeasuredLap[] = [],
+): number {
   return db.transaction((tx) => {
     const session = tx
       .insert(schema.workoutSessions)
@@ -377,7 +507,10 @@ export function createSessionFromActivity(db: SyncDb, activity: ImportedActivity
       .returning({ id: schema.workoutSessions.id })
       .get();
 
-    if (isEndurance(activity.sport)) insertMeasuredSegment(tx, session.id, activity);
+    if (isEndurance(activity.sport)) {
+      if (laps.length > 0) insertLapSegments(tx, session.id, laps, activity.startTime);
+      else insertMeasuredSegment(tx, session.id, activity);
+    }
 
     tx.insert(schema.garminActivityMetrics)
       .values({

@@ -2,6 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 
 import {
   alreadySettled,
+  describeLapBackfill,
   describeRefresh,
   findOverlappingSession,
   inventory,
@@ -83,6 +84,35 @@ describe('findOverlappingSession', () => {
       ],
     );
     expect(result).toBeNull();
+  });
+});
+
+describe('describeLapBackfill', () => {
+  /** `pluralWith` spaja liczbę z rzeczownikiem spacją nierozdzielającą. */
+  const n = (count: number, noun: string) => `${count} ${noun}`;
+
+  it('mówi, do ilu treningów okrążenia doszły', () => {
+    expect(describeLapBackfill({ candidates: 4, filled: 4, laps: 37 })).toBe(
+      `Okrążenia doszły do 4 z 4: razem ${n(37, 'okrążeń')}.`,
+    );
+  });
+
+  it('nie przemilcza treningów, których Garmin nie podzielił', () => {
+    expect(describeLapBackfill({ candidates: 5, filled: 2, laps: 18 })).toBe(
+      `Okrążenia doszły do 2 z 5: razem ${n(18, 'okrążeń')}. Dla pozostałych ${n(3, 'treningów')} Garmin okrążeń nie ma.`,
+    );
+  });
+
+  it('po pustym przebiegu mówi, że rekordy zostają ze średnich', () => {
+    expect(describeLapBackfill({ candidates: 3, filled: 0, laps: 0 })).toBe(
+      `Garmin nie podał okrążeń dla żadnego z ${n(3, 'treningów')}. Rekordy zostają liczone ze średnich.`,
+    );
+  });
+
+  it('bez kandydatów nie udaje, że coś zrobił', () => {
+    expect(describeLapBackfill({ candidates: 0, filled: 0, laps: 0 })).toBe(
+      'Wszystkie treningi z zegarka mają już okrążenia.',
+    );
   });
 });
 
