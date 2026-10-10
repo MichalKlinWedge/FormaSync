@@ -10,7 +10,9 @@ import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
 import { syncWorkoutReminders } from '@/features/calendar/reminders';
 import { formatDistance, formatPace, formatSeconds } from '@/features/endurance/format';
-import { buildBrief } from '@/features/goals/brief';
+import { GeminiError, NoApiKeyError, planWithGemini, PlanReplyError } from '@/features/goals/ai/gemini';
+import { hasConsent, setConsent } from '@/features/goals/ai/tokens';
+import { buildBrief, currentForm } from '@/features/goals/brief';
 import { planGoal } from '@/features/goals/planner';
 import { deleteGoal, materializeGoal, savePlan, setGoalStatus } from '@/features/goals/repository';
 import { KIND_LABELS, PHASE_LABELS } from '@/features/goals/shapes';
@@ -34,6 +36,7 @@ export default function GoalScreen() {
   const { goal, workouts, progress } = useGoal(goalId);
   const [time, setTime] = useState<string | null>('07:00');
   const [reminder, setReminder] = useState<number | null>(60);
+  const [asking, setAsking] = useState(false);
 
   if (goal === null) {
     return (
@@ -58,6 +61,63 @@ export default function GoalScreen() {
       'Plan gotowy',
       `${pluralWith(weeks.length, 'tydzień', 'tygodnie', 'tygodni')}, ${pluralWith(added, 'jednostka', 'jednostki', 'jednostek')}. Przejrzyj go niżej i wpisz do kalendarza.`,
     );
+  };
+
+  /**
+   * Plan od modelu. Zgody pytamy raz i zapisujemy: to pierwsza rzecz w aplikacji, która wypuszcza
+   * treningi poza telefon, więc musi o tym powiedzieć wprost, zanim cokolwiek wyśle.
+   */
+  const askGemini = () => {
+    if (goal === null) return;
+    if (!hasConsent()) {
+      Alert.alert(
+        'Wysłać dane do Google?',
+        'Do Gemini pojadą: dystans i data zawodów, czas docelowy, dni treningowe, tygodniowa objętość, najlepsze tempo i lista treningów z ostatnich tygodni. Nie pojadą pomiary ciała, tętno, sen ani ciśnienie.',
+        [
+          { text: 'Anuluj', style: 'cancel' },
+          {
+            text: 'Wyślij',
+            onPress: () => {
+              setConsent(true);
+              void runGemini();
+            },
+          },
+        ],
+      );
+      return;
+    }
+    void runGemini();
+  };
+
+  const runGemini = async () => {
+    if (goal === null) return;
+    setAsking(true);
+    try {
+      const today = todayKey();
+      const weeks = await planWithGemini(
+        buildBrief(db, goal, new Date()),
+        currentForm(db, goal.sport).history,
+        today,
+      );
+      const added = savePlan(db, goalId, weeks, 'GEMINI');
+      Alert.alert(
+        'Plan od Gemini',
+        `${pluralWith(weeks.length, 'tydzień', 'tygodnie', 'tygodni')}, ${pluralWith(added, 'jednostka', 'jednostki', 'jednostek')}. Przejrzyj go niżej — tempa i odcinki policzyła aplikacja, nie model.`,
+      );
+    } catch (e) {
+      Alert.alert(
+        e instanceof NoApiKeyError ? 'Brak klucza' : 'Nie udało się',
+        describeAiError(e),
+        e instanceof NoApiKeyError
+          ? [
+              { text: 'Później', style: 'cancel' },
+              { text: 'Ustawienia', onPress: () => router.push('/goal/ai') },
+            ]
+          : undefined,
+      );
+    } finally {
+      setAsking(false);
+    }
   };
 
   const materialize = () => {
@@ -128,10 +188,30 @@ export default function GoalScreen() {
 
         <View style={styles.section}>
           <Button
-            label={workouts.length === 0 ? 'Ułóż plan' : 'Przelicz plan od nowa'}
-            icon="auto_awesome"
+            label={workouts.length === 0 ? 'Ułóż plan z reguł' : 'Przelicz plan z reguł'}
+            icon="rule"
             onPress={plan}
           />
+          <Button
+            label={asking ? 'Pytam Gemini…' : 'Ułóż plan przez Gemini'}
+            icon="auto_awesome"
+            variant="secondary"
+            onPress={askGemini}
+            disabled={asking}
+          />
+          <Button
+            label="Planista AI — klucz i model"
+            icon="key"
+            variant="secondary"
+            onPress={() => router.push('/goal/ai')}
+          />
+          {goal.plannedBy !== null && (
+            <ThemedText type="small" themeColor="textSecondary">
+              {goal.plannedBy === 'GEMINI'
+                ? 'Obecny plan ułożyło Gemini.'
+                : 'Obecny plan ułożyły reguły w aplikacji.'}
+            </ThemedText>
+          )}
           {workouts.length > 0 && (
             <ThemedText type="small" themeColor="textSecondary">
               Przeliczenie zostawia jednostki już wpisane do kalendarza i układa resztę od nowa —
@@ -223,6 +303,15 @@ export default function GoalScreen() {
       </ScrollView>
     </ThemedView>
   );
+}
+
+/** Błąd modelu po ludzku. Odczyt planu odróżniamy od awarii sieci, bo rada jest inna. */
+function describeAiError(error: unknown): string {
+  if (error instanceof PlanReplyError) {
+    return `${error.message} Spróbuj jeszcze raz albo ułóż plan z reguł — wychodzi od razu i bez internetu.`;
+  }
+  if (error instanceof GeminiError) return error.message;
+  return 'Nie udało się połączyć z Google. Sprawdź internet i spróbuj ponownie.';
 }
 
 const styles = StyleSheet.create({

@@ -31,6 +31,31 @@ export default function PrivacyScreen() {
             W drugą stronę czytamy Twoje aktywności i dane zdrowotne — stąd biorą się treningi z zegarka
             i biometria przy treningach.
           </Bullet>
+          <Bullet>
+            Gemini — jeśli wkleisz swój klucz i zgodzisz się na wysyłkę, przy każdym układaniu planu
+            pod zawody do Google lecą: dyscyplina, nazwa i data zawodów, dystans, czas docelowy, dni
+            treningowe, tygodniowa objętość, najlepsze tempo oraz lista treningów z ostatnich tygodni
+            — data, dystans, czas i tempo każdego. Nie idą pomiary ciała, tętno, sen, ciśnienie ani
+            nazwa konta Garmina. Zapytanie leci wprost z telefonu do Google, bez serwera pośrodku.
+          </Bullet>
+        </Section>
+
+        <Section title="Planista AI">
+          <Paragraph>
+            Układanie planu modelem jest wyłączone, dopóki sam nie wkleisz klucza do Gemini i nie
+            potwierdzisz zgody. Plan z reguł działa bez tego, bez internetu i bez niczyjego konta —
+            i zostaje domyślny.
+          </Paragraph>
+          <Paragraph>
+            Zgodę wycofasz w każdej chwili, a klucz usuniesz jednym przyciskiem: Plany → Cele → Planista
+            AI. Klucz leży w bezpiecznym magazynie telefonu, nie w bazie, więc nie trafia do kopii
+            zapasowej i nie da się go odczytać z powrotem — także z tego ekranu.
+          </Paragraph>
+          <Paragraph>
+            Tego, co Google robi z przysłanym zapytaniem, ta aplikacja nie kontroluje. Zasady
+            przetwarzania są po stronie Google i zależą od rodzaju Twojego klucza — przy darmowym
+            poziomie Google zastrzega sobie prawo wykorzystania zapytań do ulepszania modeli.
+          </Paragraph>
         </Section>
 
         <Section title="Dane zdrowotne z Garmin Connect">
