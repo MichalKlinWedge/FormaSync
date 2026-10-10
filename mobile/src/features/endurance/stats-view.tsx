@@ -49,7 +49,9 @@ export function EnduranceStats({ sport }: { sport: Sport }) {
     );
   }
 
-  const byTime = sport === 'OTHER';
+  // „Różne” mierzymy czasem, bo tańca ani tenisa nikt nie liczy kilometrami — ale wędrówki
+  // i marsze też tu trafiają i mają prawdziwy dystans. Gdy jakiś jest, pokazujemy go.
+  const byTime = sport === 'OTHER' && summary.meters === 0;
   const volume = (week: { meters: number; seconds: number }) => (byTime ? week.seconds : week.meters);
   const formatVolume = byTime ? formatSeconds : formatDistance;
   const maxVolume = Math.max(...weeks.map(volume), 1);

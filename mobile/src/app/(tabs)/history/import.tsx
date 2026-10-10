@@ -15,6 +15,7 @@ import {
   GarminNotConnectedError,
   HISTORY_DAYS,
   importHistory,
+  repairSports,
   importWatchActivity,
   importWatchActivityToTerm,
   linkWatchActivity,
@@ -27,6 +28,7 @@ import {
 import {
   describeHistoryImport,
   describeLapBackfill,
+  describeSportRepair,
   describeRefresh,
   IMPORT_DAYS,
   STATUS_LABELS,
@@ -55,6 +57,7 @@ export default function ImportActivitiesScreen() {
   const [showSeen, setShowSeen] = useState(false);
   const [laps, setLaps] = useState(false);
   const [history, setHistory] = useState<number | null>(null);
+  const [sports, setSports] = useState(false);
 
   const apply = (result: WatchActivities) => {
     setActivities(result.activities);
@@ -164,6 +167,16 @@ export default function ImportActivitiesScreen() {
       }
     });
 
+  const fixSports = () =>
+    run('Nie udało się przeliczyć dyscyplin', async () => {
+      setSports(true);
+      try {
+        Alert.alert('Dyscypliny', describeSportRepair(await repairSports(HISTORY_DAYS.at(-1)!)));
+      } finally {
+        setSports(false);
+      }
+    });
+
   const fetchLaps = () =>
     run('Nie udało się dociągnąć okrążeń', async () => {
       setLaps(true);
@@ -225,6 +238,24 @@ export default function ImportActivitiesScreen() {
             <ThemedText type="small" themeColor="textSecondary">
               Okrążenia tą drogą nie dochodzą — to osobne zapytanie na każdy trening. Dociągnij je
               przyciskiem poniżej, już po wczytaniu historii.
+            </ThemedText>
+          </View>
+        )}
+
+        {problem === null && (
+          <View style={styles.group}>
+            <Button
+              label={sports ? 'Przeliczam…' : 'Przelicz dyscypliny wczytanych treningów'}
+              icon="category"
+              variant="secondary"
+              onPress={() => void fixSports()}
+              disabled={sports || laps || checking || busy || history !== null || activities === null}
+            />
+            <ThemedText type="small" themeColor="textSecondary">
+              Marsze i wędrówki trafiały wcześniej do biegania, przez co wycieczka w góry stawała
+              się rekordem biegowym i zawyżała objętość, z której plan pod zawody liczy formę.
+              Przycisk pyta Garmina o rodzaj każdej wczytanej aktywności i przypisuje dyscyplinę
+              od nowa. Treningów prowadzonych w aplikacji nie rusza.
             </ThemedText>
           </View>
         )}

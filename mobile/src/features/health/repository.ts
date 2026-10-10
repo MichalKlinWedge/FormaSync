@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, isNotNull, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, isNotNull, isNull, ne } from 'drizzle-orm';
 
 import * as schema from '@/db/schema';
 import type { SyncDb } from '@/db/types';
@@ -532,4 +532,43 @@ export function createSessionFromActivity(
 
     return session.id;
   });
+}
+
+/**
+ * Treningi wczytane z Garmina razem z dyscypliną, jaką mają dziś w bazie. Dyscyplinę przypisuje
+ * odczyt z listy aktywności, a ta reguła bywa poprawiana — wtedy to, co już leży w historii,
+ * zostaje z dawnym przypisaniem i trzeba je przeliczyć od nowa.
+ *
+ * Bierzemy wyłącznie treningi bez planu: te prowadzone w aplikacji mają dyscyplinę z planu,
+ * a nie z zegarka, i nie ma ich o co pytać Garmina.
+ */
+export function garminLinkedSessions(
+  db: SyncDb,
+): { sessionId: number; recordId: string; sport: schema.Sport }[] {
+  return db
+    .select({
+      sessionId: schema.workoutSessions.id,
+      recordId: schema.garminActivityMetrics.garminActivityId,
+      sport: schema.workoutSessions.sport,
+    })
+    .from(schema.workoutSessions)
+    .innerJoin(
+      schema.garminActivityMetrics,
+      eq(schema.garminActivityMetrics.sessionId, schema.workoutSessions.id),
+    )
+    .where(
+      and(
+        isNotNull(schema.garminActivityMetrics.garminActivityId),
+        isNull(schema.workoutSessions.planId),
+      ),
+    )
+    .all()
+    .flatMap((row) => (row.recordId === null ? [] : [{ ...row, recordId: row.recordId }]));
+}
+
+export function setSessionSport(db: SyncDb, sessionId: number, sport: schema.Sport): void {
+  db.update(schema.workoutSessions)
+    .set({ sport })
+    .where(eq(schema.workoutSessions.id, sessionId))
+    .run();
 }

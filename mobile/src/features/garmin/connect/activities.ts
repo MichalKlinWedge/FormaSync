@@ -50,17 +50,21 @@ export function parseGarminTime(value: string | null | undefined): string | null
 /**
  * Dyscyplina z klucza typu Garmina. Garmin ma ich kilkadziesiąt i dokłada nowe, więc zamiast
  * pełnego słownika patrzymy na rdzeń nazwy — `trail_running`, `treadmill_running` i `virtual_run`
- * to wszystko bieganie. Marsz i wędrówkę też liczymy jako bieganie, bo mierzy się je tak samo —
- * dystansem i tempem — a osobnego sportu dla chodzenia aplikacja nie ma. Czego nie rozpoznamy,
- * trafia do „Różnych”, a nie do siły, żeby nie psuć tonażu ani rekordów.
+ * to wszystko bieganie. Czego nie rozpoznamy, trafia do „Różnych”, a nie do siły, żeby nie psuć
+ * tonażu ani rekordów.
+ *
+ * Marsz i wędrówka szły kiedyś do biegania, bo mierzy się je tak samo — dystansem i tempem.
+ * To był błąd: siedemnastogodzinna wędrówka po Tatrach zostawała najdłuższym „biegiem”, a jej
+ * odcinki trafiały do rekordów biegowych i do objętości, z której plan pod zawody liczy formę.
+ * Chodzenie i bieganie dzielą jednostki miary, ale nie są tym samym wysiłkiem — idą więc do
+ * „Różnych”, gdzie nie mieszają się z niczyim rekordem.
  */
 export function garminSport(typeKey: string | null | undefined): Sport {
   const key = (typeKey ?? '').toLowerCase();
   if (key.includes('swim')) return 'SWIMMING';
   if (key.includes('cycling') || key.includes('biking') || key.includes('ride')) return 'CYCLING';
-  if (key.includes('running') || key.includes('run') || key === 'walking' || key === 'hiking') {
-    return 'RUNNING';
-  }
+  if (key.includes('walking') || key.includes('hiking') || key.includes('hike')) return 'OTHER';
+  if (key.includes('running') || key.includes('run')) return 'RUNNING';
   if (key.includes('strength')) return 'STRENGTH';
   return 'OTHER';
 }

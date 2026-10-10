@@ -50,9 +50,14 @@ describe('garminSport', () => {
     expect(garminSport('strength_training')).toBe('STRENGTH');
   });
 
-  it('marsz i wędrówkę liczy jako bieganie, bo mierzy się je dystansem', () => {
-    expect(garminSport('walking')).toBe('RUNNING');
-    expect(garminSport('hiking')).toBe('RUNNING');
+  it('marszu i wędrówki nie liczy jako biegania', () => {
+    // Siedemnastogodzinna wędrówka po Tatrach zostawała najdłuższym „biegiem”, a jej odcinki
+    // trafiały do rekordów biegowych i do objętości, z której plan liczy formę.
+    expect(garminSport('walking')).toBe('OTHER');
+    expect(garminSport('casual_walking')).toBe('OTHER');
+    expect(garminSport('speed_walking')).toBe('OTHER');
+    expect(garminSport('hiking')).toBe('OTHER');
+    expect(garminSport('mountain_hiking')).toBe('OTHER');
   });
 
   it('nierozpoznaną aktywność wrzuca do „Różnych”, a nie do siły', () => {

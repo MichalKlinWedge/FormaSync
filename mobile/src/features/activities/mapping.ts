@@ -83,6 +83,17 @@ export function describeHistoryImport(result: {
     : `${added} Pominięte jako już rozliczone: ${result.skipped}.`;
 }
 
+/** Wynik przeliczenia dyscyplin. Zero poprawionych znaczy, że wszystko już się zgadza. */
+export function describeSportRepair(result: { checked: number; fixed: number }): string {
+  if (result.checked === 0) {
+    return 'Garmin nie zwrócił z tego okresu żadnego z wczytanych treningów — przeliczać nie ma czego.';
+  }
+  if (result.fixed === 0) {
+    return `Sprawdzone treningi: ${result.checked}. Wszystkie mają już właściwą dyscyplinę.`;
+  }
+  return `Sprawdzone treningi: ${result.checked}. Dyscyplinę poprawiono w ${pluralWith(result.fixed, 'treningu', 'treningach', 'treningach')}.`;
+}
+
 /** Trening z aplikacji, na który nachodzi aktywność — kandydat do połączenia. */
 export type SessionWindow = Interval & { id: number; title: string; linked: boolean };
 

@@ -22,8 +22,10 @@ import {
   linkActivityToSession,
   linkCandidates,
   listArchivedActivities,
+  garminLinkedSessions,
   replaceSegmentsWithLaps,
   restoreActivity,
+  setSessionSport,
   saveHeartRateMetrics,
   sessionsMissingLaps,
   sessionWindows,
@@ -447,5 +449,45 @@ describe('aktywność z zegarka wprost do terminu', () => {
     adoptTermPlan(db, sessionId, term.id);
 
     expect(listHistory(db).find((item) => item.id === sessionId)?.title).toBe(plan.title);
+  });
+});
+
+describe('dyscyplina wczytanych treningów', () => {
+  it('wskazuje treningi z zegarka razem z dzisiejszą dyscypliną', () => {
+    const db = createTestDb({ seed: true });
+    const sessionId = createSessionFromActivity(db, { ...RUN, distanceMeters: 3000 });
+
+    expect(garminLinkedSessions(db)).toEqual([
+      { sessionId, recordId: 'rec-run', sport: 'RUNNING' },
+    ]);
+  });
+
+  it('pomija treningi prowadzone w aplikacji — te mają dyscyplinę z planu', () => {
+    const db = createTestDb({ seed: true });
+    const planId = saveEndurancePlan(db, {
+      ...emptyEnduranceDraft('RUNNING'),
+      title: 'Wybieganie',
+      segments: [createSegment('WORK')],
+    });
+    const sessionId = startSession(db, { kind: 'plan', planId });
+    finishSession(db, sessionId);
+    linkActivityToSession(db, sessionId, RUN);
+
+    expect(garminLinkedSessions(db)).toEqual([]);
+  });
+
+  it('przepisuje dyscyplinę, nie ruszając reszty treningu', () => {
+    const db = createTestDb({ seed: true });
+    // Wędrówka wczytana wtedy, gdy marsz szedł jeszcze do biegania.
+    const sessionId = createSessionFromActivity(db, {
+      ...RUN,
+      title: 'Zakopane Piesze wędrówki',
+      distanceMeters: 60150,
+    });
+    setSessionSport(db, sessionId, 'OTHER');
+
+    expect(loadEnduranceWorkouts(db, 'RUNNING')).toEqual([]);
+    const [moved] = loadEnduranceWorkouts(db, 'OTHER');
+    expect(moved).toMatchObject({ sessionId, title: 'Zakopane Piesze wędrówki', meters: 60150 });
   });
 });

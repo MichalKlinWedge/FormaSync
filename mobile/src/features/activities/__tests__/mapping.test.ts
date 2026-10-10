@@ -3,6 +3,7 @@ import { describe, expect, it } from '@jest/globals';
 import {
   alreadySettled,
   describeLapBackfill,
+  describeSportRepair,
   describeRefresh,
   findOverlappingSession,
   inventory,
@@ -112,6 +113,26 @@ describe('describeLapBackfill', () => {
   it('bez kandydatów nie udaje, że coś zrobił', () => {
     expect(describeLapBackfill({ candidates: 0, filled: 0, laps: 0 })).toBe(
       'Wszystkie treningi z zegarka mają już okrążenia.',
+    );
+  });
+});
+
+describe('describeSportRepair', () => {
+  it('mówi, ile treningów zmieniło dyscyplinę', () => {
+    expect(describeSportRepair({ checked: 40, fixed: 3 })).toBe(
+      'Sprawdzone treningi: 40. Dyscyplinę poprawiono w 3 treningach.',
+    );
+  });
+
+  it('bez zmian nie udaje, że coś zrobił', () => {
+    expect(describeSportRepair({ checked: 40, fixed: 0 })).toBe(
+      'Sprawdzone treningi: 40. Wszystkie mają już właściwą dyscyplinę.',
+    );
+  });
+
+  it('bez treningów do sprawdzenia mówi to wprost', () => {
+    expect(describeSportRepair({ checked: 0, fixed: 0 })).toBe(
+      'Garmin nie zwrócił z tego okresu żadnego z wczytanych treningów — przeliczać nie ma czego.',
     );
   });
 });

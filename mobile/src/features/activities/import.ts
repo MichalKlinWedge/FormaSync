@@ -7,6 +7,7 @@ import {
   archiveActivity,
   archivedActivityIds,
   createSessionFromActivity,
+  garminLinkedSessions,
   importedActivityIds,
   linkActivityToSession,
   linkCandidates,
@@ -15,6 +16,7 @@ import {
   restoreActivity,
   sessionsMissingLaps,
   sessionWindows,
+  setSessionSport,
 } from '@/features/health/repository';
 import { FASTEST_PLAUSIBLE_PACE } from '@/features/endurance/records';
 import { toDateKey } from '@/lib/date';
@@ -186,6 +188,39 @@ export async function backfillLaps(): Promise<LapBackfill> {
   }
 
   return { candidates: candidates.length, filled, laps };
+}
+
+export type SportRepair = { checked: number; fixed: number };
+
+/**
+ * Przypisuje wczytanym treningom dyscyplinę na nowo, według dzisiejszej reguły.
+ *
+ * Reguła bywa poprawiana — wędrówki i marsze szły kiedyś do biegania — a to, co już leży
+ * w historii, zostaje z dawnym przypisaniem. Dopóki się go nie przeliczy, wędrówka po Tatrach
+ * psuje rekordy biegowe i zawyża objętość, z której plan pod zawody liczy formę.
+ *
+ * Ruszamy wyłącznie treningi bez planu: te prowadzone w aplikacji mają dyscyplinę z planu.
+ */
+export async function repairSports(days: number, now: Date = new Date()): Promise<SportRepair> {
+  if (!(await isConnected())) throw new GarminNotConnectedError();
+
+  const activities = await fetchGarminActivities(days, now);
+  const sportByRecord = new Map(activities.map((activity) => [activity.recordId, activity.sport]));
+
+  const linked = garminLinkedSessions(db);
+  let checked = 0;
+  let fixed = 0;
+
+  for (const session of linked) {
+    const sport = sportByRecord.get(session.recordId);
+    if (sport === undefined) continue;
+    checked += 1;
+    if (sport === session.sport) continue;
+    setSessionSport(db, session.sessionId, sport);
+    fixed += 1;
+  }
+
+  return { checked, fixed };
 }
 
 /** Treningi z okolic daty aktywności, z którymi można ją połączyć. */
