@@ -113,10 +113,32 @@ export function inventory(
 }
 
 /**
- * Aktywności rozliczone pod innym identyfikatorem. Dopóki treningi szły przez Health Connect,
- * zapisywały się z numerem rekordu Health Connect; ten sam trening w Garmin Connect ma inny numer,
- * więc bez tego cały wczytany miesiąc wróciłby na listę jako nowy. Poznajemy je po tym, że pokrywają
- * się z treningiem, który ma już pomiary z zegarka.
+ * Ten sam trening ma w Garmin Connect inny numer niż miał w Health Connect, a wcześniejsze
+ * wczytania i odłożenia zapisały się z tym starym. Bez rozpoznania po czasie cały załatwiony
+ * miesiąc wróciłby na listę jako nowy.
+ */
+
+/** Ile czasu startu może się różnić, żeby to był wciąż ten sam trening. */
+const SAME_MOMENT_MS = 120_000;
+
+/** Aktywności zaczynające się w tej samej chwili co któryś ze znanych nam już wpisów. */
+export function sameMoment(
+  activities: WatchActivity[],
+  known: { startTime: string }[],
+): Set<string> {
+  const stamps = known.map((entry) => Date.parse(entry.startTime));
+  return new Set(
+    activities
+      .filter((activity) =>
+        stamps.some((stamp) => Math.abs(stamp - Date.parse(activity.startTime)) <= SAME_MOMENT_MS),
+      )
+      .map((activity) => activity.recordId),
+  );
+}
+
+/**
+ * Aktywności rozliczone pod innym identyfikatorem: pokrywają się z treningiem, który ma już
+ * pomiary z zegarka, czyli albo z niego powstał, albo został do niego dopięty.
  */
 export function alreadySettled(activities: WatchActivity[], sessions: SessionWindow[]): Set<string> {
   const measured = sessions.filter((session) => session.measured);

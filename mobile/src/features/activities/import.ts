@@ -16,7 +16,7 @@ import {
 import { toDateKey } from '@/lib/date';
 
 import type { ImportCandidate, InventoryEntry, WatchActivity } from './mapping';
-import { alreadySettled, IMPORT_DAYS, inventory, selectImportable } from './mapping';
+import { alreadySettled, IMPORT_DAYS, inventory, sameMoment, selectImportable } from './mapping';
 
 export type {
   ActivityStatus,
@@ -47,7 +47,6 @@ export async function listWatchActivities(now: Date = new Date()): Promise<Watch
   if (!(await isConnected())) throw new GarminNotConnectedError();
 
   const activities = await fetchGarminActivities(IMPORT_DAYS, now);
-  const archived = archivedActivityIds(db);
   const fromIso = new Date(now.getTime() - IMPORT_DAYS * 24 * 3600 * 1000).toISOString();
   const sessions = sessionWindows(db, fromIso);
   // Jeden zbiór „już rozliczonych” dla listy i dla spisu — inaczej spis mówiłby „do wczytania”
@@ -55,6 +54,12 @@ export async function listWatchActivities(now: Date = new Date()): Promise<Watch
   const imported = new Set([
     ...importedActivityIds(db),
     ...alreadySettled(activities, sessions),
+  ]);
+  // Odłożone też mają stare identyfikatory — inaczej wróciłyby z Garmina jako nowe, mimo że
+  // leżą niżej na tym samym ekranie, w sekcji odłożonych.
+  const archived = new Set([
+    ...archivedActivityIds(db),
+    ...sameMoment(activities, listArchivedActivities(db)),
   ]);
 
   return {

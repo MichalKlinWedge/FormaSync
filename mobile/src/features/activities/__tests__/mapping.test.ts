@@ -5,6 +5,7 @@ import {
   describeRefresh,
   findOverlappingSession,
   inventory,
+  sameMoment,
   selectImportable,
   type WatchActivity,
 } from '../mapping';
@@ -177,5 +178,29 @@ describe('alreadySettled', () => {
       ],
     );
     expect(result.size).toBe(0);
+  });
+});
+
+describe('sameMoment', () => {
+  it('poznaje tę samą aktywność po czasie startu, mimo innego identyfikatora', () => {
+    // Odłożone wpisy mają identyfikatory z czasów, gdy treningi szły przez Health Connect.
+    const result = sameMoment(
+      [
+        make('garmin:1', '2026-10-02T14:08:30.000Z'),
+        make('garmin:2', '2026-10-03T09:56:00.000Z'),
+      ],
+      [{ startTime: '2026-10-02T14:08:00.000Z' }],
+    );
+    expect([...result]).toEqual(['garmin:1']);
+  });
+
+  it('dwie minuty to wciąż ten sam trening, pół godziny już nie', () => {
+    const known = [{ startTime: '2026-10-02T14:00:00.000Z' }];
+    expect(sameMoment([make('a', '2026-10-02T14:01:30.000Z')], known).size).toBe(1);
+    expect(sameMoment([make('a', '2026-10-02T14:30:00.000Z')], known).size).toBe(0);
+  });
+
+  it('bez znanych wpisów nie uznaje niczego za znane', () => {
+    expect(sameMoment([make('a', '2026-10-02T14:00:00.000Z')], []).size).toBe(0);
   });
 });
