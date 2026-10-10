@@ -23,6 +23,7 @@ import { RemoteBackupSection } from '@/features/backup/remote-section';
 import { syncWorkoutReminders } from '@/features/calendar/reminders';
 import { WellnessSection } from '@/features/wellness/wellness-section';
 import { GarminAccountSection } from '@/features/garmin/connect/account-section';
+import { ProfileSection } from '@/features/profile/profile-section';
 import { describeBundle } from '@/features/updates/bundle';
 import { describeCheck, fetchNewerBundle } from '@/features/updates/check';
 import { findActiveSessionId } from '@/features/workout/repository';
@@ -152,6 +153,8 @@ export default function SettingsScreen() {
             </View>
           )}
         </View>
+
+        <ProfileSection />
 
         <View style={styles.section}>
           <ThemedText type="smallBold" themeColor="textSecondary">

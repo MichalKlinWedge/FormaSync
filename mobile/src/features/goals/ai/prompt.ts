@@ -63,6 +63,7 @@ export function buildPrompt(brief: GoalBrief, history: FormWorkout[], from: stri
     `Dyscyplina: ${brief.sport}`,
     `Zawody: ${brief.title}, ${brief.eventDate}, dystans ${Math.round(brief.distanceMeters)} m`,
     `Czas docelowy: ${target}`,
+    `Wiek: ${brief.age === null ? 'nieznany' : `${brief.age} lat`}`,
     `Tygodni do startu (razem z tygodniem zawodów): ${weeks}`,
     `Dni tygodnia, w które można trenować (0 = poniedziałek): ${days}`,
     `Obecna objętość tygodniowa: ${Math.round(brief.weeklyMeters)} m`,

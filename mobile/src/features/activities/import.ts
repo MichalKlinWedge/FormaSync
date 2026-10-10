@@ -19,7 +19,14 @@ import {
 import { toDateKey } from '@/lib/date';
 
 import type { ImportCandidate, InventoryEntry, WatchActivity } from './mapping';
-import { alreadySettled, IMPORT_DAYS, inventory, sameMoment, selectImportable } from './mapping';
+import {
+  alreadySettled,
+  findOverlappingSession,
+  IMPORT_DAYS,
+  inventory,
+  sameMoment,
+  selectImportable,
+} from './mapping';
 
 export type {
   ActivityStatus,
@@ -106,6 +113,45 @@ export async function importWatchActivityToTerm(
   // Nazwa ma iść z planu, a nie z zegarka: w kalendarzu stał „Taniec”, Garmin zmierzył „Kardio”.
   adoptTermPlan(db, sessionId, scheduledId);
   return sessionId;
+}
+
+/** Okna historii do wyboru. Rok wstecz to u Garmina kilka stron listy, nie jedna. */
+export const HISTORY_DAYS = [90, 180, 365];
+
+export type HistoryImport = { seen: number; imported: number; skipped: number };
+
+/**
+ * Ściąga całą historię z wybranego okresu do historii aplikacji — jednym przebiegiem, bez
+ * pytania o każdy trening osobno. Rok biegania to dwieście aktywności; przeklikanie ich po jednej
+ * nie jest sposobem na zbudowanie punktu odniesienia dla planu.
+ *
+ * Pomijamy to, co już rozliczone: wczytane, odłożone i te, na które nachodzi trening prowadzony
+ * w aplikacji. Okrążeń tą drogą nie pobieramy — to osobne zapytanie na każdą aktywność, więc przy
+ * dwustu treningach czekałoby się minuty. Dociąga je przycisk okrążeń, już po wczytaniu.
+ */
+export async function importHistory(days: number, now: Date = new Date()): Promise<HistoryImport> {
+  if (!(await isConnected())) throw new GarminNotConnectedError();
+
+  const activities = await fetchGarminActivities(days, now);
+  const fromIso = new Date(now.getTime() - days * 24 * 3600 * 1000).toISOString();
+  const sessions = sessionWindows(db, fromIso);
+  const imported = new Set([...importedActivityIds(db), ...alreadySettled(activities, sessions)]);
+  const archived = new Set([
+    ...archivedActivityIds(db),
+    ...sameMoment(activities, listArchivedActivities(db)),
+  ]);
+
+  let added = 0;
+  for (const activity of activities) {
+    if (imported.has(activity.recordId) || archived.has(activity.recordId)) continue;
+    // Trening prowadzony w aplikacji w tym samym czasie to ta sama jednostka zapisana dwukrotnie.
+    // Przy ściąganiu hurtem nie ma komu podpowiedzieć połączenia, więc go po prostu nie dublujemy.
+    if (findOverlappingSession(activity, sessions) !== null) continue;
+    createSessionFromActivity(db, activity);
+    added += 1;
+  }
+
+  return { seen: activities.length, imported: added, skipped: activities.length - added };
 }
 
 /** Ile treningów dostało okrążenia i ile okrążeń razem doszło. */

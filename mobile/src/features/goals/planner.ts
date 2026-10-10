@@ -62,6 +62,9 @@ export type GoalBrief = {
   weeklyMeters: number;
   /** Najlepsze tempo z historii, w sekundach na kilometr. */
   bestPaceSeconds: number | null;
+  /** Wiek w latach; null, gdy nie podano roku urodzenia. Reguły go nie używają — żadna z nich
+   *  nie zależy od wieku — ale planista AI dostaje go w briefie. */
+  age: number | null;
 };
 
 export type PlannedWorkout = {

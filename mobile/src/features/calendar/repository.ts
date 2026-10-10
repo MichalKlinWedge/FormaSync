@@ -1,9 +1,9 @@
-import { and, asc, eq, gte, inArray, lte, ne, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, isNotNull, isNull, lte, ne, sql } from 'drizzle-orm';
 
 import * as schema from '@/db/schema';
 import type { Sport } from '@/db/schema';
 import type { SyncDb } from '@/db/types';
-import { combineDateAndTime, todayKey } from '@/lib/date';
+import { addDays, combineDateAndTime, todayKey, toDateKey } from '@/lib/date';
 
 export type ScheduleStatus = 'COMPLETED' | 'PLANNED' | 'MISSED';
 
@@ -400,4 +400,81 @@ export function setReminderNotificationId(db: SyncDb, scheduledId: number, notif
     .set({ notificationId })
     .where(eq(schema.scheduledWorkouts.id, scheduledId))
     .run();
+}
+
+/** Trening z historii bez terminu w kalendarzu — wczytany z zegarka albo prowadzony ad hoc. */
+export type LoggedEntry = {
+  sessionId: number;
+  date: string;
+  title: string;
+  sport: schema.Sport;
+  meters: number;
+  seconds: number;
+};
+
+/**
+ * Treningi, które się odbyły, ale nie mają terminu. Kalendarz pokazywał dotąd wyłącznie plany,
+ * więc rok historii ściągnięty z zegarka był widoczny tylko na liście w Historii — a właśnie
+ * w siatce miesiąca widać rytm tygodnia, przerwy i to, czy objętość rosła.
+ *
+ * Dzień liczymy w strefie telefonu, dlatego zakres w zapytaniu bierzemy z dobą zapasu i dopiero
+ * potem przycinamy po wyliczonym kluczu dnia.
+ */
+export function listLogged(db: SyncDb, fromKey: string, toKey: string): LoggedEntry[] {
+  const sessions = db
+    .select({
+      sessionId: schema.workoutSessions.id,
+      startTime: schema.workoutSessions.startTime,
+      title: schema.workoutSessions.title,
+      planTitle: schema.workoutPlans.title,
+      sport: schema.workoutSessions.sport,
+      totalDurationSeconds: schema.workoutSessions.totalDurationSeconds,
+    })
+    .from(schema.workoutSessions)
+    .leftJoin(schema.workoutPlans, eq(schema.workoutSessions.planId, schema.workoutPlans.id))
+    .where(
+      and(
+        ne(schema.workoutSessions.status, 'IN_PROGRESS'),
+        isNull(schema.workoutSessions.scheduledId),
+        gte(schema.workoutSessions.startTime, addDays(fromKey, -1)),
+        lte(schema.workoutSessions.startTime, `${addDays(toKey, 1)}T23:59:59.999Z`),
+      ),
+    )
+    .all();
+
+  if (sessions.length === 0) return [];
+
+  const segments = db
+    .select({
+      sessionId: schema.loggedSegments.sessionId,
+      distanceMeters: schema.loggedSegments.distanceMeters,
+      durationSeconds: schema.loggedSegments.durationSeconds,
+    })
+    .from(schema.loggedSegments)
+    .where(isNotNull(schema.loggedSegments.completedAt))
+    .all();
+
+  const totals = new Map<number, { meters: number; seconds: number }>();
+  for (const segment of segments) {
+    const current = totals.get(segment.sessionId) ?? { meters: 0, seconds: 0 };
+    totals.set(segment.sessionId, {
+      meters: current.meters + (segment.distanceMeters ?? 0),
+      seconds: current.seconds + (segment.durationSeconds ?? 0),
+    });
+  }
+
+  return sessions
+    .map((session) => {
+      const total = totals.get(session.sessionId) ?? { meters: 0, seconds: 0 };
+      return {
+        sessionId: session.sessionId,
+        date: toDateKey(new Date(session.startTime)),
+        title: session.title ?? session.planTitle ?? 'Trening',
+        sport: session.sport,
+        meters: Math.round(total.meters),
+        seconds: total.seconds > 0 ? total.seconds : (session.totalDurationSeconds ?? 0),
+      };
+    })
+    .filter((entry) => entry.date >= fromKey && entry.date <= toKey)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.sessionId - b.sessionId);
 }

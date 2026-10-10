@@ -62,6 +62,27 @@ export function describeLapBackfill(result: {
     : `${done} Dla pozostałych ${pluralWith(rest, 'treningu', 'treningów', 'treningów')} Garmin okrążeń nie ma.`;
 }
 
+/**
+ * Wynik ściągania historii. Mówimy wprost, ile pominięto, bo przy hurtowym wczytaniu to jedyny
+ * sygnał, że część treningów już w aplikacji była — a nie że Garmin ich nie dał.
+ */
+export function describeHistoryImport(result: {
+  seen: number;
+  imported: number;
+  skipped: number;
+}): string {
+  if (result.seen === 0) {
+    return 'Garmin nie zwrócił z tego okresu żadnej aktywności.';
+  }
+  if (result.imported === 0) {
+    return `Wszystkie ${pluralWith(result.seen, 'aktywność', 'aktywności', 'aktywności')} z tego okresu są już w historii.`;
+  }
+  const added = `Dopisane do historii: ${pluralWith(result.imported, 'trening', 'treningi', 'treningów')}.`;
+  return result.skipped === 0
+    ? added
+    : `${added} Pominięte jako już rozliczone: ${result.skipped}.`;
+}
+
 /** Trening z aplikacji, na który nachodzi aktywność — kandydat do połączenia. */
 export type SessionWindow = Interval & { id: number; title: string; linked: boolean };
 

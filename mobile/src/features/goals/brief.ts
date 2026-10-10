@@ -2,6 +2,7 @@ import type { Sport } from '@/db/schema';
 import type { SyncDb } from '@/db/types';
 import { sportRecords } from '@/features/endurance/records';
 import { loadEnduranceWorkouts, weeklyVolume } from '@/features/endurance/stats';
+import { age } from '@/features/profile/profile';
 
 import type { GoalBrief } from './planner';
 
@@ -92,5 +93,6 @@ export function buildBrief(db: SyncDb, goal: GoalRecord, now: Date = new Date())
     weekDays: parseWeekDays(goal.weekDays),
     weeklyMeters: form.weeklyMeters,
     bestPaceSeconds: form.bestPaceSeconds,
+    age: age(db, now),
   };
 }

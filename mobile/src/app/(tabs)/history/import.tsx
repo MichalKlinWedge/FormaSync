@@ -13,6 +13,8 @@ import {
   archiveWatchActivity,
   backfillLaps,
   GarminNotConnectedError,
+  HISTORY_DAYS,
+  importHistory,
   importWatchActivity,
   importWatchActivityToTerm,
   linkWatchActivity,
@@ -23,6 +25,7 @@ import {
   termsForActivity,
 } from '@/features/activities/import';
 import {
+  describeHistoryImport,
   describeLapBackfill,
   describeRefresh,
   IMPORT_DAYS,
@@ -51,6 +54,7 @@ export default function ImportActivitiesScreen() {
   const [seen, setSeen] = useState<InventoryEntry[]>([]);
   const [showSeen, setShowSeen] = useState(false);
   const [laps, setLaps] = useState(false);
+  const [history, setHistory] = useState<number | null>(null);
 
   const apply = (result: WatchActivities) => {
     setActivities(result.activities);
@@ -150,6 +154,16 @@ export default function ImportActivitiesScreen() {
       retry();
     });
 
+  const pullHistory = (days: number) =>
+    run('Nie udało się ściągnąć historii', async () => {
+      setHistory(days);
+      try {
+        Alert.alert('Historia', describeHistoryImport(await importHistory(days)));
+      } finally {
+        setHistory(null);
+      }
+    });
+
   const fetchLaps = () =>
     run('Nie udało się dociągnąć okrążeń', async () => {
       setLaps(true);
@@ -181,12 +195,48 @@ export default function ImportActivitiesScreen() {
 
         {problem === null && (
           <View style={styles.group}>
+            <ThemedText type="smallBold" themeColor="textSecondary">
+              ŚCIĄGNIJ CAŁĄ HISTORIĘ
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              Dopisuje do historii wszystkie treningi z wybranego okresu naraz — bez pytania
+              o każdy osobno. Przydaje się na start: plan pod zawody liczy formę właśnie z tego,
+              co w historii leży. Pomijamy treningi już wczytane, odłożone i te prowadzone
+              w aplikacji.
+            </ThemedText>
+            <View style={styles.chips}>
+              {HISTORY_DAYS.map((days) => (
+                <Button
+                  key={days}
+                  label={
+                    history === days
+                      ? 'Ściągam…'
+                      : days >= 365
+                        ? 'Ostatni rok'
+                        : `Ostatnie ${days} dni`
+                  }
+                  icon="history"
+                  variant="secondary"
+                  onPress={() => void pullHistory(days)}
+                  disabled={history !== null || laps || busy || activities === null}
+                />
+              ))}
+            </View>
+            <ThemedText type="small" themeColor="textSecondary">
+              Okrążenia tą drogą nie dochodzą — to osobne zapytanie na każdy trening. Dociągnij je
+              przyciskiem poniżej, już po wczytaniu historii.
+            </ThemedText>
+          </View>
+        )}
+
+        {problem === null && (
+          <View style={styles.group}>
             <Button
               label={laps ? 'Dociągam okrążenia…' : 'Dociągnij okrążenia do historii'}
               icon="timeline"
               variant="secondary"
               onPress={() => void fetchLaps()}
-              disabled={laps || checking || busy || activities === null}
+              disabled={laps || checking || busy || history !== null || activities === null}
             />
             <ThemedText type="small" themeColor="textSecondary">
               Treningi wczytane wcześniej mają w bazie tylko sumy. Okrążenia pozwalają wyliczyć

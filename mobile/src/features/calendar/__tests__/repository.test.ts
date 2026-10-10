@@ -14,6 +14,7 @@ import { generateRecurringDates } from '@/lib/date';
 
 import {
   deleteScheduled,
+  listLogged,
   listPendingReminders,
   attachSession,
   detachSession,
@@ -536,5 +537,99 @@ describe('ślad po kalendarzu Garmina', () => {
 
     expect(previous).toBe(term.scheduledDate);
     expect(loadScheduled(db, term.id, '2026-10-05')?.garminScheduleId).toBe('42');
+  });
+});
+
+describe('listLogged', () => {
+  /** Zakończony trening bez terminu — tak wygląda aktywność ściągnięta z zegarka. */
+  const imported = (db: ReturnType<typeof createTestDb>, start: Date, meters: number) => {
+    const sessionId = db
+      .insert(schema.workoutSessions)
+      .values({
+        sport: 'RUNNING',
+        title: 'Bieganie',
+        status: 'COMPLETED',
+        startTime: start.toISOString(),
+        endTime: new Date(start.getTime() + 3600_000).toISOString(),
+        totalDurationSeconds: 3600,
+      })
+      .returning({ id: schema.workoutSessions.id })
+      .get().id;
+    const segment = db
+      .insert(schema.sessionSegments)
+      .values({ sessionId, orderIndex: 0, kind: 'WORK', durationType: 'DISTANCE', distanceMeters: meters })
+      .returning({ id: schema.sessionSegments.id })
+      .get();
+    db.insert(schema.loggedSegments)
+      .values({
+        sessionId,
+        sessionSegmentId: segment.id,
+        orderIndex: 0,
+        distanceMeters: meters,
+        durationSeconds: 3600,
+        completedAt: start.toISOString(),
+      })
+      .run();
+    return sessionId;
+  };
+
+  it('pokazuje treningi bez terminu razem z dystansem', () => {
+    const db = createTestDb({ seed: true });
+    imported(db, new Date(2026, 9, 10, 9, 0), 12000);
+
+    expect(listLogged(db, '2026-10-01', '2026-10-31')).toEqual([
+      {
+        sessionId: expect.any(Number),
+        date: '2026-10-10',
+        title: 'Bieganie',
+        sport: 'RUNNING',
+        meters: 12000,
+        seconds: 3600,
+      },
+    ]);
+  });
+
+  it('trening przed północą należy do dnia, w którym się odbył', () => {
+    const db = createTestDb({ seed: true });
+    imported(db, new Date(2026, 9, 10, 23, 30), 8000);
+
+    expect(listLogged(db, '2026-10-10', '2026-10-10')).toHaveLength(1);
+    expect(listLogged(db, '2026-10-11', '2026-10-11')).toEqual([]);
+  });
+
+  it('pomija treningi z terminem — te pokazuje już harmonogram', () => {
+    const { db, planId } = setup();
+    scheduleWorkouts(db, {
+      planId,
+      dates: ['2026-10-12'],
+      scheduledTime: null,
+      reminderOffsetMinutes: null,
+    });
+    const scheduled = listScheduled(db, '2026-10-12', '2026-10-12', '2026-10-12')[0];
+    const sessionId = startSession(db, { kind: 'scheduled', scheduledId: scheduled.id });
+    finishSession(db, sessionId);
+
+    expect(listLogged(db, '2026-10-01', '2026-10-31')).toEqual([]);
+  });
+
+  it('pomija trening, który jeszcze trwa', () => {
+    const db = createTestDb({ seed: true });
+    db.insert(schema.workoutSessions)
+      .values({
+        sport: 'RUNNING',
+        status: 'IN_PROGRESS',
+        startTime: new Date(2026, 9, 10, 9, 0).toISOString(),
+      })
+      .run();
+
+    expect(listLogged(db, '2026-10-01', '2026-10-31')).toEqual([]);
+  });
+
+  it('nie wychodzi poza pytany zakres', () => {
+    const db = createTestDb({ seed: true });
+    imported(db, new Date(2026, 8, 30, 9, 0), 8000);
+    imported(db, new Date(2026, 10, 1, 9, 0), 8000);
+
+    expect(listLogged(db, '2026-10-01', '2026-10-31')).toEqual([]);
   });
 });

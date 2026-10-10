@@ -104,16 +104,39 @@ export function toActivityFromGarmin(row: GarminActivityRow): WatchActivity | nu
   };
 }
 
+/** Ile pozycji bierzemy w jednym zapytaniu. Garmin oddaje listę stronami. */
+const PAGE = 50;
+
+/** Zapora na wypadek, gdyby Garmin przestał zwracać pustą stronę na końcu historii. */
+const MAX_PAGES = 40;
+
 /**
- * Aktywności z Garmin Connect z ostatnich `days` dni. Pobieramy jedną stronę listy i obcinamy ją
- * do okna czasowego — zegarek nie nagrywa dziesiątek treningów dziennie, a pełne przewijanie
- * historii kosztowałoby kilka zapytań przy każdym dotknięciu przycisku.
+ * Aktywności z Garmin Connect z ostatnich `days` dni.
+ *
+ * Lista przychodzi stronami od najnowszej, więc przewijamy ją tak długo, jak mieści się w oknie
+ * czasowym, i przerywamy na pierwszej aktywności starszej. Przy oknie trzydziestu dni to jedno
+ * zapytanie; dopiero ściąganie roku historii kosztuje kilka — i tylko wtedy, gdy ktoś o nie
+ * poprosi. Zapora na liczbę stron jest po to, żeby błąd po stronie Garmina nie zamienił tego
+ * w nieskończone pytanie.
  */
 export async function fetchGarminActivities(days: number, now: Date = new Date()): Promise<WatchActivity[]> {
-  const rows = (await connectApi<GarminActivityRow[]>(`${ACTIVITY_LIST}?start=0&limit=50`)) ?? [];
   const from = now.getTime() - days * 24 * 3600 * 1000;
-  return rows
-    .map(toActivityFromGarmin)
-    .filter((activity): activity is WatchActivity => activity !== null)
-    .filter((activity) => Date.parse(activity.startTime) >= from);
+  const activities: WatchActivity[] = [];
+
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const rows =
+      (await connectApi<GarminActivityRow[]>(`${ACTIVITY_LIST}?start=${page * PAGE}&limit=${PAGE}`)) ?? [];
+    if (rows.length === 0) break;
+
+    const parsed = rows
+      .map(toActivityFromGarmin)
+      .filter((activity): activity is WatchActivity => activity !== null);
+    activities.push(...parsed.filter((activity) => Date.parse(activity.startTime) >= from));
+
+    // Strona z czymś starszym od okna znaczy, że dalej jest już tylko starsze.
+    if (parsed.some((activity) => Date.parse(activity.startTime) < from)) break;
+    if (rows.length < PAGE) break;
+  }
+
+  return activities;
 }

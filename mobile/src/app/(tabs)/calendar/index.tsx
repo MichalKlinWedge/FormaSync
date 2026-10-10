@@ -12,8 +12,19 @@ import { BottomTabInset, Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
 import { sports } from '@/db/schema';
 import { syncWorkoutReminders } from '@/features/calendar/reminders';
-import { deleteScheduled, type ScheduledEntry, type ScheduleStatus } from '@/features/calendar/repository';
-import { groupByDay, useScheduledRange } from '@/features/calendar/use-calendar';
+import {
+  deleteScheduled,
+  type LoggedEntry,
+  type ScheduledEntry,
+  type ScheduleStatus,
+} from '@/features/calendar/repository';
+import {
+  groupByDay,
+  groupLoggedByDay,
+  useLoggedRange,
+  useScheduledRange,
+} from '@/features/calendar/use-calendar';
+import { formatDistance, formatSeconds } from '@/features/endurance/format';
 import { SPORT_ICONS, SPORT_LABELS } from '@/features/sports/sport';
 import { useSportStore } from '@/features/sports/sport-store';
 import { ensureNotificationPermission } from '@/features/workout/notifications';
@@ -47,6 +58,13 @@ export default function CalendarScreen() {
   const entries = filter === null ? all : all.filter((entry) => entry.sport === filter);
   const byDay = groupByDay(entries);
   const selectedEntries = byDay.get(selected) ?? [];
+
+  // Treningi bez terminu — ściągnięta historia i treningi ad hoc. Plany mówią, co ma być;
+  // te mówią, co było, i bez nich siatka miesiąca milczy o całym przebiegu przygotowań.
+  const allLogged = useLoggedRange(weeks[0][0], weeks.at(-1)![6]);
+  const logged = filter === null ? allLogged : allLogged.filter((entry) => entry.sport === filter);
+  const loggedByDay = groupLoggedByDay(logged);
+  const selectedLogged = loggedByDay.get(selected) ?? [];
 
   const statusColor = (status: ScheduleStatus) =>
     status === 'COMPLETED' ? theme.success : status === 'MISSED' ? theme.textSecondary : theme.accent;
@@ -114,6 +132,7 @@ export default function CalendarScreen() {
               <View key={week[0]} style={styles.week}>
                 {week.map((key) => {
                   const dayEntries = byDay.get(key) ?? [];
+                  const dayLogged = loggedByDay.get(key) ?? [];
                   const inMonth = isSameMonth(key, view.year, view.month);
                   const isSelected = key === selected;
                   return (
@@ -138,6 +157,14 @@ export default function CalendarScreen() {
                             style={[styles.dot, { backgroundColor: statusColor(entry.status) }]}
                           />
                         ))}
+                        {/* Zrobione bez terminu mają własny kolor: inaczej nie dałoby się
+                            odróżnić dnia zaplanowanego od dnia faktycznie przebiegniętego. */}
+                        {dayLogged.slice(0, 3).map((entry) => (
+                          <View
+                            key={`logged-${entry.sessionId}`}
+                            style={[styles.dot, { backgroundColor: theme.chart1 }]}
+                          />
+                        ))}
                       </View>
                     </Pressable>
                   );
@@ -150,7 +177,7 @@ export default function CalendarScreen() {
             <ThemedText type="smallBold" themeColor="textSecondary">
               {formatDayWithWeekday(selected).toUpperCase()}
             </ThemedText>
-            {selectedEntries.length === 0 ? (
+            {selectedEntries.length === 0 && selectedLogged.length === 0 ? (
               <ThemedView type="backgroundElement" style={styles.card}>
                 <ThemedText type="small" themeColor="textSecondary">
                   Nic nie zaplanowano na ten dzień.
@@ -160,6 +187,17 @@ export default function CalendarScreen() {
               selectedEntries.map((entry) => (
                 <ScheduledRow key={entry.id} entry={entry} color={statusColor(entry.status)} />
               ))
+            )}
+
+            {selectedLogged.length > 0 && (
+              <>
+                <ThemedText type="smallBold" themeColor="textSecondary">
+                  ZROBIONE
+                </ThemedText>
+                {selectedLogged.map((entry) => (
+                  <LoggedRow key={entry.sessionId} entry={entry} />
+                ))}
+              </>
             )}
             <Button
               label="Zaplanuj na ten dzień"
@@ -179,6 +217,36 @@ const STATUS_LABELS: Record<ScheduleStatus, string> = {
   PLANNED: 'zaplanowany',
   MISSED: 'pominięty',
 };
+
+/** Wiersz treningu z historii. Prowadzi do szczegółów, bo nie ma tu czego zaczynać ani usuwać. */
+function LoggedRow({ entry }: { entry: LoggedEntry }) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      onPress={() => router.push({ pathname: '/history/[id]', params: { id: entry.sessionId } })}>
+      <ThemedView type="backgroundElement" style={styles.card}>
+        <View style={styles.cardRow}>
+          <Icon name={SPORT_ICONS[entry.sport]} size={20} color={theme.chart1} />
+          <View style={styles.cardText}>
+            <ThemedText type="smallBold" numberOfLines={1}>
+              {entry.title}
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {[
+                SPORT_LABELS[entry.sport],
+                entry.meters > 0 ? formatDistance(entry.meters) : null,
+                entry.seconds > 0 ? formatSeconds(entry.seconds) : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </ThemedText>
+          </View>
+          <Icon name="chevron_right" size={22} color={theme.textSecondary} />
+        </View>
+      </ThemedView>
+    </Pressable>
+  );
+}
 
 function ScheduledRow({ entry, color }: { entry: ScheduledEntry; color: string }) {
   const theme = useTheme();
@@ -255,6 +323,8 @@ const styles = StyleSheet.create({
   dot: { width: 5, height: 5, borderRadius: 3 },
   dayList: { gap: Spacing.two, marginTop: Spacing.two },
   card: { borderRadius: 14, padding: Spacing.three },
+  cardRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
+  cardText: { flex: 1, gap: Spacing.half },
   entry: {
     flexDirection: 'row',
     alignItems: 'center',

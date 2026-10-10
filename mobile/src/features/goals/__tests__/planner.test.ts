@@ -26,6 +26,7 @@ const HALF: GoalBrief = {
   weekDays: [1, 3, 5, 6],
   weeklyMeters: 30000,
   bestPaceSeconds: 290,
+  age: 41,
 };
 
 const FROM = '2026-10-12';
