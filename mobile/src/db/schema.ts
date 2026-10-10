@@ -39,6 +39,8 @@ export const exercises = sqliteTable(
     instructions: text('instructions'),
     techniqueNotes: text('technique_notes'),
     imageUrl: text('image_url'),
+    /** Film instruktażowy — własny odnośnik użytkownika; bez niego otwieramy wyszukiwanie. */
+    videoUrl: text('video_url'),
     difficultyLevel: text('difficulty_level', { enum: difficultyLevels }),
     trackingType: text('tracking_type', { enum: trackingTypes }).notNull().default('REPS'),
     isCustom: integer('is_custom', { mode: 'boolean' }).notNull().default(false),

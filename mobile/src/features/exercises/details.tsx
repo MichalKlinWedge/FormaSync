@@ -2,7 +2,7 @@ import { and, asc, eq, isNotNull } from 'drizzle-orm';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Linking, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Icon } from '@/components/icon';
@@ -17,6 +17,7 @@ import { ExerciseIllustration } from '@/features/exercises/illustration/exercise
 import { illustrationFor } from '@/features/exercises/illustration/poses';
 import { difficultyLabels, trackingTypeLabels } from '@/features/exercises/labels';
 import { deleteExercise, ExerciseInUseError } from '@/features/exercises/repository';
+import { videoLabel, videoUrlFor } from '@/features/exercises/video';
 import { MuscleOverview } from '@/features/muscles/muscle-overview';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDate, toDateKey } from '@/lib/date';
@@ -81,6 +82,8 @@ export function ExerciseDetails({ id, manageable = false }: ExerciseDetailsProps
   const { exercise } = row;
 
   const steps = exercise.instructions?.split('\n').filter((s) => s.trim()) ?? [];
+  // Bez przypiętego filmu otwieramy wyszukiwanie po nazwie — zawsze aktualne i zawsze jakieś jest.
+  const openVideo = () => void Linking.openURL(videoUrlFor(exercise.name, exercise.videoUrl));
   const done = summarizeExercise(history, exercise.trackingType);
   // Własne ćwiczenia mogą mieć zdjęcie; katalogowe dostają rysunek poglądowy.
   const illustration = illustrationFor(exercise.name);
@@ -130,6 +133,16 @@ export function ExerciseDetails({ id, manageable = false }: ExerciseDetailsProps
           <Fact label="Sprzęt" value={row.equipmentName} />
           <Fact label="Poziom" value={exercise.difficultyLevel ? difficultyLabels[exercise.difficultyLevel] : null} />
           <Fact label="Rejestracja" value={trackingTypeLabels[exercise.trackingType]} />
+        </View>
+
+        <View style={styles.video}>
+          <Button label={videoLabel(exercise.videoUrl)} icon="play_arrow" variant="secondary" onPress={openVideo} />
+          <Button
+            label={exercise.videoUrl ? 'Zmień przypięty film' : 'Przypnij własny film'}
+            icon="link"
+            variant="secondary"
+            onPress={() => router.push({ pathname: '/exercise/video', params: { id: exercise.id } })}
+          />
         </View>
 
         <MuscleOverview exerciseIds={[id]} />
@@ -211,6 +224,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  video: { gap: Spacing.two },
   content: { padding: Spacing.four, gap: Spacing.three, paddingBottom: Spacing.six },
   image: {
     height: 200,

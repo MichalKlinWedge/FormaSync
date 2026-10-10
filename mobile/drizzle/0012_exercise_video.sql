@@ -1,0 +1,1 @@
+ALTER TABLE `exercises` ADD `video_url` text;

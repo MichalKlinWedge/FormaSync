@@ -14,6 +14,7 @@ import {
   ExerciseInUseError,
   ExerciseValidationError,
   saveExercise,
+  setExerciseVideo,
 } from '../repository';
 
 function setup() {
@@ -30,6 +31,7 @@ function setup() {
     instructions: '1. Krok',
     techniqueNotes: '   ',
     imageUrl: null,
+    videoUrl: null,
   };
   return { db, input, primary, secondA, secondB };
 }
@@ -117,5 +119,32 @@ describe('deleteExercise', () => {
     db.insert(schema.planExercises).values({ planId: plan.id, exerciseId: id, orderIndex: 0, targetSets: 3 }).run();
 
     expect(() => deleteExercise(db, id)).toThrow(ExerciseInUseError);
+  });
+});
+
+describe('setExerciseVideo', () => {
+  it('przypina film także do ćwiczenia z katalogu, bez ruszania reszty opisu', () => {
+    // Formularz otwiera się tylko dla własnych ćwiczeń, a swój film warto mieć przy każdym.
+    const db = createTestDb({ seed: true });
+    const exercise = db.select().from(schema.exercises).all()[0];
+
+    setExerciseVideo(db, exercise.id, '  https://youtu.be/abc  ');
+
+    const after = db.select().from(schema.exercises).where(eq(schema.exercises.id, exercise.id)).get();
+    expect(after?.videoUrl).toBe('https://youtu.be/abc');
+    expect(after?.name).toBe(exercise.name);
+    expect(after?.instructions).toBe(exercise.instructions);
+  });
+
+  it('pustym adresem zdejmuje film i wraca do wyszukiwania', () => {
+    const db = createTestDb({ seed: true });
+    const exercise = db.select().from(schema.exercises).all()[0];
+    setExerciseVideo(db, exercise.id, 'https://youtu.be/abc');
+
+    setExerciseVideo(db, exercise.id, '');
+
+    expect(
+      db.select().from(schema.exercises).where(eq(schema.exercises.id, exercise.id)).get()?.videoUrl,
+    ).toBeNull();
   });
 });

@@ -29,6 +29,7 @@ const emptyInput: ExerciseInput = {
   instructions: null,
   techniqueNotes: null,
   imageUrl: null,
+  videoUrl: null,
 };
 
 function loadInput(id: number): ExerciseInput {
@@ -49,6 +50,7 @@ function loadInput(id: number): ExerciseInput {
     instructions: exercise.instructions,
     techniqueNotes: exercise.techniqueNotes,
     imageUrl: exercise.imageUrl,
+    videoUrl: exercise.videoUrl,
   };
 }
 
@@ -193,6 +195,18 @@ export default function ExerciseFormScreen() {
               multiline
               placeholderTextColor={theme.textSecondary}
               style={[inputStyle, styles.multiline]}
+            />
+          </Field>
+
+          <Field label="Film instruktażowy (pusty = wyszukiwanie w YouTube)">
+            <TextInput
+              value={input.videoUrl ?? ''}
+              onChangeText={(v) => set('videoUrl', v)}
+              placeholder="https://..."
+              placeholderTextColor={theme.textSecondary}
+              autoCapitalize="none"
+              keyboardType="url"
+              style={inputStyle}
             />
           </Field>
 

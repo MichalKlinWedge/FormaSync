@@ -3,6 +3,7 @@ import { count, eq, sql } from 'drizzle-orm';
 import * as schema from '@/db/schema';
 import type { DifficultyLevel, TrackingType } from '@/db/schema';
 import type { SyncDb } from '@/db/types';
+import { normalizeVideoUrl } from '@/features/exercises/video';
 
 export type ExerciseInput = {
   name: string;
@@ -14,6 +15,7 @@ export type ExerciseInput = {
   instructions: string | null;
   techniqueNotes: string | null;
   imageUrl: string | null;
+  videoUrl: string | null;
 };
 
 export class ExerciseValidationError extends Error {}
@@ -30,6 +32,7 @@ export function validateExercise(input: ExerciseInput): ExerciseInput {
     secondaryCategoryIds: [...new Set(input.secondaryCategoryIds)].filter((id) => id !== input.categoryId),
     instructions: emptyToNull(input.instructions),
     techniqueNotes: emptyToNull(input.techniqueNotes),
+    videoUrl: normalizeVideoUrl(input.videoUrl ?? ''),
   };
 }
 
@@ -56,6 +59,17 @@ export function saveExercise(db: SyncDb, rawInput: ExerciseInput, id?: number): 
     }
     return exerciseId;
   });
+}
+
+/**
+ * Przypina albo zdejmuje film instruktażowy. Osobno od formularza, bo własny film warto móc
+ * zapisać też przy ćwiczeniu z katalogu — a tego formularz nie otwiera.
+ */
+export function setExerciseVideo(db: SyncDb, id: number, rawUrl: string): void {
+  db.update(schema.exercises)
+    .set({ videoUrl: normalizeVideoUrl(rawUrl) })
+    .where(eq(schema.exercises.id, id))
+    .run();
 }
 
 /**
