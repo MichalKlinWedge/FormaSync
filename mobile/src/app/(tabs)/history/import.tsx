@@ -8,7 +8,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 
-import type { ImportCandidate } from '@/features/health/activities';
+import type { ImportCandidate, WatchActivities } from '@/features/health/activities';
 import {
   archiveWatchActivity,
   importWatchActivity,
@@ -28,6 +28,7 @@ import {
   requestDistancePermission,
   requestExercisePermission,
 } from '@/features/health/sync';
+import { describeRefresh } from '@/features/health/activities-mapping';
 import { formatDistance } from '@/features/endurance/format';
 import { SPORT_LABELS } from '@/features/sports/sport';
 import { formatClock } from '@/features/workout/logic';
@@ -45,16 +46,21 @@ export default function ImportActivitiesScreen() {
   const [archived, setArchived] = useState(() => listArchived());
   const [problem, setProblem] = useState<Problem | null>(null);
   const [busy, setBusy] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [attempt, setAttempt] = useState(0);
+
+  const apply = (result: WatchActivities) => {
+    setActivities(result.activities);
+    setDistanceAvailable(result.distanceAvailable);
+    setProblem(null);
+  };
 
   useEffect(() => {
     let cancelled = false;
     listWatchActivities()
       .then((result) => {
         if (cancelled) return;
-        setActivities(result.activities);
-        setDistanceAvailable(result.distanceAvailable);
-        setProblem(null);
+        apply(result);
       })
       .catch((e: unknown) => {
         if (cancelled) return;
@@ -69,6 +75,26 @@ export default function ImportActivitiesScreen() {
   const retry = () => {
     setActivities(null);
     setAttempt((value) => value + 1);
+  };
+
+  /**
+   * Ręczne sprawdzenie, co nowego leży w Health Connect. Listy nie czyścimy na czas odczytu —
+   * to, co już na niej jest, nie znika, a zajęty przycisk wystarczy za informację o pracy w tle.
+   */
+  const checkForNew = async () => {
+    setChecking(true);
+    const before = new Set(activities?.map((activity) => activity.recordId));
+    try {
+      const result = await listWatchActivities();
+      apply(result);
+      const fresh = result.activities.filter((activity) => !before.has(activity.recordId)).length;
+      Alert.alert('Sprawdzono', describeRefresh(fresh, result.activities.length));
+    } catch (e) {
+      setActivities([]);
+      setProblem(describeProblem(e));
+    } finally {
+      setChecking(false);
+    }
   };
 
   // Okno zgody pokazuje Health Connect — decyzję podejmuje użytkownik, my tylko ponawiamy odczyt.
@@ -139,6 +165,16 @@ export default function ImportActivitiesScreen() {
           dystans, tętno i kalorie — serii i powtórzeń Health Connect nie udostępnia, więc liczy je
           tylko trening prowadzony w FormaSync.
         </ThemedText>
+
+        {problem === null && (
+          <Button
+            label={checking ? 'Sprawdzam…' : 'Sprawdź nowe treningi'}
+            icon="sync"
+            variant="secondary"
+            onPress={() => void checkForNew()}
+            disabled={checking || busy || activities === null}
+          />
+        )}
 
         {!distanceAvailable && problem === null && (
           <ThemedView type="backgroundElement" style={styles.card}>

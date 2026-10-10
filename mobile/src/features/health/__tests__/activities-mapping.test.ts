@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 
 import {
+  describeRefresh,
   exerciseTypeName,
   findOverlappingSession,
   selectImportable,
@@ -177,6 +178,20 @@ describe('selectImportable', () => {
   it('bez pokrycia nie podpowiada żadnego treningu', () => {
     const result = selectImportable([make('a', '2026-10-01T10:00:00.000Z')], new Set(), new Set(), []);
     expect(result[0].matchingSession).toBeNull();
+  });
+});
+
+describe('describeRefresh', () => {
+  it('liczy to, co dopiero doszło', () => {
+    expect(describeRefresh(2, 5)).toBe('Nowe treningi: 2.');
+  });
+
+  it('po pustym sprawdzeniu przypomina, co jeszcze czeka', () => {
+    expect(describeRefresh(0, 3)).toBe('Nic nowego nie doszło. Na liście czeka 3.');
+  });
+
+  it('przy zerze wskazuje Garmin Connect, bo to on zapisuje do Health Connect', () => {
+    expect(describeRefresh(0, 0)).toContain('Garmin Connect');
   });
 });
 

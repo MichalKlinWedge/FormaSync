@@ -92,6 +92,17 @@ const SPORT_BY_EXERCISE_TYPE: Record<number, Sport> = {
 
 export const sportForExerciseType = (type: number): Sport => SPORT_BY_EXERCISE_TYPE[type] ?? 'OTHER';
 
+/**
+ * Wynik ręcznego sprawdzenia: ile aktywności dopiero co doszło i ile w sumie czeka.
+ * Przy zerze mówimy wprost, gdzie szukać przyczyny — aplikacja czyta Health Connect, a nie zegarek,
+ * więc dopóki Garmin Connect nie zsynchronizuje treningu, nie ma go skąd wziąć.
+ */
+export function describeRefresh(fresh: number, waiting: number): string {
+  if (fresh > 0) return `Nowe treningi: ${fresh}.`;
+  if (waiting > 0) return `Nic nowego nie doszło. Na liście czeka ${waiting}.`;
+  return 'Nic nowego. Jeśli trening jest już w Garmin Connect, sprawdź, czy ma tam włączony zapis do Health Connect.';
+}
+
 /** Trening z aplikacji, na który nachodzi aktywność — kandydat do połączenia. */
 export type SessionWindow = Interval & { id: number; title: string };
 
