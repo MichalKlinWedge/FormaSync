@@ -11,6 +11,7 @@ import { formatDate } from '@/lib/date';
 import { pluralWith } from '@/lib/number';
 
 import { formatDistance, formatPace, formatSeconds } from './format';
+import { SOURCE_LABELS, sportRecords } from './records';
 import { loadEnduranceWorkouts, summarizeEndurance, weeklyVolume } from './stats';
 
 /**
@@ -23,6 +24,7 @@ export function EnduranceStats({ sport }: { sport: Sport }) {
   const workouts = useMemo(() => loadEnduranceWorkouts(db, sport), [sport]);
   const summary = useMemo(() => summarizeEndurance(workouts), [workouts]);
   const weeks = useMemo(() => weeklyVolume(workouts), [workouts]);
+  const records = useMemo(() => sportRecords(workouts, sport), [workouts, sport]);
 
   if (workouts.length === 0) {
     return (
@@ -46,15 +48,48 @@ export function EnduranceStats({ sport }: { sport: Sport }) {
         {!byTime && <Stat label="Dystans" value={formatDistance(summary.meters)} />}
         <Stat label="Czas" value={formatSeconds(summary.seconds)} />
       </View>
-      {!byTime && (
-        <View style={styles.stats}>
-          <Stat
-            label="Najlepsze tempo pracy"
-            value={summary.bestPace === null ? '—' : formatPace(summary.bestPace)}
+
+      <View style={styles.group}>
+        <ThemedText type="smallBold" themeColor="textSecondary">
+          REKORDY
+        </ThemedText>
+        {records.efforts.map((record) => (
+          <Record
+            key={record.meters}
+            label={formatDistance(record.meters)}
+            value={formatSeconds(record.seconds)}
+            note={`${formatDate(record.startTime.slice(0, 10))} · ${SOURCE_LABELS[record.source]}`}
           />
-          <Stat label="Najdłuższy" value={formatDistance(summary.longestMeters)} />
-        </View>
-      )}
+        ))}
+        {!byTime && records.longestDistance !== null && (
+          <Record
+            label="Najdłuższy dystans"
+            value={formatDistance(records.longestDistance.value)}
+            note={formatDate(records.longestDistance.startTime.slice(0, 10))}
+          />
+        )}
+        {records.longestTime !== null && (
+          <Record
+            label="Najdłuższy trening"
+            value={formatSeconds(records.longestTime.value)}
+            note={formatDate(records.longestTime.startTime.slice(0, 10))}
+          />
+        )}
+        {!byTime && records.bestPace !== null && (
+          <Record
+            label="Najlepsze tempo pracy"
+            value={formatPace(records.bestPace.value)}
+            note={formatDate(records.bestPace.startTime.slice(0, 10))}
+          />
+        )}
+        {records.efforts.length > 0 && (
+          <ThemedText type="small" themeColor="textSecondary">
+            „Fragment treningu” to najszybszy odcinek o tej długości. „Średnia treningu” znaczy, że
+            odcinków nie było — tak przychodzą treningi z zegarka — więc czas wyliczyliśmy z tempa
+            całości.
+          </ThemedText>
+        )}
+      </View>
 
       <View style={styles.group}>
         <ThemedText type="smallBold" themeColor="textSecondary">
@@ -116,6 +151,21 @@ function shortDay(dayKey: string): string {
   return `${day}.${month}`;
 }
 
+/** Wiersz rekordu: co, ile, i kiedy padł — data i pochodzenie czasu drobnym drukiem. */
+function Record({ label, value, note }: { label: string; value: string; note: string }) {
+  return (
+    <View style={styles.recordRow}>
+      <View style={styles.recordLabel}>
+        <ThemedText type="small">{label}</ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          {note}
+        </ThemedText>
+      </View>
+      <ThemedText type="smallBold">{value}</ThemedText>
+    </View>
+  );
+}
+
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <ThemedView type="backgroundElement" style={styles.stat}>
@@ -134,6 +184,8 @@ const styles = StyleSheet.create({
   stat: { flex: 1, borderRadius: 12, padding: Spacing.three, gap: Spacing.half },
   group: { gap: Spacing.two },
   card: { borderRadius: 12, padding: Spacing.three, gap: Spacing.half },
+  recordRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
+  recordLabel: { flex: 1 },
   barRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   barLabel: { width: 52 },
   barTrack: { flex: 1, height: 14, borderRadius: 7, overflow: 'hidden' },

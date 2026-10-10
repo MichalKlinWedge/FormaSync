@@ -64,6 +64,27 @@ describe('loadEnduranceWorkouts', () => {
     expect(saved.workPace).toBe(240);
   });
 
+  it('zwraca odcinki w kolejności, w jakiej padły', () => {
+    const db = createTestDb({ seed: true });
+    const planId = saveEndurancePlan(db, {
+      ...emptyEnduranceDraft('RUNNING'),
+      title: 'Rozgrzewka i praca',
+      segments: [createSegment('WARMUP'), createSegment('WORK')],
+    });
+    const sessionId = startSession(db, { kind: 'plan', planId });
+    const segments = loadEnduranceSession(db, sessionId)!.segments;
+    completeSegment(db, segments[0].id, { distanceMeters: 2000, durationSeconds: 720 });
+    completeSegment(db, segments[1].id, { distanceMeters: 1000, durationSeconds: 240 });
+    finishSession(db, sessionId);
+
+    const [saved] = loadEnduranceWorkouts(db, 'RUNNING');
+    // Kolejność ma znaczenie: rekord na fragmencie liczy się z następujących po sobie odcinków.
+    expect(saved.splits).toEqual([
+      { meters: 2000, seconds: 720 },
+      { meters: 1000, seconds: 240 },
+    ]);
+  });
+
   it('pomija dyscypliny inne niż pytana', () => {
     const db = createTestDb({ seed: true });
     runWorkout(db, 5000, 1500);
@@ -93,26 +114,19 @@ describe('summarizeEndurance', () => {
     seconds,
     pace: Math.round(seconds / (meters / 1000)),
     workPace,
+    splits: [{ meters, seconds }],
   });
 
-  it('najlepsze tempo to najniższa liczba sekund na kilometr', () => {
+  it('sumuje dystans i czas całej historii dyscypliny', () => {
     const summary = summarizeEndurance([
       workout(5000, 1500, '2026-10-01T06:00:00.000Z'),
       workout(3000, 780, '2026-10-03T06:00:00.000Z'),
     ]);
-    expect(summary.bestPace).toBe(260);
-    expect(summary.meters).toBe(8000);
-    expect(summary.longestMeters).toBe(5000);
+    expect(summary).toEqual({ workouts: 2, meters: 8000, seconds: 2280 });
   });
 
-  it('bez treningów nie zgaduje tempa', () => {
-    expect(summarizeEndurance([]).bestPace).toBeNull();
-  });
-
-  it('rekord bierze z tempa pracy, nie z tempa całości', () => {
-    // Tempo całości 5:00/km, ale same odcinki robocze biegnięte po 3:30/km.
-    const summary = summarizeEndurance([workout(6000, 1800, '2026-10-02T06:00:00.000Z', 210)]);
-    expect(summary.bestPace).toBe(210);
+  it('bez treningów nie wymyśla sum', () => {
+    expect(summarizeEndurance([])).toEqual({ workouts: 0, meters: 0, seconds: 0 });
   });
 });
 
@@ -129,6 +143,7 @@ describe('weeklyVolume', () => {
           seconds: 1500,
           pace: 300,
           workPace: 300,
+          splits: [{ meters: 5000, seconds: 1500 }],
         },
       ],
       2,

@@ -5,6 +5,7 @@ import type { SyncDb } from '@/db/types';
 import { toDateKey } from '@/lib/date';
 
 import { paceFrom } from './format';
+import type { Split } from './records';
 
 /**
  * Statystyki wytrzymałościowe. Tonaż i rekordy ciężaru nic tu nie znaczą; liczą się dystans,
@@ -21,6 +22,8 @@ export type EnduranceWorkout = {
   pace: number | null;
   /** Tempo samych odcinków pracy — bez rozgrzewki, przerw i schłodzenia. */
   workPace: number | null;
+  /** Pokonane odcinki w kolejności chronologicznej — z nich liczymy rekordy na fragmentach. */
+  splits: Split[];
 };
 
 export function loadEnduranceWorkouts(db: SyncDb, sport: schema.Sport): EnduranceWorkout[] {
@@ -43,6 +46,8 @@ export function loadEnduranceWorkouts(db: SyncDb, sport: schema.Sport): Enduranc
     .select({
       sessionId: schema.loggedSegments.sessionId,
       kind: schema.sessionSegments.kind,
+      orderIndex: schema.loggedSegments.orderIndex,
+      completedAt: schema.loggedSegments.completedAt,
       distanceMeters: schema.loggedSegments.distanceMeters,
       durationSeconds: schema.loggedSegments.durationSeconds,
     })
@@ -63,6 +68,12 @@ export function loadEnduranceWorkouts(db: SyncDb, sport: schema.Sport): Enduranc
       });
       const all = sum(mine);
       const work = sum(mine.filter((segment) => segment.kind === 'WORK'));
+      // Rekordy na fragmentach wymagają kolejności, w jakiej odcinki faktycznie padły: grupa
+      // powtórzeń zapisuje je iteracjami, więc sam `orderIndex` ustawiłby je w złym porządku.
+      const ordered = [...mine].sort(
+        (a, b) =>
+          (a.completedAt ?? '').localeCompare(b.completedAt ?? '') || a.orderIndex - b.orderIndex,
+      );
       return {
         sessionId: session.id,
         startTime: session.startTime,
@@ -71,6 +82,10 @@ export function loadEnduranceWorkouts(db: SyncDb, sport: schema.Sport): Enduranc
         seconds: all.seconds,
         pace: paceFrom(all.meters, all.seconds),
         workPace: paceFrom(work.meters, work.seconds),
+        splits: ordered.map((segment) => ({
+          meters: segment.distanceMeters ?? 0,
+          seconds: segment.durationSeconds ?? 0,
+        })),
       };
     })
     .filter((workout) => workout.meters > 0 || workout.seconds > 0)
@@ -108,26 +123,18 @@ export function weeklyVolume(workouts: EnduranceWorkout[], weeks = 8, now = new 
   return [...buckets.values()];
 }
 
+/** Sumy całej historii dyscypliny. Rekordy liczy `sportRecords` — tam wiadomo, w którym
+ *  treningu padły, a tu byłyby drugim, rozjeżdżającym się rachunkiem tych samych liczb. */
 export type EnduranceSummary = {
   workouts: number;
   meters: number;
   seconds: number;
-  /** Najszybsze tempo odcinków pracy — najniższa liczba sekund na kilometr. */
-  bestPace: number | null;
-  longestMeters: number;
 };
 
 export function summarizeEndurance(workouts: EnduranceWorkout[]): EnduranceSummary {
-  // Rekord liczymy z odcinków pracy: tempo całości zaniża rozgrzewka i przerwy, więc
-  // porównywanie go między treningami o różnej budowie nic nie mówi.
-  const paces = workouts
-    .map((workout) => workout.workPace ?? workout.pace)
-    .filter((pace): pace is number => pace !== null);
   return {
     workouts: workouts.length,
     meters: workouts.reduce((sum, workout) => sum + workout.meters, 0),
     seconds: workouts.reduce((sum, workout) => sum + workout.seconds, 0),
-    bestPace: paces.length === 0 ? null : Math.min(...paces),
-    longestMeters: workouts.reduce((best, workout) => Math.max(best, workout.meters), 0),
   };
 }
