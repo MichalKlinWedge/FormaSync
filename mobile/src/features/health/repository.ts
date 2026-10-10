@@ -138,11 +138,15 @@ export function importedActivityIds(db: SyncDb): Set<string> {
 /**
  * Okna czasowe treningów zapisanych w aplikacji. Sesja trwająca nie ma jeszcze końca —
  * przyjmujemy wtedy jej początek, żeby nie uznać za pokrywającą się całej doby.
+ *
+ * `measured` mówi, czy trening ma już pomiary z zegarka. Taki jest rozliczony: aktywność, która
+ * się z nim pokrywa, została albo z niego zrobiona, albo do niego dopięta — niezależnie od tego,
+ * jakim identyfikatorem ją wtedy zapisaliśmy.
  */
 export function sessionWindows(
   db: SyncDb,
   fromIso: string,
-): { id: number; title: string; startTime: string; endTime: string }[] {
+): { id: number; title: string; startTime: string; endTime: string; measured: boolean }[] {
   return db
     .select({
       id: schema.workoutSessions.id,
@@ -150,15 +154,21 @@ export function sessionWindows(
       planTitle: schema.workoutPlans.title,
       startTime: schema.workoutSessions.startTime,
       endTime: schema.workoutSessions.endTime,
+      metricsId: schema.garminActivityMetrics.id,
     })
     .from(schema.workoutSessions)
     .leftJoin(schema.workoutPlans, eq(schema.workoutSessions.planId, schema.workoutPlans.id))
+    .leftJoin(
+      schema.garminActivityMetrics,
+      eq(schema.garminActivityMetrics.sessionId, schema.workoutSessions.id),
+    )
     .where(gte(schema.workoutSessions.startTime, fromIso))
     .all()
-    .map(({ title, planTitle, endTime, ...rest }) => ({
+    .map(({ title, planTitle, endTime, metricsId, ...rest }) => ({
       ...rest,
       title: title ?? planTitle ?? 'Trening',
       endTime: endTime ?? rest.startTime,
+      measured: metricsId !== null,
     }));
 }
 

@@ -28,6 +28,7 @@ export default function PrivacyScreen() {
           <Bullet>
             Garmin Connect — jeśli połączysz konto, do Garmina trafiają wysyłane przez Ciebie plany
             treningowe i terminy w kalendarzu. Historia, pomiary ciała ani notatki nigdy tam nie idą.
+            W drugą stronę czytamy listę Twoich aktywności — stąd bierze się ekran „Z zegarka”.
           </Bullet>
         </Section>
 

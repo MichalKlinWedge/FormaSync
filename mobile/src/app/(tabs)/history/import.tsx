@@ -8,9 +8,10 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 
-import type { ImportCandidate, InventoryEntry, WatchActivities } from '@/features/health/activities';
+import type { ImportCandidate, InventoryEntry, WatchActivities } from '@/features/activities/import';
 import {
   archiveWatchActivity,
+  GarminNotConnectedError,
   importWatchActivity,
   importWatchActivityToTerm,
   linkWatchActivity,
@@ -19,16 +20,9 @@ import {
   restoreWatchActivity,
   sessionsToLink,
   termsForActivity,
-} from '@/features/health/activities';
-import {
-  ExercisePermissionError,
-  HealthPermissionsError,
-  HealthUnavailableError,
-  HISTORY_DAYS,
-  requestDistancePermission,
-  requestExercisePermission,
-} from '@/features/health/sync';
-import { describeRefresh, STATUS_LABELS } from '@/features/health/activities-mapping';
+} from '@/features/activities/import';
+import { describeRefresh, IMPORT_DAYS, STATUS_LABELS } from '@/features/activities/mapping';
+import { GarminAuthExpired, GarminError } from '@/features/garmin/connect/client';
 import { formatDistance } from '@/features/endurance/format';
 import { SPORT_LABELS } from '@/features/sports/sport';
 import { formatClock } from '@/features/workout/logic';
@@ -36,13 +30,13 @@ import { formatDateTime } from '@/lib/date';
 import { formatNumber } from '@/lib/number';
 
 /**
- * Treningi nagrane poza aplikacją. Garmin Connect zapisuje je do Health Connect, skąd przychodzi
- * czas i biometria — bez serii i powtórzeń, których Health Connect nie udostępnia. Każdą aktywność
- * można dopisać do historii osobno, połączyć z treningiem prowadzonym w aplikacji albo odłożyć.
+ * Treningi nagrane poza aplikacją. Czytamy je wprost z Garmin Connect — tym samym połączeniem,
+ * którym wysyłamy tam plany. Przychodzi czas, dystans i biometria, bez serii i powtórzeń, bo tych
+ * zegarek nie udostępnia. Każdą aktywność można dopisać do historii osobno, połączyć z treningiem
+ * prowadzonym w aplikacji albo odłożyć.
  */
 export default function ImportActivitiesScreen() {
   const [activities, setActivities] = useState<ImportCandidate[] | null>(null);
-  const [distanceAvailable, setDistanceAvailable] = useState(true);
   const [archived, setArchived] = useState(() => listArchived());
   const [problem, setProblem] = useState<Problem | null>(null);
   const [busy, setBusy] = useState(false);
@@ -53,7 +47,6 @@ export default function ImportActivitiesScreen() {
 
   const apply = (result: WatchActivities) => {
     setActivities(result.activities);
-    setDistanceAvailable(result.distanceAvailable);
     setSeen(result.inventory);
     setProblem(null);
   };
@@ -81,8 +74,8 @@ export default function ImportActivitiesScreen() {
   };
 
   /**
-   * Ręczne sprawdzenie, co nowego leży w Health Connect. Listy nie czyścimy na czas odczytu —
-   * to, co już na niej jest, nie znika, a zajęty przycisk wystarczy za informację o pracy w tle.
+   * Ręczne pobranie z Garmin Connect. Listy nie czyścimy na czas odczytu — to, co już na niej jest,
+   * nie znika, a zajęty przycisk wystarczy za informację o pracy w tle.
    */
   const checkForNew = async () => {
     setChecking(true);
@@ -91,24 +84,13 @@ export default function ImportActivitiesScreen() {
       const result = await listWatchActivities();
       apply(result);
       const fresh = result.activities.filter((activity) => !before.has(activity.recordId)).length;
-      Alert.alert('Sprawdzono', describeRefresh(fresh, result.activities.length));
+      Alert.alert('Pobrano', describeRefresh(fresh, result.activities.length));
     } catch (e) {
       setActivities([]);
       setProblem(describeProblem(e));
     } finally {
       setChecking(false);
     }
-  };
-
-  // Okno zgody pokazuje Health Connect — decyzję podejmuje użytkownik, my tylko ponawiamy odczyt.
-  const grantAndRetry = async () => {
-    await requestExercisePermission();
-    retry();
-  };
-
-  const grantDistanceAndRetry = async () => {
-    await requestDistancePermission();
-    retry();
   };
 
   const drop = (recordId: string) =>
@@ -164,14 +146,14 @@ export default function ImportActivitiesScreen() {
     <ThemedView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <ThemedText type="small" themeColor="textSecondary">
-          Treningi z ostatnich {HISTORY_DAYS} dni nagrane poza aplikacją. Przychodzi czas trwania,
-          dystans, tętno i kalorie — serii i powtórzeń Health Connect nie udostępnia, więc liczy je
-          tylko trening prowadzony w FormaSync.
+          Treningi z ostatnich {IMPORT_DAYS} dni nagrane poza aplikacją, czytane wprost z Garmin
+          Connect. Przychodzi czas trwania, dystans, tętno i kalorie — serii i powtórzeń zegarek nie
+          udostępnia, więc liczy je tylko trening prowadzony w FormaSync.
         </ThemedText>
 
         {problem === null && (
           <Button
-            label={checking ? 'Sprawdzam…' : 'Sprawdź nowe treningi'}
+            label={checking ? 'Pobieram…' : 'Pobierz z Garmin Connect'}
             icon="sync"
             variant="secondary"
             onPress={() => void checkForNew()}
@@ -179,21 +161,11 @@ export default function ImportActivitiesScreen() {
           />
         )}
 
-        {!distanceAvailable && problem === null && (
-          <ThemedView type="backgroundElement" style={styles.card}>
-            <ThemedText type="small">
-              Health Connect nie pozwala jeszcze odczytywać dystansu. To osobna zgoda — bez niej biegi
-              przychodzą bez kilometrów i bez tempa.
-            </ThemedText>
-            <Button label="Przyznaj zgodę na dystans" icon="check" onPress={() => void grantDistanceAndRetry()} />
-          </ThemedView>
-        )}
-
         {activities === null && (
           <View style={styles.busy}>
             <ActivityIndicator />
             <ThemedText type="small" themeColor="textSecondary">
-              Czytam z Health Connect…
+              Czytam z Garmin Connect…
             </ThemedText>
           </View>
         )}
@@ -201,9 +173,7 @@ export default function ImportActivitiesScreen() {
         {problem !== null && (
           <ThemedView type="backgroundElement" style={styles.card}>
             <ThemedText type="small">{problem.message}</ThemedText>
-            {problem.needsPermission ? (
-              <Button label="Przyznaj zgodę" icon="check" onPress={() => void grantAndRetry()} />
-            ) : (
+            {problem.retryable && (
               <Button label="Spróbuj ponownie" icon="sync" variant="secondary" onPress={retry} />
             )}
           </ThemedView>
@@ -255,7 +225,7 @@ export default function ImportActivitiesScreen() {
         {problem === null && seen.length > 0 && (
           <View style={styles.group}>
             <Button
-              label={showSeen ? 'Ukryj spis z Health Connect' : `Co odczytano z Health Connect (${seen.length})`}
+              label={showSeen ? 'Ukryj spis' : `Co odczytano z Garmin Connect (${seen.length})`}
               icon="list"
               variant="secondary"
               onPress={() => setShowSeen((value) => !value)}
@@ -263,9 +233,9 @@ export default function ImportActivitiesScreen() {
             {showSeen && (
               <ThemedView type="backgroundElement" style={styles.card}>
                 <ThemedText type="small" themeColor="textSecondary">
-                  Wszystko, co Health Connect zwrócił za ostatnie {HISTORY_DAYS} dni — razem z tym, co
-                  lista wyżej pomija. Czego nie ma w tym spisie, tego Garmin Connect nie zapisał do
-                  Health Connect i aplikacja nie ma tego skąd wziąć.
+                  Wszystko, co Garmin Connect zwrócił za ostatnie {IMPORT_DAYS} dni — razem z tym, co
+                  lista wyżej pomija. Czego nie ma w tym spisie, tego nie ma też w Garmin Connect —
+                  wtedy zsynchronizuj zegarek z telefonem.
                 </ThemedText>
                 {seen.map((item) => (
                   <View key={item.recordId} style={styles.row}>
@@ -388,23 +358,25 @@ function ActivityCard({ activity, busy, onAdd, onAddToTerm, onLink, onArchive }:
   );
 }
 
-type Problem = { message: string; needsPermission: boolean };
+type Problem = { message: string; retryable: boolean };
 
 function describeProblem(error: unknown): Problem {
-  if (error instanceof ExercisePermissionError) {
+  if (error instanceof GarminNotConnectedError) {
     return {
-      message:
-        'Health Connect nie pozwala jeszcze odczytywać ćwiczeń. To osobna zgoda — nadasz ją tutaj.',
-      needsPermission: true,
+      message: 'Najpierw połącz aplikację z Garmin Connect w Ustawieniach — stąd bierzemy treningi.',
+      retryable: false,
     };
   }
-  if (error instanceof HealthPermissionsError) {
-    return { message: 'Najpierw połącz aplikację z Health Connect w Ustawieniach.', needsPermission: false };
+  if (error instanceof GarminAuthExpired) {
+    return {
+      message: 'Połączenie z Garmin Connect wygasło. Zaloguj się ponownie w Ustawieniach.',
+      retryable: false,
+    };
   }
-  if (error instanceof HealthUnavailableError) return { message: error.message, needsPermission: false };
+  if (error instanceof GarminError) return { message: error.message, retryable: true };
   return {
-    message: error instanceof Error ? error.message : 'Nie udało się odczytać danych.',
-    needsPermission: false,
+    message: 'Nie udało się połączyć z Garminem. Sprawdź internet i spróbuj ponownie.',
+    retryable: true,
   };
 }
 

@@ -133,7 +133,9 @@ describe('createSessionFromActivity', () => {
     expect(importedActivityIds(db)).toEqual(new Set(['rec-1']));
   });
 
-  it('dodaje okno czasowe, po którym poznamy pokrywające się aktywności', () => {
+  it('dodaje okno czasowe oznaczone jako zmierzone, po którym poznamy tę samą aktywność', () => {
+    // Trening zrobiony z aktywności ma pomiary z zegarka, więc ta sama aktywność pobrana jeszcze raz
+    // — choćby pod innym identyfikatorem — nie może wrócić na listę do wczytania.
     const db = createTestDb({ seed: true });
     const sessionId = createSessionFromActivity(db, ACTIVITY);
     expect(sessionWindows(db, '2026-10-01T00:00:00.000Z')).toEqual([
@@ -142,6 +144,7 @@ describe('createSessionFromActivity', () => {
         title: ACTIVITY.title,
         startTime: ACTIVITY.startTime,
         endTime: ACTIVITY.endTime,
+        measured: true,
       },
     ]);
   });
