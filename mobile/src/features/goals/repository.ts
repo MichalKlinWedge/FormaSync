@@ -11,6 +11,7 @@ import { saveEndurancePlan } from '@/features/endurance/repository';
 import { todayKey } from '@/lib/date';
 
 import { serializeWeekDays } from './brief';
+import { sweepJunk } from './cleanup';
 import { draftFor } from './materialize';
 import type { PlannedWeek } from './planner';
 import { shiftByDays, type DayMap } from './reschedule';
@@ -83,11 +84,16 @@ export function setGoalStatus(db: SyncDb, id: number, status: schema.GoalStatus)
 }
 
 /**
- * Usuwa cel. Plany i terminy już wpisane do kalendarza zostają: zdążyłeś je przetrenować albo
- * przynajmniej zobaczyć, a cichy ubytek z kalendarza byłby gorszy od zbędnego wpisu.
+ * Usuwa cel razem z tym, co po nim zostaje w przyszłości: terminami, których nikt już nie
+ * pilnuje, i planami jednostek, do których nic nie prowadzi. Bez tego kolejny cel dokładał swoje
+ * terminy do poprzednich i w kalendarzu stały dwa treningi tego samego dnia.
+ *
+ * Przeszłość zostaje nietknięta — termin, z którego powstał trening, jest częścią historii,
+ * a nie planu.
  */
-export function deleteGoal(db: SyncDb, id: number): void {
+export function deleteGoal(db: SyncDb, id: number, from: string = todayKey()): void {
   db.delete(schema.trainingGoals).where(eq(schema.trainingGoals.id, id)).run();
+  sweepJunk(db, from);
 }
 
 /**

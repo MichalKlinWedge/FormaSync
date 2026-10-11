@@ -13,6 +13,7 @@ import { formatDistance, formatPace, formatSeconds } from '@/features/endurance/
 import { GeminiError, NoApiKeyError, planWithGemini, PlanReplyError } from '@/features/goals/ai/gemini';
 import { hasConsent, setConsent } from '@/features/goals/ai/tokens';
 import { buildBrief, currentForm } from '@/features/goals/brief';
+import { findJunk, sweepJunk } from '@/features/goals/cleanup';
 import { planGoal } from '@/features/goals/planner';
 import {
   deleteGoal,
@@ -63,6 +64,7 @@ export default function GoalScreen() {
 
   const left = weeksLeft(goal);
 
+  const junk = findJunk(db);
   const standing = planDays(workouts, todayKey());
   const target = (day: number): number => picked[day] ?? day;
   const mapping = Object.fromEntries(standing.map((day) => [day, target(day)]));
@@ -204,18 +206,48 @@ export default function GoalScreen() {
     );
   };
 
-  const remove = () =>
-    Alert.alert('Usunąć cel?', 'Plan zniknie. Terminy już wpisane do kalendarza zostaną.', [
-      { text: 'Anuluj', style: 'cancel' },
-      {
-        text: 'Usuń',
-        style: 'destructive',
-        onPress: () => {
-          deleteGoal(db, goalId);
-          router.back();
+  /**
+   * Sprzątanie po poprzednich planach. Osobny przycisk, a nie cicha czynność przy okazji:
+   * usuwanie wpisów z kalendarza to decyzja użytkownika, nawet gdy wpisy są bezpańskie.
+   */
+  const clean = () =>
+    Alert.alert(
+      'Posprzątać kalendarz?',
+      `Usunę ${pluralWith(junk.terms, 'termin', 'terminy', 'terminów')} z przyszłości i ${pluralWith(junk.plans, 'plan', 'plany', 'planów')} jednostek. Wszystkie wyszły spod planisty celu i nic ich już nie pilnuje. Wpisane ręcznie zostają.`,
+      [
+        { text: 'Anuluj', style: 'cancel' },
+        {
+          text: 'Posprzątaj',
+          style: 'destructive',
+          onPress: () => {
+            const swept = sweepJunk(db);
+            void syncWorkoutReminders();
+            Alert.alert(
+              'Posprzątane',
+              `Usunięte terminy: ${swept.terms}. Usunięte plany jednostek: ${swept.plans}.`,
+            );
+          },
         },
-      },
-    ]);
+      ],
+    );
+
+  const remove = () =>
+    Alert.alert(
+      'Usunąć cel?',
+      'Plan zniknie razem z terminami z przyszłości. Przeszłość i treningi, które się odbyły, zostają.',
+      [
+        { text: 'Anuluj', style: 'cancel' },
+        {
+          text: 'Usuń',
+          style: 'destructive',
+          onPress: () => {
+            deleteGoal(db, goalId);
+            void syncWorkoutReminders();
+            router.back();
+          },
+        },
+      ],
+    );
 
   // Jednostki grupujemy po tygodniu dopiero tutaj: w bazie leżą płasko, po dacie.
   const weeks = [...new Set(workouts.map((workout) => workout.weekIndex))].sort((a, b) => a - b);
@@ -393,6 +425,22 @@ export default function GoalScreen() {
             </View>
           );
         })}
+
+        {junk.terms + junk.plans > 0 && (
+          <View style={styles.section}>
+            <ThemedText type="smallBold" themeColor="textSecondary">
+              PORZĄDKI
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {`Po wcześniejszych planach pod cel zostało w kalendarzu ${pluralWith(junk.terms, 'termin', 'terminy', 'terminów')} z przyszłości, których nie pilnuje już żaden cel, i ${pluralWith(junk.plans, 'plan', 'plany', 'planów')} jednostek, do których nic nie prowadzi. To przez nie ten sam dzień bywa rozpisany dwa razy.`}
+            </ThemedText>
+            <Button label="Posprzątaj kalendarz" icon="delete_sweep" variant="danger" onPress={clean} />
+            <ThemedText type="small" themeColor="textSecondary">
+              Plany i terminy wpisane ręcznie zostają nietknięte — poznaję je po tym, że nie
+              wyszły spod planisty celu. Przeszłość i treningi, które się odbyły, też zostają.
+            </ThemedText>
+          </View>
+        )}
 
         <View style={styles.section}>
           <ThemedText type="smallBold" themeColor="textSecondary">

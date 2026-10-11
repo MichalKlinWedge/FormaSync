@@ -318,17 +318,32 @@ describe('activeGoal', () => {
 });
 
 describe('deleteGoal', () => {
-  it('usuwa cel razem z planem, ale zostawia wpisane terminy', () => {
+  it('zabiera ze sobą terminy z przyszłości, żeby nie dublowały następnego celu', () => {
     const db = createTestDb({ seed: true });
     const goalId = planned(db);
     materializeGoal(db, goalId, { scheduledTime: null, reminderOffsetMinutes: null, from: FROM });
-    const terms = db.select().from(schema.scheduledWorkouts).all().length;
+    expect(db.select().from(schema.scheduledWorkouts).all().length).toBeGreaterThan(50);
 
-    deleteGoal(db, goalId);
+    deleteGoal(db, goalId, FROM);
 
     expect(loadGoal(db, goalId)).toBeNull();
     expect(db.select().from(schema.goalWorkouts).where(eq(schema.goalWorkouts.goalId, goalId)).all()).toEqual([]);
-    // Terminy zostają: trening, który się odbył, nie może zniknąć z historii kalendarza.
-    expect(db.select().from(schema.scheduledWorkouts).all()).toHaveLength(terms);
+    expect(db.select().from(schema.scheduledWorkouts).all()).toEqual([]);
+  });
+
+  it('nie rusza terminu, z którego powstał trening', () => {
+    const db = createTestDb({ seed: true });
+    const goalId = planned(db);
+    materializeGoal(db, goalId, { scheduledTime: null, reminderOffsetMinutes: null, from: FROM });
+
+    // Pierwszy termin przerabiamy na trening: od tej chwili to już historia, a nie plan.
+    const term = db.select().from(schema.scheduledWorkouts).all()[0];
+    const sessionId = startSession(db, { kind: 'scheduled', scheduledId: term.id });
+    finishSession(db, sessionId);
+
+    deleteGoal(db, goalId, FROM);
+
+    const left = db.select().from(schema.scheduledWorkouts).all();
+    expect(left.map((row) => row.id)).toEqual([term.id]);
   });
 });
