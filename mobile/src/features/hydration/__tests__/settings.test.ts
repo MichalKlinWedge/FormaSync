@@ -10,6 +10,7 @@ import {
   hydrationSettingsFrom,
   loadHydrationSettings,
   MAX_PORTIONS,
+  portionRows,
   saveHydrationSettings,
 } from '../settings';
 
@@ -78,6 +79,33 @@ describe('hydrationSettingsFrom', () => {
     expect(hydrationSettingsFrom({ reminders: null }).reminders).toBe(true);
     expect(hydrationSettingsFrom({ reminders: 'on' }).reminders).toBe(true);
     expect(hydrationSettingsFrom({ reminders: 'off' }).reminders).toBe(false);
+  });
+});
+
+describe('portionRows', () => {
+  it('do trzech porcji trzyma w jednym rzędzie', () => {
+    expect(portionRows([250])).toEqual([[250]]);
+    expect(portionRows([250, 500, 750])).toEqual([[250, 500, 750]]);
+  });
+
+  it('powyżej trzech dzieli na równe rzędy', () => {
+    // Szerokość przycisku bierze się z podziału rzędu, więc „trzy i jeden” dałoby sierotę.
+    expect(portionRows([1, 2, 3, 4])).toEqual([
+      [1, 2],
+      [3, 4],
+    ]);
+    expect(portionRows([1, 2, 3, 4, 5])).toEqual([
+      [1, 2, 3],
+      [4, 5],
+    ]);
+    expect(portionRows([1, 2, 3, 4, 5, 6])).toEqual([
+      [1, 2, 3],
+      [4, 5, 6],
+    ]);
+  });
+
+  it('bez porcji nie rysuje rzędu', () => {
+    expect(portionRows([])).toEqual([]);
   });
 });
 

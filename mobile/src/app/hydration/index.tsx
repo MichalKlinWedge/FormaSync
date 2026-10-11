@@ -10,6 +10,7 @@ import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
 import { dayRatio, describeDay } from '@/features/hydration/day';
 import { formatMl, portionTime } from '@/features/hydration/format';
+import { PortionButtons } from '@/features/hydration/portion-buttons';
 import { syncHydrationReminders } from '@/features/hydration/reminders';
 import { addExtra, logDrink, removeDrink } from '@/features/hydration/repository';
 import { describeTarget } from '@/features/hydration/target';
@@ -63,21 +64,13 @@ export default function HydrationScreen() {
           <ThemedText type="smallBold" themeColor="textSecondary">
             DOPISZ
           </ThemedText>
-          <View style={styles.portions}>
-            {settings.portions.map((milliliters, index) => (
-              // Klucz z indeksu: dwie porcje o tej samej wielkości to wybór użytkownika, nie błąd.
-              <View key={index} style={styles.portion}>
-                <Button
-                  label={`+${formatMl(milliliters)}`}
-                  icon="water_drop"
-                  onPress={() => {
-                    logDrink(db, milliliters);
-                    replan();
-                  }}
-                />
-              </View>
-            ))}
-          </View>
+          <PortionButtons
+            portions={settings.portions}
+            onDrink={(milliliters) => {
+              logDrink(db, milliliters);
+              replan();
+            }}
+          />
         </View>
 
         <View style={styles.group}>
@@ -196,9 +189,6 @@ const styles = StyleSheet.create({
   fill: { height: '100%', borderRadius: 7 },
   row: { flexDirection: 'row', gap: Spacing.two },
   cell: { flex: 1 },
-  // Porcji może być do sześciu — po trzy w rzędzie, resztę zawijamy pod spód.
-  portions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  portion: { flexGrow: 1, flexBasis: '30%' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   portionRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   portionTime: { width: 48 },

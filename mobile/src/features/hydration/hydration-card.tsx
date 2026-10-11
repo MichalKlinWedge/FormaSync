@@ -11,6 +11,7 @@ import { todayKey } from '@/lib/date';
 
 import { dayRatio, describeDay } from './day';
 import { formatMl } from './format';
+import { PortionButtons } from './portion-buttons';
 import { syncHydrationReminders } from './reminders';
 import { logDrink, undoLastDrink } from './repository';
 import { useHydrationDay } from './use-hydration';
@@ -63,14 +64,7 @@ export function HydrationCard() {
         />
       </View>
 
-      <View style={styles.portions}>
-        {settings.portions.map((milliliters, index) => (
-          // Klucz z indeksu: dwie porcje o tej samej wielkości to wybór użytkownika, nie błąd.
-          <View key={index} style={styles.portion}>
-            <Button label={`+${formatMl(milliliters)}`} icon="water_drop" onPress={() => drink(milliliters)} />
-          </View>
-        ))}
-      </View>
+      <PortionButtons portions={settings.portions} onDrink={drink} />
 
       <View style={styles.row}>
         <View style={styles.cell}>
@@ -102,8 +96,5 @@ const styles = StyleSheet.create({
   track: { height: 12, borderRadius: 6, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: 6 },
   row: { flexDirection: 'row', gap: Spacing.two },
-  // Porcji może być do sześciu — po trzy w rzędzie, resztę zawijamy pod spód.
-  portions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  portion: { flexGrow: 1, flexBasis: '30%' },
   cell: { flex: 1 },
 });

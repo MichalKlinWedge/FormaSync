@@ -2,7 +2,7 @@ import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { useMemo } from 'react';
 
 import { db } from '@/db/client';
-import { bodyMeasurements, hydrationDays, hydrationLogs, workoutSessions } from '@/db/schema';
+import { appSettings, bodyMeasurements, hydrationDays, hydrationLogs, workoutSessions } from '@/db/schema';
 import { latestWeightKg } from '@/features/progress/repository';
 import { addDays } from '@/lib/date';
 
@@ -28,13 +28,15 @@ export type HydrationDay = {
 /**
  * Stan nawodnienia dnia, przeliczany po każdej wypitej porcji.
  *
- * Obserwujemy cztery tabele, bo cel zależy nie tylko od wypitego: dochodzi korekta dnia,
- * masa ciała z pomiarów i czas dzisiejszych treningów. Bez sygnału z sesji kafelek nie
- * zauważyłby dodatku za trening zakończony chwilę wcześniej.
+ * Obserwujemy pięć tabel, bo cel zależy nie tylko od wypitego: dochodzą ustawienia, korekta dnia,
+ * masa ciała z pomiarów i czas dzisiejszych treningów. Bez sygnału z sesji kafelek nie zauważyłby
+ * dodatku za trening zakończony chwilę wcześniej, a bez sygnału z ustawień — zmienionych porcji
+ * ani nowego celu; czekałby z nimi na następną wypitą szklankę.
  */
 export function useHydrationDay(dayKey: string): HydrationDay {
   const { data: logs } = useLiveQuery(db.select({ id: hydrationLogs.id }).from(hydrationLogs));
   const { data: extras } = useLiveQuery(db.select({ dayKey: hydrationDays.dayKey }).from(hydrationDays));
+  const { data: settingRows } = useLiveQuery(db.select({ key: appSettings.key }).from(appSettings));
   const { data: weights } = useLiveQuery(db.select({ id: bodyMeasurements.id }).from(bodyMeasurements));
   const { data: sessions } = useLiveQuery(db.select({ id: workoutSessions.id }).from(workoutSessions));
 
@@ -52,7 +54,7 @@ export function useHydrationDay(dayKey: string): HydrationDay {
       }),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sygnały zmiany, dane czytają funkcje repozytorium
-  }, [logs, extras, weights, sessions, dayKey]);
+  }, [logs, extras, settingRows, weights, sessions, dayKey]);
 }
 
 export type HydrationHistory = { days: DayResult[]; streak: number };
@@ -61,6 +63,7 @@ export type HydrationHistory = { days: DayResult[]; streak: number };
 export function useHydrationHistory(todayKey: string, days = 7): HydrationHistory {
   const { data: logs } = useLiveQuery(db.select({ id: hydrationLogs.id }).from(hydrationLogs));
   const { data: extras } = useLiveQuery(db.select({ dayKey: hydrationDays.dayKey }).from(hydrationDays));
+  const { data: settingRows } = useLiveQuery(db.select({ key: appSettings.key }).from(appSettings));
   const { data: sessions } = useLiveQuery(db.select({ id: workoutSessions.id }).from(workoutSessions));
 
   return useMemo(() => {
@@ -70,5 +73,5 @@ export function useHydrationHistory(todayKey: string, days = 7): HydrationHistor
     const results = withTargets(summaries, latestWeightKg(db), settings.manualMl);
     return { days: results.slice(-days), streak: currentStreak(results, todayKey) };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sygnały zmiany, dane czytają funkcje repozytorium
-  }, [logs, extras, sessions, todayKey, days]);
+  }, [logs, extras, settingRows, sessions, todayKey, days]);
 }

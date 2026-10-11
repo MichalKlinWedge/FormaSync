@@ -47,6 +47,23 @@ export const PORTION_RANGE = { min: 50, max: 2000 };
 /** Ile przycisków ma sens na kafelku. Więcej to już nie skrót, a lista do czytania. */
 export const MAX_PORTIONS = 6;
 
+/** Najwięcej przycisków w jednym rzędzie. Czwarty byłby węższy niż własna etykieta. */
+const PER_ROW = 3;
+
+/**
+ * Porcje rozłożone na rzędy. Szerokość przycisku bierze się z podziału rzędu, więc rzędy muszą być
+ * równe: cztery porcje to dwa i dwa, nie trzy i jeden sierotny na całą szerokość.
+ */
+export function portionRows(portions: number[]): number[][] {
+  if (portions.length === 0) return [];
+  const perRow = portions.length <= PER_ROW ? portions.length : Math.ceil(portions.length / 2);
+  const rows: number[][] = [];
+  for (let start = 0; start < portions.length; start += perRow) {
+    rows.push(portions.slice(start, start + perRow));
+  }
+  return rows;
+}
+
 /** Czy liczba nadaje się na porcję — jedna odpowiedź dla ekranu ustawień i dla odczytu z bazy. */
 export const isPortion = (milliliters: number | null): milliliters is number =>
   milliliters !== null &&
