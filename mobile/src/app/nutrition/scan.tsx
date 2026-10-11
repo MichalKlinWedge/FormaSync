@@ -1,7 +1,7 @@
 import { type BarcodeScanningResult, CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
@@ -143,12 +143,27 @@ export default function ScanScreen() {
               Do czytania kodów potrzebna jest kamera. Zdjęcia nigdzie nie trafiają — obraz służy
               tylko do odczytania cyfr z opakowania i nie jest nigdzie zapisywany.
             </ThemedText>
-            {permission.canAskAgain ? (
-              <Button label="Pozwól na kamerę" icon="photo_camera" onPress={() => void requestPermission()} />
-            ) : (
-              <ThemedText type="small" themeColor="textSecondary">
-                Dostęp do kamery jest zablokowany w ustawieniach Androida — tam trzeba go włączyć.
-              </ThemedText>
+            {/*
+              O zgodę pytamy zawsze, także gdy Android twierdzi, że pytać już nie wolno. Ta
+              odpowiedź bywa nieprawdziwa: wystarczy, że aplikacja prosiła o uprawnienie, zanim
+              w ogóle zgłaszała je w manifeście, a sama odmowa systemu zostaje zapamiętana jak
+              decyzja użytkownika. Przycisk, który nie robi nic, jest ślepym zaułkiem — więc obok
+              prośby dajemy drugą drogę, pewną.
+            */}
+            <Button label="Pozwól na kamerę" icon="photo_camera" onPress={() => void requestPermission()} />
+            {!permission.canAskAgain && (
+              <>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Android twierdzi, że pytać o tę zgodę już nie może. Jeśli po dotknięciu wyżej nic
+                  się nie pojawi, włącz Kamerę ręcznie — przycisk niżej otwiera ten ekran wprost.
+                </ThemedText>
+                <Button
+                  label="Otwórz ustawienia aplikacji"
+                  icon="settings"
+                  variant="secondary"
+                  onPress={() => void Linking.openSettings()}
+                />
+              </>
             )}
           </View>
         ) : code === null ? (
