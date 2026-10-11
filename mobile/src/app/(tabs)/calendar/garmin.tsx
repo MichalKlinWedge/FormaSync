@@ -4,6 +4,7 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-na
 
 import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
+import { RangeCalendar } from '@/components/range-calendar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -21,7 +22,7 @@ import {
   type SendProgress,
 } from '@/features/garmin/connect/send-range';
 import { SPORT_LABELS } from '@/features/sports/sport';
-import { addDays, formatDate, formatDayWithWeekday, todayKey } from '@/lib/date';
+import { addDays, formatDate, formatDayWithWeekday, startOfWeek, todayKey } from '@/lib/date';
 
 /**
  * Wysyłka treningów z wybranego okresu do kalendarza Garmina.
@@ -35,8 +36,10 @@ export default function GarminSendScreen() {
   const [range, setRange] = useState(() => nextWeek(today));
   const [busy, setBusy] = useState<SendProgress | null>(null);
 
-  // Czytamy z zapasem, żeby przesuwanie granic nie wymagało nowego zapytania przy każdym dniu.
-  const all = useScheduledRange(addDays(today, -1), addDays(range.to, 31));
+  // Czytamy rok do przodu, a nie sam zakres: po siatce miesiąca da się wędrować dalej, a kropki
+  // przy dniach mają stać od razu. Od poniedziałku bieżącego tygodnia, bo skrót „ten tydzień”
+  // sięga wstecz i lista ma powiedzieć wprost, co z niego jest już przeszłością.
+  const all = useScheduledRange(startOfWeek(today), addDays(today, 400));
   const entries = inRange(all, range);
   const pending = pendingForGarmin(entries, today);
 
@@ -61,15 +64,6 @@ export default function GarminSendScreen() {
       setBusy(null);
     }
   };
-
-  // Granice nie mogą się minąć, a w przeszłość nie wysyłamy niczego.
-  const shift = (edge: 'from' | 'to', days: number) =>
-    setRange((current) => {
-      const moved = addDays(current[edge], days);
-      if (edge === 'to') return { from: current.from, to: moved < current.from ? current.from : moved };
-      const notBeforeToday = moved < today ? today : moved;
-      return { from: notBeforeToday > current.to ? current.to : notBeforeToday, to: current.to };
-    });
 
   return (
     <ThemedView style={styles.flex}>
@@ -98,13 +92,26 @@ export default function GarminSendScreen() {
           </View>
         </View>
 
-        <Edge
-          label="OD"
-          value={range.from}
-          onShift={(days) => shift('from', days)}
-          atLimit={range.from <= today}
-        />
-        <Edge label="DO" value={range.to} onShift={(days) => shift('to', days)} />
+        <View style={styles.section}>
+          <ThemedText type="smallBold" themeColor="textSecondary">
+            OKRES
+          </ThemedText>
+          <ThemedText type="smallBold">
+            {range.from === range.to
+              ? formatDayWithWeekday(range.from)
+              : `${formatDayWithWeekday(range.from)} → ${formatDayWithWeekday(range.to)}`}
+          </ThemedText>
+          <RangeCalendar
+            range={range}
+            onChange={setRange}
+            min={today}
+            marked={new Set(all.map((entry) => entry.scheduledDate))}
+          />
+          <ThemedText type="small" themeColor="textSecondary">
+            Pierwsze dotknięcie zaczyna zakres, drugie go domyka. Kropka stoi przy dniu
+            z zaplanowanym treningiem.
+          </ThemedText>
+        </View>
 
         <View style={styles.section}>
           <ThemedText type="smallBold" themeColor="textSecondary">
@@ -142,34 +149,6 @@ export default function GarminSendScreen() {
   );
 }
 
-function Edge({
-  label,
-  value,
-  onShift,
-  atLimit,
-}: {
-  label: string;
-  value: string;
-  onShift: (days: number) => void;
-  atLimit?: boolean;
-}) {
-  return (
-    <View style={styles.section}>
-      <ThemedText type="smallBold" themeColor="textSecondary">
-        {label}
-      </ThemedText>
-      <View style={styles.dateRow}>
-        <Button label="−1 dzień" variant="secondary" onPress={() => onShift(-1)} disabled={atLimit} />
-        <Button label="+1 dzień" variant="secondary" onPress={() => onShift(1)} />
-      </View>
-      <ThemedText type="smallBold">{formatDayWithWeekday(value)}</ThemedText>
-      <ThemedText type="small" themeColor="textSecondary">
-        {formatDate(value)}
-      </ThemedText>
-    </View>
-  );
-}
-
 /** Wiersz listy: co pójdzie, a co nie i dlaczego. */
 function Row({ entry, today }: { entry: ScheduledEntry; today: string }) {
   const skipped =
@@ -203,7 +182,6 @@ const styles = StyleSheet.create({
   content: { padding: Spacing.four, gap: Spacing.four, paddingBottom: Spacing.six },
   section: { gap: Spacing.two },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  dateRow: { flexDirection: 'row', gap: Spacing.two },
   row: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two },
   rowDate: { width: 78 },
   rowText: { flex: 1, gap: Spacing.half },
