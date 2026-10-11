@@ -8,6 +8,7 @@ import { createTestDb } from '@/db/test-utils';
 import { emptyFoodDraft, type FoodDraft, FoodError } from '../food';
 import {
   deleteFood,
+  foodByBarcode,
   foodDraft,
   foodUsage,
   listFoods,
@@ -97,6 +98,23 @@ describe('listFoods', () => {
     expect(listFoods(db, 'zdroj')).toHaveLength(1);
     expect(listFoods(db, 'banan').map((food) => food.name)).toEqual(['Owsianka z bananem']);
     expect(listFoods(db, 'kotlet')).toHaveLength(0);
+  });
+});
+
+describe('foodByBarcode', () => {
+  it('znajduje zeskanowany produkt razem z miarkami', () => {
+    const db = createTestDb();
+    saveFood(db, bread(), { source: 'OFF', barcode: '5901234567890' });
+
+    const found = foodByBarcode(db, '5901234567890')!;
+    expect(found).toMatchObject({ name: 'Chleb żytni', source: 'OFF' });
+    expect(found.portions.map((portion) => portion.name)).toEqual(['kromka']);
+  });
+
+  it('nieznany kod to brak produktu, a nie błąd', () => {
+    const db = createTestDb();
+    saveFood(db, bread());
+    expect(foodByBarcode(db, '5901234567890')).toBeNull();
   });
 });
 

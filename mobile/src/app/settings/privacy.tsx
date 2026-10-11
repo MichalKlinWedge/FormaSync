@@ -44,6 +44,12 @@ export default function PrivacyScreen() {
             masa ciała, ani cel diety. Całe liczenie kalorii działa bez tego — opis słowami jest
             jedną z trzech dróg, obok bazy produktów i wpisu z ręki.
           </Bullet>
+          <Bullet>
+            Open Food Facts — przy skanowaniu kodu kreskowego do tej otwartej bazy produktów leci sam
+            kod z opakowania. Nic więcej: ani zdjęcie, ani nazwa urządzenia, ani cokolwiek o Tobie.
+            Obraz z kamery nie opuszcza telefonu i nie jest nigdzie zapisywany — służy wyłącznie do
+            odczytania cyfr. Pytamy dopiero wtedy, gdy kodu nie ma jeszcze w Twojej bazie.
+          </Bullet>
         </Section>
 
         <Section title="Planista AI">

@@ -46,6 +46,16 @@ export function loadFood(db: SyncDb, id: number): FoodWithPortions | null {
   return food === undefined ? null : { ...food, portions: portionsOf(db, id) };
 }
 
+/**
+ * Produkt po kodzie kreskowym. Szukamy u siebie przed pytaniem bazy w sieci: raz zeskanowany
+ * produkt jest już nasz, z naszymi miarkami i naszą poprawką wartości, więc nie ma po co
+ * ściągać go drugi raz ani zakładać duplikatu.
+ */
+export function foodByBarcode(db: SyncDb, barcode: string): FoodWithPortions | null {
+  const food = db.select().from(schema.foods).where(eq(schema.foods.barcode, barcode)).get();
+  return food === undefined ? null : { ...food, portions: portionsOf(db, food.id) };
+}
+
 /** Wersja robocza z zapisanego produktu — do ekranu edycji. */
 export function foodDraft(food: FoodWithPortions): FoodDraft {
   return {

@@ -2,7 +2,7 @@
   "expo": {
     "name": "FormaSync",
     "slug": "formasync",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "formasync",
@@ -39,6 +39,14 @@
           "photosPermission": "FormaSync potrzebuje dostępu do zdjęć, aby dodać grafikę do ćwiczenia.",
           "cameraPermission": false,
           "microphonePermission": false
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "FormaSync potrzebuje kamery, aby zeskanować kod kreskowy produktu.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
         }
       ],
       [

@@ -157,6 +157,12 @@ export default function AddMealScreen() {
         )}
 
         <Button
+          label="Zeskanuj kod kreskowy"
+          icon="barcode_scanner"
+          variant="secondary"
+          onPress={() => router.push('/nutrition/scan')}
+        />
+        <Button
           label="Opisz słowami (Gemini)"
           icon="auto_awesome"
           variant="secondary"
