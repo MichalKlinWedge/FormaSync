@@ -42,7 +42,17 @@ export type RawHydrationSettings = {
 };
 
 /** Najmniejsza i największa porcja, jaką przyjmiemy z przycisku albo z ustawień. */
-const PORTION_RANGE = { min: 50, max: 2000 };
+export const PORTION_RANGE = { min: 50, max: 2000 };
+
+/** Ile przycisków ma sens na kafelku. Więcej to już nie skrót, a lista do czytania. */
+export const MAX_PORTIONS = 6;
+
+/** Czy liczba nadaje się na porcję — jedna odpowiedź dla ekranu ustawień i dla odczytu z bazy. */
+export const isPortion = (milliliters: number | null): milliliters is number =>
+  milliliters !== null &&
+  Number.isInteger(milliliters) &&
+  milliliters >= PORTION_RANGE.min &&
+  milliliters <= PORTION_RANGE.max;
 
 function positiveInt(value: string | null | undefined): number | null {
   if (value === null || value === undefined || value.trim() === '') return null;
@@ -53,13 +63,18 @@ function positiveInt(value: string | null | undefined): number | null {
 /** Porcje zapisujemy jako liczby rozdzielone spacją — lista krótka, formatu nie trzeba mnożyć. */
 export const serializePortions = (portions: number[]): string => portions.join(' ');
 
+/**
+ * Liczbę poza zakresem przycinamy, a nie wyrzucamy: wyrzucenie skraca listę, a skrócona lista
+ * przesuwa pozostałe porcje na obce miejsca — tak właśnie ginęły porcje przy edycji. Wyrzucamy
+ * tylko to, co liczbą w ogóle nie jest.
+ */
 function parsePortions(value: string | null | undefined): number[] {
   const parsed = (value ?? '')
     .split(/\s+/)
     .map((part) => positiveInt(part))
-    .filter(
-      (ml): ml is number => ml !== null && ml >= PORTION_RANGE.min && ml <= PORTION_RANGE.max,
-    );
+    .filter((ml): ml is number => ml !== null)
+    .map((ml) => Math.min(PORTION_RANGE.max, Math.max(PORTION_RANGE.min, ml)))
+    .slice(0, MAX_PORTIONS);
   return parsed.length > 0 ? parsed : DEFAULT_PORTIONS_ML;
 }
 
@@ -106,6 +121,8 @@ export function saveHydrationSettings(db: SyncDb, patch: Partial<HydrationSettin
     setSetting(db, REMINDERS_KEY, patch.reminders ? 'on' : 'off');
   }
   if (patch.portions !== undefined) {
-    setSetting(db, PORTIONS_KEY, serializePortions(patch.portions));
+    // Pustej listy nie zapisujemy — kafelek bez ani jednego przycisku nie miałby czym dopisać.
+    const portions = patch.portions.filter(isPortion).slice(0, MAX_PORTIONS);
+    if (portions.length > 0) setSetting(db, PORTIONS_KEY, serializePortions(portions));
   }
 }

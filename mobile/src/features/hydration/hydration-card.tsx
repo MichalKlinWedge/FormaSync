@@ -63,16 +63,17 @@ export function HydrationCard() {
         />
       </View>
 
-      <View style={styles.row}>
-        {settings.portions.map((milliliters) => (
-          <View key={milliliters} style={styles.portion}>
+      <View style={styles.portions}>
+        {settings.portions.map((milliliters, index) => (
+          // Klucz z indeksu: dwie porcje o tej samej wielkości to wybór użytkownika, nie błąd.
+          <View key={index} style={styles.portion}>
             <Button label={`+${formatMl(milliliters)}`} icon="water_drop" onPress={() => drink(milliliters)} />
           </View>
         ))}
       </View>
 
       <View style={styles.row}>
-        <View style={styles.portion}>
+        <View style={styles.cell}>
           <Button
             label="Cofnij"
             icon="undo"
@@ -81,7 +82,7 @@ export function HydrationCard() {
             disabled={portions.length === 0}
           />
         </View>
-        <View style={styles.portion}>
+        <View style={styles.cell}>
           <Button
             label="Szczegóły"
             icon="chevron_right"
@@ -101,5 +102,8 @@ const styles = StyleSheet.create({
   track: { height: 12, borderRadius: 6, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: 6 },
   row: { flexDirection: 'row', gap: Spacing.two },
-  portion: { flex: 1 },
+  // Porcji może być do sześciu — po trzy w rzędzie, resztę zawijamy pod spód.
+  portions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  portion: { flexGrow: 1, flexBasis: '30%' },
+  cell: { flex: 1 },
 });

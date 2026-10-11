@@ -63,9 +63,10 @@ export default function HydrationScreen() {
           <ThemedText type="smallBold" themeColor="textSecondary">
             DOPISZ
           </ThemedText>
-          <View style={styles.row}>
-            {settings.portions.map((milliliters) => (
-              <View key={milliliters} style={styles.cell}>
+          <View style={styles.portions}>
+            {settings.portions.map((milliliters, index) => (
+              // Klucz z indeksu: dwie porcje o tej samej wielkości to wybór użytkownika, nie błąd.
+              <View key={index} style={styles.portion}>
                 <Button
                   label={`+${formatMl(milliliters)}`}
                   icon="water_drop"
@@ -195,6 +196,9 @@ const styles = StyleSheet.create({
   fill: { height: '100%', borderRadius: 7 },
   row: { flexDirection: 'row', gap: Spacing.two },
   cell: { flex: 1 },
+  // Porcji może być do sześciu — po trzy w rzędzie, resztę zawijamy pod spód.
+  portions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  portion: { flexGrow: 1, flexBasis: '30%' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   portionRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   portionTime: { width: 48 },

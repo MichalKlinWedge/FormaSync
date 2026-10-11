@@ -6,7 +6,12 @@ import { describe, expect, it } from '@jest/globals';
 import { createTestDb } from '@/db/test-utils';
 
 import { DEFAULT_PORTIONS_ML, DEFAULT_WINDOW } from '../day';
-import { hydrationSettingsFrom, loadHydrationSettings, saveHydrationSettings } from '../settings';
+import {
+  hydrationSettingsFrom,
+  loadHydrationSettings,
+  MAX_PORTIONS,
+  saveHydrationSettings,
+} from '../settings';
 
 describe('hydrationSettingsFrom', () => {
   it('bez zapisanych wartości daje domyślne', () => {
@@ -58,8 +63,15 @@ describe('hydrationSettingsFrom', () => {
     });
   });
 
-  it('odrzuca porcje poza rozsądnym zakresem', () => {
-    expect(hydrationSettingsFrom({ portions: '10 500 9000' }).portions).toEqual([500]);
+  it('przycina porcje do rozsądnego zakresu, nie gubiąc ich', () => {
+    // Wyrzucenie wartości skróciłoby listę i przesunęło sąsiednie porcje na obce miejsca.
+    expect(hydrationSettingsFrom({ portions: '10 500 9000' }).portions).toEqual([50, 500, 2000]);
+  });
+
+  it('nie pokazuje więcej przycisków, niż się zmieści', () => {
+    expect(hydrationSettingsFrom({ portions: '100 200 300 400 500 600 700' }).portions).toHaveLength(
+      MAX_PORTIONS,
+    );
   });
 
   it('pilnowanie jest włączone, dopóki nie zostanie wyłączone', () => {
@@ -95,6 +107,17 @@ describe('zapis ustawień', () => {
     saveHydrationSettings(db, { everyMinutes: 120 });
 
     expect(loadHydrationSettings(db)).toMatchObject({ manualMl: 3000, everyMinutes: 120 });
+  });
+
+  it('nie zapisuje porcji spoza zakresu ani pustej listy', () => {
+    // Pole liczbowe oddaje każde uderzenie w klawiaturę, więc „7” w drodze do „750” tu nie wejdzie.
+    const db = createTestDb({ seed: true });
+    saveHydrationSettings(db, { portions: [300, 600] });
+    saveHydrationSettings(db, { portions: [7, 600] });
+    expect(loadHydrationSettings(db).portions).toEqual([600]);
+
+    saveHydrationSettings(db, { portions: [] });
+    expect(loadHydrationSettings(db).portions).toEqual([600]);
   });
 
   it('czyści stały cel, wracając do liczenia z masy ciała', () => {

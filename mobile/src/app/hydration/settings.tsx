@@ -1,7 +1,9 @@
-import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
+import { Icon } from '@/components/icon';
 import { NumberField } from '@/components/number-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -10,14 +12,32 @@ import { db } from '@/db/client';
 import { DEFAULT_PORTIONS_ML, formatTime, parseTime } from '@/features/hydration/day';
 import { formatMl } from '@/features/hydration/format';
 import { syncHydrationReminders } from '@/features/hydration/reminders';
-import { loadHydrationSettings, saveHydrationSettings } from '@/features/hydration/settings';
+import {
+  isPortion,
+  loadHydrationSettings,
+  MAX_PORTIONS,
+  PORTION_RANGE,
+  saveHydrationSettings,
+} from '@/features/hydration/settings';
 import { ML_PER_KG } from '@/features/hydration/target';
+import { useTheme } from '@/hooks/use-theme';
 
 /** Kroki do wyboru. Krótsze niż godzina to już nagabywanie, dłuższe niż trzy — nie pilnowanie. */
 const EVERY_CHOICES = [60, 90, 120, 180];
 
+/**
+ * Wiersz porcji z własnym identyfikatorem. Pole liczbowe pamięta swój tekst, więc wiersz usunięty
+ * ze środka nie może przesunąć pozostałych na obce wartości — po indeksie byłby to właśnie skutek.
+ */
+type PortionRow = { key: number; milliliters: number | null };
+
 export default function HydrationSettingsScreen() {
+  const theme = useTheme();
   const [settings, setSettings] = useState(() => loadHydrationSettings(db));
+  const [portionRows, setPortionRows] = useState<PortionRow[]>(() =>
+    settings.portions.map((milliliters, index) => ({ key: index, milliliters })),
+  );
+  const nextRowKey = useRef(settings.portions.length);
 
   /** Zapis i przeplanowanie w jednym: zmiana okna bez przeplanowania nic by nie dała. */
   const update = (patch: Parameters<typeof saveHydrationSettings>[1]) => {
@@ -32,11 +52,36 @@ export default function HydrationSettingsScreen() {
     update({ window: { ...settings.window, [edge]: formatTime(hour * 60) } });
   };
 
-  const setPortion = (index: number, milliliters: number | null) => {
-    if (milliliters === null || milliliters <= 0) return;
-    const portions = [...settings.portions];
-    portions[index] = milliliters;
-    update({ portions });
+  /**
+   * Wiersze są jedynym źródłem prawdy dla pól, a do bazy idą tylko wartości z zakresu. Odczyt listy
+   * z bazy po każdym uderzeniu w klawiaturę kasowałby wiersz na przelotnej „7” w drodze do „750” —
+   * a skrócona lista przesuwa pozostałe porcje na obce miejsca.
+   */
+  const commitPortions = (rows: PortionRow[]) => {
+    setPortionRows(rows);
+    const portions = rows.map((row) => row.milliliters).filter(isPortion);
+    if (portions.length > 0) update({ portions });
+  };
+
+  const setPortion = (key: number, milliliters: number | null) => {
+    commitPortions(portionRows.map((row) => (row.key === key ? { ...row, milliliters } : row)));
+  };
+
+  const addPortion = () => {
+    if (portionRows.length >= MAX_PORTIONS) return;
+    setPortionRows([...portionRows, { key: nextRowKey.current++, milliliters: null }]);
+  };
+
+  /** Ostatniego wiersza nie usuwamy: kafelek bez ani jednego przycisku nie miałby czym dopisać. */
+  const removePortion = (key: number) => {
+    if (portionRows.length <= 1) return;
+    commitPortions(portionRows.filter((row) => row.key !== key));
+  };
+
+  const restorePortions = () => {
+    commitPortions(
+      DEFAULT_PORTIONS_ML.map((milliliters) => ({ key: nextRowKey.current++, milliliters })),
+    );
   };
 
   const hourOf = (time: string): number => Math.floor((parseTime(time) ?? 0) / 60);
@@ -131,18 +176,53 @@ export default function HydrationSettingsScreen() {
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             Domyślnie {DEFAULT_PORTIONS_ML.map(formatMl).join(', ')} — szklanka, butelka, duża
-            butelka.
+            butelka. Przyjmujemy od {formatMl(PORTION_RANGE.min)} do {formatMl(PORTION_RANGE.max)};
+            do {MAX_PORTIONS} przycisków.
           </ThemedText>
-          <View style={styles.row}>
-            {settings.portions.map((milliliters, index) => (
-              <View key={index} style={styles.cell}>
+          {portionRows.map((row, index) => (
+            <View key={row.key} style={styles.portionRow}>
+              <View style={styles.cell}>
                 <NumberField
                   label={`Porcja ${index + 1}`}
-                  value={milliliters}
-                  onChange={(value) => setPortion(index, value)}
+                  value={row.milliliters}
+                  onChange={(value) => setPortion(row.key, value)}
+                  placeholder="np. 500"
                 />
               </View>
-            ))}
+              <Pressable
+                accessibilityLabel={`Usuń porcję ${index + 1}`}
+                disabled={portionRows.length <= 1}
+                hitSlop={8}
+                onPress={() => removePortion(row.key)}
+                style={[styles.portionRemove, { opacity: portionRows.length <= 1 ? 0.3 : 1 }]}>
+                <Icon name="close" size={20} color={theme.textSecondary} />
+              </Pressable>
+            </View>
+          ))}
+          {portionRows.some((row) => !isPortion(row.milliliters)) && (
+            <ThemedText type="small" themeColor="textSecondary">
+              Porcja poza zakresem {formatMl(PORTION_RANGE.min)}–{formatMl(PORTION_RANGE.max)} nie
+              trafi na przyciski — dopisz wartość albo usuń wiersz.
+            </ThemedText>
+          )}
+          <View style={styles.row}>
+            <View style={styles.cell}>
+              <Button
+                label="Dodaj porcję"
+                icon="add"
+                variant="secondary"
+                disabled={portionRows.length >= MAX_PORTIONS}
+                onPress={addPortion}
+              />
+            </View>
+            <View style={styles.cell}>
+              <Button
+                label="Przywróć domyślne"
+                icon="undo"
+                variant="secondary"
+                onPress={restorePortions}
+              />
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -156,5 +236,8 @@ const styles = StyleSheet.create({
   section: { gap: Spacing.two },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   row: { flexDirection: 'row', gap: Spacing.two },
+  portionRow: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.two },
+  // Krzyżyk na wysokości pola, a nie jego dolnej krawędzi — nad polem stoi jeszcze etykieta.
+  portionRemove: { paddingBottom: Spacing.two + Spacing.half },
   cell: { flex: 1 },
 });
