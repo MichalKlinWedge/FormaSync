@@ -25,6 +25,19 @@ import {
 import { useTheme } from '@/hooks/use-theme';
 
 /**
+ * Gotowe wytyczne na najczęstszy przypadek: plan, który od pierwszego tygodnia rusza z pułapu
+ * docelowego. Wpisujemy je do pola, a nie wysyłamy po cichu — to mają być Twoje wytyczne,
+ * więc decyzja o ich zapisaniu należy do Ciebie.
+ */
+const GENTLE_START = [
+  'Zaczynaj łagodnie.',
+  'Pierwsze cztery tygodnie to odbudowa regularności: objętość tygodniowa jak dotychczas, bez jednostek szybkościowych.',
+  'Najdłuższe wybieganie rośnie najwyżej o kilometr na tydzień i na starcie nie przekracza najdłuższego z ostatnich tygodni.',
+  'Najwyżej jedna jednostka jakościowa w tygodniu.',
+  'Nie planuj mocnej jednostki dzień po dniu z długim wybieganiem.',
+].join(' ');
+
+/**
  * Ustawienia planisty AI. Klucz wklejamy, ale nigdy nie pokazujemy z powrotem — leży
  * w SecureStore, a nie w bazie, więc nie da się go odczytać ani z kopii zapasowej, ani stąd.
  */
@@ -194,6 +207,12 @@ export default function GoalAiScreen() {
               styles.area,
               { color: theme.text, backgroundColor: theme.background, borderColor: theme.border },
             ]}
+          />
+          <Button
+            label="Wstaw łagodny start"
+            icon="edit_note"
+            variant="secondary"
+            onPress={() => setHints(GENTLE_START)}
           />
           <Button
             label="Zapisz wytyczne"
