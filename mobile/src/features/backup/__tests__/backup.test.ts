@@ -94,6 +94,8 @@ describe('createBackup', () => {
       'equipment',
       'exercise_muscles',
       'exercises',
+      'food_portions',
+      'foods',
       'garmin_activity_metrics',
       'garmin_daily_health',
       'garmin_records',

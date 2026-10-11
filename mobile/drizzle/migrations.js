@@ -19,6 +19,7 @@ import m0014 from './0014_hydration.sql';
 import m0015 from './0015_training_goals.sql';
 import m0016 from './0016_garmin_records.sql';
 import m0017 from './0017_nutrition.sql';
+import m0018 from './0018_foods.sql';
 
   export default {
     journal,
@@ -40,7 +41,8 @@ m0013,
 m0014,
 m0015,
 m0016,
-m0017
+m0017,
+m0018
     }
   }
   

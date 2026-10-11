@@ -114,6 +114,12 @@ export default function NutritionScreen() {
 
         <Button label="Dodaj posiłek" icon="add" onPress={() => router.push('/nutrition/add')} />
         <Button
+          label="Baza produktów"
+          icon="list"
+          variant="secondary"
+          onPress={() => router.push('/nutrition/foods')}
+        />
+        <Button
           label="Cel diety i dane"
           icon="settings"
           variant="secondary"

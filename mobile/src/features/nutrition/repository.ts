@@ -6,6 +6,8 @@ import { normalizeText } from '@/features/exercises/filter';
 import { addDays, toDateKey } from '@/lib/date';
 
 import { trainingBurn } from './energy';
+import { type FoodDraft, nutrientsFor } from './food';
+import { loadFood, markFoodUsed, saveFood } from './food-repository';
 
 /**
  * Zapis i odczyt zjedzonego. Posiłki leżą wiersz po wierszu, a dzień liczymy w strefie telefonu —
@@ -16,6 +18,8 @@ export type MealEntry = {
   id: number;
   loggedAt: string;
   meal: schema.MealType;
+  /** Produkt, z którego wpis powstał; null dla wpisu z ręki i dla usuniętego produktu. */
+  foodId: number | null;
   title: string;
   grams: number | null;
   kcal: number;
@@ -27,6 +31,7 @@ export type MealEntry = {
 export type MealInput = {
   meal: schema.MealType;
   title: string;
+  foodId?: number | null;
   kcal: number;
   grams?: number | null;
   proteinG?: number | null;
@@ -52,6 +57,7 @@ export function logMeal(db: SyncDb, input: MealInput, now: Date = new Date()): n
       loggedAt: now.toISOString(),
       dayKey: toDateKey(now),
       meal: input.meal,
+      foodId: input.foodId ?? null,
       title,
       grams: positive(input.grams),
       kcal,
@@ -74,6 +80,7 @@ export function dayMeals(db: SyncDb, dayKey: string): MealEntry[] {
       id: schema.mealLogs.id,
       loggedAt: schema.mealLogs.loggedAt,
       meal: schema.mealLogs.meal,
+      foodId: schema.mealLogs.foodId,
       title: schema.mealLogs.title,
       grams: schema.mealLogs.grams,
       kcal: schema.mealLogs.kcal,
@@ -116,6 +123,7 @@ export function recentMeals(db: SyncDb, limit = 8): MealEntry[] {
       id: schema.mealLogs.id,
       loggedAt: schema.mealLogs.loggedAt,
       meal: schema.mealLogs.meal,
+      foodId: schema.mealLogs.foodId,
       title: schema.mealLogs.title,
       grams: schema.mealLogs.grams,
       kcal: schema.mealLogs.kcal,
@@ -138,6 +146,78 @@ export function recentMeals(db: SyncDb, limit = 8): MealEntry[] {
     if (unique.length >= limit) break;
   }
   return unique;
+}
+
+/**
+ * Posiłek z produktu: wartości liczy produkt, a wpis dostaje ich własną kopię. Przy okazji
+ * odnotowujemy użycie, żeby produkt wrócił na górę listy wyboru.
+ *
+ * Masę zapisujemy tylko wtedy, gdy ją znamy: przy liczeniu na 100 g jest nią sama ilość, przy
+ * porcjach — ilość razy masa porcji, o ile ktoś ją podał. Zmyślonych gramów nie wpisujemy.
+ */
+export function logFoodMeal(
+  db: SyncDb,
+  input: { meal: schema.MealType; foodId: number; amount: number },
+  now: Date = new Date(),
+): number {
+  const food = loadFood(db, input.foodId);
+  if (food === null) throw new MealError('Tego produktu już nie ma w bazie.');
+  if (!(input.amount > 0)) throw new MealError('Podaj zjedzoną ilość.');
+
+  const values = nutrientsFor(food, input.amount);
+  const grams =
+    food.basis === 'G100'
+      ? input.amount
+      : food.servingGrams === null
+        ? null
+        : input.amount * food.servingGrams;
+
+  const id = logMeal(
+    db,
+    {
+      meal: input.meal,
+      foodId: food.id,
+      title: food.name,
+      kcal: values.kcal,
+      proteinG: values.proteinG,
+      carbsG: values.carbsG,
+      fatG: values.fatG,
+      grams,
+    },
+    now,
+  );
+  markFoodUsed(db, food.id, now);
+  return id;
+}
+
+/**
+ * Wpis z ręki, który od razu zostaje produktem. Tak rośnie baza: raz policzona owsianka wraca
+ * nazajutrz jednym dotknięciem, a nie kolejnym liczeniem tego samego.
+ *
+ * Produkt powstaje „na porcję”, bo tyle wiadomo — kalorie całego posiłku. Na sto gramów nikt tego
+ * nie przeliczy bez wagi, a wymyślona masa byłaby gorsza niż jej brak.
+ */
+export function logMealAsFood(
+  db: SyncDb,
+  input: MealInput,
+  now: Date = new Date(),
+): { mealId: number; foodId: number } {
+  const draft: FoodDraft = {
+    name: input.title.trim(),
+    brand: null,
+    basis: 'SERVING',
+    kcal: Math.round(input.kcal),
+    proteinG: positive(input.proteinG),
+    carbsG: positive(input.carbsG),
+    fatG: positive(input.fatG),
+    servingName: null,
+    servingGrams: positive(input.grams),
+    portions: [],
+  };
+  const foodId = saveFood(db, draft);
+  const mealId = logMeal(db, { ...input, foodId }, now);
+  markFoodUsed(db, foodId, now);
+  return { mealId, foodId };
 }
 
 /**

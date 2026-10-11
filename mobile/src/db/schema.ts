@@ -532,6 +532,12 @@ export const mealLogs = sqliteTable(
     loggedAt: text('logged_at').notNull(),
     dayKey: text('day_key').notNull(), // YYYY-MM-DD
     meal: text('meal', { enum: mealTypes }).notNull().default('SNACK'),
+    /**
+     * Produkt, z którego wpis powstał — bez klucza obcego i wyłącznie dla wygody: pozwala
+     * podbijać „ostatnio użyte” i wrócić do produktu z historii. Usunięcie produktu nie ma
+     * prawa ruszyć zapisanego dnia, bo liczby wpis ma własne.
+     */
+    foodId: integer('food_id'),
     title: text('title').notNull(),
     /** Zjedzona masa, gdy znana — przy wpisie „na oko” jej nie ma. */
     grams: real('grams'),
@@ -541,4 +547,63 @@ export const mealLogs = sqliteTable(
     fatG: real('fat_g'),
   },
   (t) => [index('meal_logs_day_idx').on(t.dayKey)],
+);
+
+/** Skąd wzięły się wartości produktu: wpisane ręcznie, z bazy kodów kreskowych, z oszacowania AI. */
+export const foodSources = ['OWN', 'OFF', 'AI'] as const;
+export type FoodSource = (typeof foodSources)[number];
+
+/**
+ * Czy liczby produktu opisują 100 g, czy jedną porcję.
+ *
+ * Bez tego drugiego nie da się zapisać domowego jedzenia: „owsianka z bananem, 420 kcal” jest
+ * wiedzą o całej misce, a nie o stu gramach, i przeliczanie jej na gramy byłoby wymyślaniem masy,
+ * której nikt nie zważył.
+ */
+export const foodBases = ['G100', 'SERVING'] as const;
+export type FoodBasis = (typeof foodBases)[number];
+
+/**
+ * Własna baza produktów. Rośnie sama: każdy nowy posiłek wpisany z ręki może od razu zostać
+ * produktem, więc drugi raz to samo wybiera się jednym dotknięciem.
+ *
+ * Wartości są na jednostkę produktu — na 100 g albo na porcję, wedle `basis`. Policzone kalorie
+ * posiłku i tak lądują w `meal_logs`, więc poprawienie produktu nie rusza historii.
+ */
+export const foods = sqliteTable('foods', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  brand: text('brand'),
+  /** Kod kreskowy, gdy produkt przyszedł ze skanu. Puste dla wpisanych ręcznie. */
+  barcode: text('barcode').unique(),
+  basis: text('basis', { enum: foodBases }).notNull().default('G100'),
+  kcal: integer('kcal').notNull(),
+  proteinG: real('protein_g'),
+  carbsG: real('carbs_g'),
+  fatG: real('fat_g'),
+  /** Nazwa porcji przy liczeniu na porcję: „miska”, „kromka”, „sztuka”. */
+  servingName: text('serving_name'),
+  /** Masa porcji w gramach, gdy znana — sama w liczeniu nie uczestniczy, ale warto ją pamiętać. */
+  servingGrams: real('serving_grams'),
+  source: text('source', { enum: foodSources }).notNull().default('OWN'),
+  createdAt: createdAt(),
+  /** Kiedy ostatnio zjedzony — po tym układa się lista wyboru. */
+  usedAt: text('used_at'),
+});
+
+/**
+ * Własne miarki produktu: „kromka 35 g”, „moja miarka ryżu 80 g”, „pół porcji”. Jednostka `amount`
+ * jest ta sama, co jednostka produktu: gramy przy „na 100 g”, porcje przy „na porcję”.
+ */
+export const foodPortions = sqliteTable(
+  'food_portions',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    foodId: integer('food_id')
+      .notNull()
+      .references(() => foods.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    amount: real('amount').notNull(),
+  },
+  (t) => [index('food_portions_food_idx').on(t.foodId)],
 );
