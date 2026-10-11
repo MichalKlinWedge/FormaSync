@@ -14,6 +14,7 @@ import { NutritionCard } from '@/features/nutrition/nutrition-card';
 import { usePlanList } from '@/features/plans/use-plans';
 import { SportSwitcher } from '@/features/sports/sport-switcher';
 import { useActiveSport } from '@/features/sports/sport-store';
+import { UpdateBadge } from '@/features/updates/update-badge';
 import { elapsedSeconds, formatClock } from '@/features/workout/logic';
 import { ensureNotificationPermission } from '@/features/workout/notifications';
 import { ActiveSessionExistsError, startSession, type StartSessionOptions } from '@/features/workout/repository';
@@ -56,6 +57,7 @@ export default function TodayScreen() {
                 {formatDayWithWeekday(today)}
               </ThemedText>
             </View>
+            <UpdateBadge />
             <Pressable
               accessibilityLabel="Ustawienia"
               onPress={() => router.push('/settings')}
