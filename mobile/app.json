@@ -37,7 +37,7 @@
         "expo-image-picker",
         {
           "photosPermission": "FormaSync potrzebuje dostępu do zdjęć, aby dodać grafikę do ćwiczenia.",
-          "cameraPermission": false,
+          "cameraPermission": "FormaSync potrzebuje kamery, aby zeskanować kod kreskowy produktu.",
           "microphonePermission": false
         }
       ],
