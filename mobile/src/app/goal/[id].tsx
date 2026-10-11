@@ -10,8 +10,9 @@ import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
 import { syncWorkoutReminders } from '@/features/calendar/reminders';
 import { formatDistance, formatPace, formatSeconds } from '@/features/endurance/format';
+import { buildContext } from '@/features/goals/ai/context';
 import { GeminiError, NoApiKeyError, planWithGemini, PlanReplyError } from '@/features/goals/ai/gemini';
-import { hasConsent, setConsent } from '@/features/goals/ai/tokens';
+import { guidance, hasConsent, setConsent } from '@/features/goals/ai/tokens';
 import { buildBrief, currentForm } from '@/features/goals/brief';
 import { findJunk, sweepJunk } from '@/features/goals/cleanup';
 import { planGoal } from '@/features/goals/planner';
@@ -119,6 +120,7 @@ export default function GoalScreen() {
         buildBrief(db, goal, new Date()),
         currentForm(db, goal.sport).history,
         today,
+        buildContext(db, goal.sport, guidance()),
       );
       const added = savePlan(db, goalId, weeks, 'GEMINI');
       Alert.alert(
@@ -302,10 +304,16 @@ export default function GoalScreen() {
             disabled={asking}
           />
           <Button
-            label="Planista AI — klucz i model"
+            label="Planista AI — klucz, model, wytyczne"
             icon="key"
             variant="secondary"
             onPress={() => router.push('/goal/ai')}
+          />
+          <Button
+            label="Podejrzyj polecenie dla Gemini"
+            icon="visibility"
+            variant="secondary"
+            onPress={() => router.push({ pathname: '/goal/prompt', params: { id: goalId } })}
           />
           {goal.plannedBy !== null && (
             <ThemedText type="small" themeColor="textSecondary">

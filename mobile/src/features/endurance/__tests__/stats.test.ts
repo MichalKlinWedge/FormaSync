@@ -9,7 +9,7 @@ import { finishSession, startSession } from '@/features/workout/repository';
 import { createSegment, emptyEnduranceDraft } from '../draft';
 import { saveEndurancePlan } from '../repository';
 import { completeSegment, loadEnduranceSession } from '../session';
-import { loadEnduranceWorkouts, summarizeEndurance, weeklyVolume } from '../stats';
+import { loadEnduranceWorkouts, monthlyVolume, summarizeEndurance, weeklyVolume } from '../stats';
 
 /** Trening biegowy z jednym odcinkiem o zadanym dystansie i czasie. */
 function runWorkout(
@@ -156,5 +156,39 @@ describe('weeklyVolume', () => {
   it('tygodnie bez treningu zostają puste, żeby wykres nie kłamał', () => {
     const weeks = weeklyVolume([], 3, new Date('2026-10-04T12:00:00.000Z'));
     expect(weeks.map((week) => week.meters)).toEqual([0, 0, 0]);
+  });
+});
+
+describe('monthlyVolume', () => {
+  const workout = (startTime: string, meters: number) => ({
+    sessionId: 1,
+    title: 'Bieg',
+    startTime,
+    meters,
+    seconds: 3600,
+    pace: null,
+    workPace: null,
+    splits: [],
+  });
+
+  it('sumuje treningi w miesiącach, od najstarszego', () => {
+    const months = monthlyVolume(
+      [workout('2026-10-03T07:00:00', 10000), workout('2026-10-20T07:00:00', 5000), workout('2026-09-10T07:00:00', 8000)],
+      3,
+      new Date(2026, 9, 25),
+    );
+    expect(months.map((month) => month.month)).toEqual(['2026-08', '2026-09', '2026-10']);
+    expect(months.map((month) => month.meters)).toEqual([0, 8000, 15000]);
+  });
+
+  it('miesiąc bez treningu zostaje w zestawieniu jako zero', () => {
+    const months = monthlyVolume([], 2, new Date(2026, 9, 25));
+    expect(months).toHaveLength(2);
+    expect(months.every((month) => month.meters === 0)).toBe(true);
+  });
+
+  it('nie wciąga treningów spoza okresu', () => {
+    const months = monthlyVolume([workout('2025-01-05T07:00:00', 9000)], 2, new Date(2026, 9, 25));
+    expect(months.every((month) => month.meters === 0)).toBe(true);
   });
 });

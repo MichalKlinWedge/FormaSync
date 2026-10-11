@@ -3,6 +3,7 @@
  */
 import { describe, expect, it } from '@jest/globals';
 
+import type { PromptContext } from '../ai/context';
 import { buildPrompt, parsePlanReply, PlanReplyError } from '../ai/prompt';
 import type { GoalBrief } from '../planner';
 
@@ -238,5 +239,66 @@ describe('parsePlanReply', () => {
         '2027-03-01',
       ),
     ).toThrow(PlanReplyError);
+  });
+});
+
+describe('kontekst w poleceniu', () => {
+  const CONTEXT: PromptContext = {
+    records: [
+      { meters: 5000, seconds: 1267 },
+      { meters: 10000, seconds: 2624 },
+    ],
+    garmin: [
+      { label: '5 km', meters: 5000, seconds: 1253, achievedOn: '2023-09-09' },
+      { label: 'Najdłuższy bieg', meters: 42620, seconds: null, achievedOn: null },
+    ],
+    monthly: [
+      { month: '2026-08', meters: 96000 },
+      { month: '2026-09', meters: 0 },
+    ],
+    guidance: 'Zaczynaj łagodnie, wracam po przerwie.',
+  };
+
+  const prompt = buildPrompt(BRIEF, [], '2026-10-12', CONTEXT);
+
+  it('niesie rekordy policzone z historii', () => {
+    expect(prompt).toContain('REKORDY POLICZONE Z HISTORII');
+    expect(prompt).toContain('5 km: 21:07');
+    expect(prompt).toContain('10 km: 43:44');
+  });
+
+  it('niesie rekordy życiowe z Garmina razem z datą', () => {
+    expect(prompt).toContain('5 km: 20:53 (2023-09-09)');
+    // W najdłuższym biegu wartością jest dystans, nie czas.
+    expect(prompt).toContain('Najdłuższy bieg: 42,62 km');
+  });
+
+  it('pokazuje objętość miesiąc po miesiącu razem z miesiącami pustymi', () => {
+    expect(prompt).toContain('2026-08: 96 km');
+    // Przerwa jest informacją — wycięta wyglądałaby jak ciągłość, której nie było.
+    expect(prompt).toContain('2026-09: 0 km');
+  });
+
+  it('niesie wytyczne zawodnika i stawia je nad regułami', () => {
+    expect(prompt).toContain('WYTYCZNE OD ZAWODNIKA');
+    expect(prompt).toContain('ważniejsze od zasad powyżej');
+    expect(prompt).toContain('Zaczynaj łagodnie, wracam po przerwie.');
+  });
+
+  it('każe zacząć od obecnej objętości, a nie od docelowej', () => {
+    expect(prompt).toContain('Pierwszy tydzień planu ma objętość zbliżoną do obecnej tygodniowej');
+  });
+
+  it('bez kontekstu nie zostawia pustych nagłówków', () => {
+    const bare = buildPrompt(BRIEF, [], '2026-10-12');
+    expect(bare).not.toContain('REKORDY');
+    expect(bare).not.toContain('WYTYCZNE OD ZAWODNIKA');
+    expect(bare).not.toContain('MIESIĄC PO MIESIĄCU');
+  });
+
+  it('puste wytyczne nie dokładają nagłówka', () => {
+    const quiet = buildPrompt(BRIEF, [], '2026-10-12', { ...CONTEXT, guidance: '   ' });
+    expect(quiet).not.toContain('WYTYCZNE OD ZAWODNIKA');
+    expect(quiet).toContain('REKORDY POLICZONE Z HISTORII');
   });
 });

@@ -12,10 +12,13 @@ import { listGeminiModels } from '@/features/goals/ai/gemini';
 import { isModelName, normalizeModel, type GeminiModel } from '@/features/goals/ai/models';
 import {
   DEFAULT_MODEL,
+  guidance,
+  GUIDANCE_LIMIT,
   hasApiKey,
   hasConsent,
   modelName,
   saveApiKey,
+  saveGuidance,
   saveModelName,
   setConsent,
 } from '@/features/goals/ai/tokens';
@@ -32,6 +35,7 @@ export default function GoalAiScreen() {
   const [model, setModel] = useState(() => modelName());
   const [models, setModels] = useState<GeminiModel[] | null>(null);
   const [listing, setListing] = useState(false);
+  const [hints, setHints] = useState(() => guidance());
   const [consent, setConsentState] = useState(() => hasConsent());
 
   useEffect(() => {
@@ -166,6 +170,59 @@ export default function GoalAiScreen() {
 
         <View style={styles.section}>
           <ThemedText type="smallBold" themeColor="textSecondary">
+            TWOJE WYTYCZNE
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Reguły wpisane w aplikację są ogólne i nie wiedzą o Tobie tego, co Ty: że wracasz po
+            przerwie, że w tygodniu masz cztery wolne wieczory, że po interwałach potrzebujesz
+            dwóch dni. Co tu wpiszesz, pójdzie do modelu jako ważniejsze od tamtych reguł.
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Na przykład: „Zaczynaj łagodnie — pierwsze cztery tygodnie to odbudowa po przerwie”,
+            „Najdłuższe wybieganie nie dłuższe niż 18 km”, „Najwyżej jedna jednostka szybkościowa
+            w tygodniu”, „Nie planuj nic dzień po dniu”.
+          </ThemedText>
+          <TextInput
+            value={hints}
+            onChangeText={setHints}
+            placeholder="Nic tu nie musi być — bez wytycznych model dostaje same reguły."
+            placeholderTextColor={theme.textSecondary}
+            multiline
+            maxLength={GUIDANCE_LIMIT}
+            style={[
+              styles.input,
+              styles.area,
+              { color: theme.text, backgroundColor: theme.background, borderColor: theme.border },
+            ]}
+          />
+          <Button
+            label="Zapisz wytyczne"
+            icon="save"
+            variant="secondary"
+            onPress={() => {
+              saveGuidance(hints);
+              setHints(guidance());
+              Alert.alert(
+                'Zapisane',
+                hints.trim() === ''
+                  ? 'Wytyczne usunięte. Model dostanie same reguły z aplikacji.'
+                  : 'Pójdą z każdym kolejnym planem od Gemini.',
+              );
+            }}
+          />
+          <ThemedText type="small" themeColor="textSecondary">
+            Poza zasięgiem tego pola zostaje format odpowiedzi i to, co i tak sprawdzamy po
+            modelu: dni treningowe, dzień startu i rozsądny dystans jednostki. Na tym stoi odczyt
+            planu — tempa, czasy i odcinki aplikacja liczy sama, niezależnie od tego, co napiszesz.
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Całe polecenie, razem z wytycznymi, podejrzysz na ekranie celu — przycisk „Podejrzyj
+            polecenie dla Gemini”.
+          </ThemedText>
+        </View>
+
+        <View style={styles.section}>
+          <ThemedText type="smallBold" themeColor="textSecondary">
             MODEL
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
@@ -219,6 +276,7 @@ const styles = StyleSheet.create({
   content: { padding: Spacing.four, gap: Spacing.five, paddingBottom: Spacing.six },
   section: { gap: Spacing.two },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  area: { minHeight: 120, textAlignVertical: 'top' },
   input: {
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,

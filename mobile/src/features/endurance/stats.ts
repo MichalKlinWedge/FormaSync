@@ -123,6 +123,35 @@ export function weeklyVolume(workouts: EnduranceWorkout[], weeks = 8, now = new 
   return [...buckets.values()];
 }
 
+export type MonthlyVolume = { month: string; meters: number; seconds: number };
+
+/**
+ * Dystans i czas w kolejnych miesiącach, od najstarszego. Tygodnie mówią o formie bieżącej,
+ * miesiące o tym, czy ktoś biega od lat, czy wrócił we wrześniu — a to zmienia cały plan.
+ */
+export function monthlyVolume(
+  workouts: EnduranceWorkout[],
+  months = 12,
+  now = new Date(),
+): MonthlyVolume[] {
+  const key = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  const buckets = new Map<string, MonthlyVolume>();
+
+  for (let back = months - 1; back >= 0; back -= 1) {
+    const start = new Date(now.getFullYear(), now.getMonth() - back, 1);
+    buckets.set(key(start), { month: key(start), meters: 0, seconds: 0 });
+  }
+
+  for (const workout of workouts) {
+    const bucket = buckets.get(key(new Date(workout.startTime)));
+    if (!bucket) continue;
+    bucket.meters += workout.meters;
+    bucket.seconds += workout.seconds;
+  }
+
+  return [...buckets.values()];
+}
+
 /** Sumy całej historii dyscypliny. Rekordy liczy `sportRecords` — tam wiadomo, w którym
  *  treningu padły, a tu byłyby drugim, rozjeżdżającym się rachunkiem tych samych liczb. */
 export type EnduranceSummary = {

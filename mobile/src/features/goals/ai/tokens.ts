@@ -52,6 +52,25 @@ export const saveModelName = (value: string | null): void =>
   setSetting(db, MODEL_KEY, normalizeModel(value ?? '') || null);
 
 /**
+ * Wytyczne od zawodnika. Reguły wpisane w aplikację są ogólne — „co czwarty tydzień lżejszy”,
+ * „dwa tygodnie zejścia” — i nie wiedzą nic o tym, że akurat wracasz po przerwie albo że
+ * w tygodniu masz najwyżej cztery wolne wieczory. To jest miejsce na takie rzeczy, bez
+ * przepisywania aplikacji.
+ *
+ * Format odpowiedzi i twarde ograniczenia planu zostają poza zasięgiem tego pola: na nich stoi
+ * odczyt planu, a zmiana przez pomyłkę kończyłaby się odrzuceniem całej odpowiedzi.
+ */
+export const GUIDANCE_KEY = 'gemini_guidance';
+
+/** Najdłuższe wytyczne, jakie wysyłamy. Dalej to już nie wskazówka, tylko drugi plan. */
+export const GUIDANCE_LIMIT = 2000;
+
+export const guidance = (): string => (getSetting(db, GUIDANCE_KEY) ?? '').trim();
+
+export const saveGuidance = (value: string | null): void =>
+  setSetting(db, GUIDANCE_KEY, value?.trim().slice(0, GUIDANCE_LIMIT) || null);
+
+/**
  * Zgoda na wysłanie danych do Google. Pytamy raz i zapisujemy, bo to pierwsza rzecz w tej
  * aplikacji, która wypuszcza treningi poza telefon — ekran Prywatności obiecuje, że dane
  * wychodzą tylko tam, gdzie sam je wyślesz, i tę obietnicę trzeba dotrzymać wprost.

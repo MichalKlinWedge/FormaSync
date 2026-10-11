@@ -1,6 +1,7 @@
 import type { FormWorkout } from '../brief';
 import type { GoalBrief, PlannedWeek } from '../planner';
 
+import { EMPTY_CONTEXT, type PromptContext } from './context';
 import { isModelName, parseModelList, type GeminiModel, type ModelListReply } from './models';
 import { buildPrompt, parsePlanReply, PlanReplyError } from './prompt';
 import { loadApiKey, modelName } from './tokens';
@@ -110,8 +111,9 @@ export async function planWithGemini(
   brief: GoalBrief,
   history: FormWorkout[],
   from: string,
+  context: PromptContext = EMPTY_CONTEXT,
 ): Promise<PlannedWeek[]> {
-  const reply = await askGemini(buildPrompt(brief, history, from));
+  const reply = await askGemini(buildPrompt(brief, history, from, context));
   try {
     return parsePlanReply(reply, brief, from);
   } catch (error) {

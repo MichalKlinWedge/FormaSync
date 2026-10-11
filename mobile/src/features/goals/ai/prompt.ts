@@ -7,6 +7,8 @@ import { durationFrom, paceFor, racePace } from '../paces';
 import { phasesFor, weeksUntil, type GoalBrief, type PlannedWeek, type PlannedWorkout } from '../planner';
 import { KIND_NOTES, workoutTitle } from '../shapes';
 
+import { EMPTY_CONTEXT, type PromptContext } from './context';
+
 /**
  * Rozmowa z modelem: co mu wysyłamy i co z odpowiedzi przyjmujemy.
  *
@@ -37,8 +39,18 @@ const PHASE_HINTS: Record<GoalPhase, string> = {
   RACE: 'tydzień startowy',
 };
 
+/** Sekcja polecenia; pusta treść znaczy, że nie ma czego wysyłać i nagłówek też odpada. */
+function section(title: string, body: string[]): string[] {
+  return body.length === 0 ? [] : ['', title, ...body];
+}
+
 /** Polecenie dla modelu. Po polsku, bo plan ma wyjść w tym samym języku, co cała aplikacja. */
-export function buildPrompt(brief: GoalBrief, history: FormWorkout[], from: string): string {
+export function buildPrompt(
+  brief: GoalBrief,
+  history: FormWorkout[],
+  from: string,
+  context: PromptContext = EMPTY_CONTEXT,
+): string {
   const weeks = weeksUntil(from, brief.eventDate);
   const days = brief.weekDays.map((day) => `${day} (${WEEKDAYS_LONG[day]})`).join(', ');
   const target =
@@ -56,6 +68,26 @@ export function buildPrompt(brief: GoalBrief, history: FormWorkout[], from: stri
           )
           .join('\n');
 
+  const records = context.records.map(
+    (record) => `${formatDistance(record.meters)}: ${formatSeconds(record.seconds)}`,
+  );
+
+  const garmin = context.garmin.map((record) => {
+    const value =
+      record.seconds === null
+        ? formatDistance(record.meters ?? 0)
+        : formatSeconds(record.seconds);
+    return `${record.label}: ${value}${record.achievedOn === null ? '' : ` (${record.achievedOn})`}`;
+  });
+
+  // Miesiące bez ani jednego treningu zostawiamy w zestawieniu: przerwa jest informacją,
+  // a wycięta wyglądałaby jak ciągłość, której nie było.
+  const monthly = context.monthly.map(
+    (month) => `${month.month}: ${Math.round(month.meters / 1000)} km`,
+  );
+
+  const own = context.guidance.trim();
+
   return [
     'Jesteś trenerem wytrzymałościowym. Ułóż plan treningowy pod zawody.',
     '',
@@ -71,16 +103,30 @@ export function buildPrompt(brief: GoalBrief, history: FormWorkout[], from: stri
     '',
     'HISTORIA OSTATNICH TYGODNI',
     past,
+    ...section('REKORDY POLICZONE Z HISTORII', records),
+    ...section('REKORDY ŻYCIOWE Z GARMINA (z całego konta, nie tylko z wczytanej historii)', garmin),
+    ...section(`OBJĘTOŚĆ MIESIĄC PO MIESIĄCU (ostatnie ${context.monthly.length} miesięcy)`, monthly),
     '',
     'ZASADY',
     `- Plan zaczyna się ${startOfWeek(from)} i kończy w dniu zawodów ${brief.eventDate}.`,
     '- Treningi wyłącznie w podanych dniach tygodnia; wyjątkiem jest dzień zawodów.',
     '- W dniu zawodów dokładnie jedna jednostka rodzaju RACE o dystansie zawodów.',
     '- Najwyżej jedna jednostka na dzień.',
+    '- Pierwszy tydzień planu ma objętość zbliżoną do obecnej tygodniowej, najwyżej o dziesiątą'
+      + ' część większą. Plan zaczyna się od tego, co zawodnik robi dziś, a nie od tego, do czego'
+      + ' ma dojść — nawet gdy do startu zostało pół roku.',
     '- Objętość tygodniowa rośnie najwyżej o 10% na tydzień, co czwarty tydzień jest lżejszy.',
+    '- Najdłuższa jednostka też rośnie stopniowo: w pierwszym tygodniu nie przekracza najdłuższego'
+      + ' biegu z historii ostatnich tygodni.',
+    '- Gdy historia jest uboga albo poprzerywana, pierwsze tygodnie przeznacz na odbudowę'
+      + ' regularności, a nie na obciążenie.',
     '- Przed startem dwa tygodnie zejścia z objętości.',
     `- Rodzaje jednostek: ${goalWorkoutKinds.map((kind) => `${kind} (${KIND_HINTS[kind]})`).join(', ')}.`,
     `- Fazy tygodni: ${goalPhases.map((phase) => `${phase} (${PHASE_HINTS[phase]})`).join(', ')}.`,
+    ...section(
+      'WYTYCZNE OD ZAWODNIKA (ważniejsze od zasad powyżej, poza formatem odpowiedzi)',
+      own === '' ? [] : [own],
+    ),
     '',
     'ODPOWIEDŹ',
     'Zwróć wyłącznie JSON, bez komentarzy i bez tekstu wokół, w postaci:',
