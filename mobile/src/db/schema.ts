@@ -516,14 +516,23 @@ export const mealTypes = ['BREAKFAST', 'LUNCH', 'DINNER', 'SNACK'] as const;
 export type MealType = (typeof mealTypes)[number];
 
 /**
+ * Czy liczby produktu opisują 100 g, czy jedną porcję.
+ *
+ * Bez tego drugiego nie da się zapisać domowego jedzenia: „owsianka z bananem, 420 kcal” jest
+ * wiedzą o całej misce, a nie o stu gramach, i przeliczanie jej na gramy byłoby wymyślaniem masy,
+ * której nikt nie zważył.
+ */
+export const foodBases = ['G100', 'SERVING'] as const;
+export type FoodBasis = (typeof foodBases)[number];
+
+/**
  * Zjedzone posiłki — wiersz na każdy, tak jak porcje wody. Dzień trzymamy osobno od znacznika
  * czasu, bo doba żywieniowa to doba lokalna: kolacja o 23:30 należy do dnia, w którym się ją
  * zjadło.
  *
  * Kalorie i makroskładniki leżą tu **policzone**, a nie wskazane produktem. Poprawienie wartości
  * produktu za miesiąc nie może przepisać historii — dokładnie z tego samego powodu, z jakiego
- * `logged_sets` trzyma własną kopię identyfikatora ćwiczenia. Powiązanie z bazą produktów dojdzie
- * razem z tą bazą; na razie wpis opisuje się sam nazwą.
+ * `logged_sets` trzyma własną kopię identyfikatora ćwiczenia.
  */
 export const mealLogs = sqliteTable(
   'meal_logs',
@@ -539,6 +548,13 @@ export const mealLogs = sqliteTable(
      */
     foodId: integer('food_id'),
     title: text('title').notNull(),
+    /**
+     * Zjedzona ilość w jednostce produktu i ta jednostka: gramy przy „na 100 g”, porcje przy
+     * „na porcję”. Bez tej pary dwie porcje wyglądają w historii jak jedna — kalorie są
+     * podwójne, ale nic o tym nie mówi. Kopia leży tu z tego samego powodu, co kalorie.
+     */
+    amount: real('amount'),
+    basis: text('basis', { enum: foodBases }),
     /** Zjedzona masa, gdy znana — przy wpisie „na oko” jej nie ma. */
     grams: real('grams'),
     kcal: integer('kcal').notNull(),
@@ -552,16 +568,6 @@ export const mealLogs = sqliteTable(
 /** Skąd wzięły się wartości produktu: wpisane ręcznie, z bazy kodów kreskowych, z oszacowania AI. */
 export const foodSources = ['OWN', 'OFF', 'AI'] as const;
 export type FoodSource = (typeof foodSources)[number];
-
-/**
- * Czy liczby produktu opisują 100 g, czy jedną porcję.
- *
- * Bez tego drugiego nie da się zapisać domowego jedzenia: „owsianka z bananem, 420 kcal” jest
- * wiedzą o całej misce, a nie o stu gramach, i przeliczanie jej na gramy byłoby wymyślaniem masy,
- * której nikt nie zważył.
- */
-export const foodBases = ['G100', 'SERVING'] as const;
-export type FoodBasis = (typeof foodBases)[number];
 
 /**
  * Własna baza produktów. Rośnie sama: każdy nowy posiłek wpisany z ręki może od razu zostać

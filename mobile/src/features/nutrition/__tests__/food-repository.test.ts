@@ -113,6 +113,8 @@ describe('logFoodMeal', () => {
       kcal: 175,
       proteinG: 5.9,
       grams: 70,
+      amount: 70,
+      basis: 'G100',
     });
     // Użycie podbija produkt na górę listy wyboru.
     expect(loadFood(db, id)!.usedAt).toBe(at(11, 8).toISOString());
@@ -127,8 +129,9 @@ describe('logFoodMeal', () => {
     logFoodMeal(db, { meal: 'DINNER', foodId: unknown, amount: 1 }, at(11, 19));
 
     const [first, second] = dayMeals(db, '2026-10-11');
-    expect(first).toMatchObject({ kcal: 630, proteinG: 27, grams: 525 });
-    expect(second).toMatchObject({ kcal: 420, grams: null });
+    // Zjedzona ilość zostaje w wpisie, bo bez niej półtorej porcji wygląda w dniu jak jedna.
+    expect(first).toMatchObject({ kcal: 630, proteinG: 27, grams: 525, amount: 1.5, basis: 'SERVING' });
+    expect(second).toMatchObject({ kcal: 420, grams: null, amount: 1, basis: 'SERVING' });
   });
 
   it('nie zapisuje wpisu bez ilości ani z produktu, którego nie ma', () => {
@@ -157,7 +160,12 @@ describe('logMealAsFood', () => {
       servingGrams: 200,
       usedAt: at(11, 9).toISOString(),
     });
-    expect(dayMeals(db, '2026-10-11')[0]).toMatchObject({ foodId, kcal: 330 });
+    expect(dayMeals(db, '2026-10-11')[0]).toMatchObject({
+      foodId,
+      kcal: 330,
+      amount: 1,
+      basis: 'SERVING',
+    });
   });
 
   it('nazajutrz ten sam produkt wybiera się z bazy', () => {

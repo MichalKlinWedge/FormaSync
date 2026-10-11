@@ -21,6 +21,9 @@ export type MealEntry = {
   /** Produkt, z którego wpis powstał; null dla wpisu z ręki i dla usuniętego produktu. */
   foodId: number | null;
   title: string;
+  /** Zjedzona ilość w jednostce produktu; null przy wpisie z ręki, który nic nie mnoży. */
+  amount: number | null;
+  basis: schema.FoodBasis | null;
   grams: number | null;
   kcal: number;
   proteinG: number | null;
@@ -33,6 +36,8 @@ export type MealInput = {
   title: string;
   foodId?: number | null;
   kcal: number;
+  amount?: number | null;
+  basis?: schema.FoodBasis | null;
   grams?: number | null;
   proteinG?: number | null;
   carbsG?: number | null;
@@ -59,6 +64,8 @@ export function logMeal(db: SyncDb, input: MealInput, now: Date = new Date()): n
       meal: input.meal,
       foodId: input.foodId ?? null,
       title,
+      amount: input.amount ?? null,
+      basis: input.basis ?? null,
       grams: positive(input.grams),
       kcal,
       proteinG: positive(input.proteinG),
@@ -82,6 +89,8 @@ export function dayMeals(db: SyncDb, dayKey: string): MealEntry[] {
       meal: schema.mealLogs.meal,
       foodId: schema.mealLogs.foodId,
       title: schema.mealLogs.title,
+      amount: schema.mealLogs.amount,
+      basis: schema.mealLogs.basis,
       grams: schema.mealLogs.grams,
       kcal: schema.mealLogs.kcal,
       proteinG: schema.mealLogs.proteinG,
@@ -125,6 +134,8 @@ export function recentMeals(db: SyncDb, limit = 8): MealEntry[] {
       meal: schema.mealLogs.meal,
       foodId: schema.mealLogs.foodId,
       title: schema.mealLogs.title,
+      amount: schema.mealLogs.amount,
+      basis: schema.mealLogs.basis,
       grams: schema.mealLogs.grams,
       kcal: schema.mealLogs.kcal,
       proteinG: schema.mealLogs.proteinG,
@@ -178,6 +189,8 @@ export function logFoodMeal(
       meal: input.meal,
       foodId: food.id,
       title: food.name,
+      amount: input.amount,
+      basis: food.basis,
       kcal: values.kcal,
       proteinG: values.proteinG,
       carbsG: values.carbsG,
@@ -215,7 +228,7 @@ export function logMealAsFood(
     portions: [],
   };
   const foodId = saveFood(db, draft);
-  const mealId = logMeal(db, { ...input, foodId }, now);
+  const mealId = logMeal(db, { ...input, foodId, amount: 1, basis: 'SERVING' }, now);
   markFoodUsed(db, foodId, now);
   return { mealId, foodId };
 }

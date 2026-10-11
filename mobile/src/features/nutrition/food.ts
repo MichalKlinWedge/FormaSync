@@ -92,6 +92,17 @@ export function formatAmount(basis: FoodBasis, amount: number): string {
 }
 
 /**
+ * „2 × ” przed nazwą zjedzonego. Jedna porcja mnożnika nie potrzebuje, a przy liczeniu na gramy
+ * ilość i tak stoi obok wartości — mnożnik jest po to, żeby dwie porcje nie wyglądały w historii
+ * dnia jak jedna.
+ */
+export function amountPrefix(entry: { amount: number | null; basis: FoodBasis | null }): string {
+  if (entry.basis !== 'SERVING' || entry.amount === null) return '';
+  if (!(entry.amount > 0) || entry.amount === 1) return '';
+  return `${formatNumber(entry.amount, Number.isInteger(entry.amount) ? 0 : 1)} × `;
+}
+
+/**
  * Czy produkt pasuje do szukanego tekstu. Reguła jest ta sama, co przy szukaniu planów
  * i ćwiczeń — bez wielkości liter, bez polskich znaków, każde słowo zapytania musi wystąpić.
  * Szukanie ma działać wszędzie tak samo, bo inaczej za każdym razem trzeba je sprawdzać od nowa.

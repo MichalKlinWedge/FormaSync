@@ -4,6 +4,7 @@
 import { describe, expect, it } from '@jest/globals';
 
 import {
+  amountPrefix,
   describeBasis,
   describeFood,
   emptyFoodDraft,
@@ -62,6 +63,23 @@ describe('podpisy produktu', () => {
     expect(formatAmount('G100', 70)).toBe('70 g');
     expect(formatAmount('SERVING', 1)).toBe('1 porcja');
     expect(formatAmount('SERVING', 1.5)).toBe('1,5 porcji');
+  });
+});
+
+describe('amountPrefix', () => {
+  it('mnożnik przy więcej niż jednej porcji', () => {
+    expect(amountPrefix({ amount: 2, basis: 'SERVING' })).toBe(`2 × `);
+    expect(amountPrefix({ amount: 1.5, basis: 'SERVING' })).toBe(`1,5 × `);
+    expect(amountPrefix({ amount: 0.5, basis: 'SERVING' })).toBe(`0,5 × `);
+  });
+
+  it('jedna porcja i gramy obywają się bez mnożnika', () => {
+    expect(amountPrefix({ amount: 1, basis: 'SERVING' })).toBe('');
+    // Przy liczeniu na 100 g ilość jest masą i stoi w wierszu z wartościami.
+    expect(amountPrefix({ amount: 70, basis: 'G100' })).toBe('');
+    // Wpisy z ręki i wiersze sprzed tej zmiany nie mają zapisanej ilości.
+    expect(amountPrefix({ amount: null, basis: null })).toBe('');
+    expect(amountPrefix({ amount: 0, basis: 'SERVING' })).toBe('');
   });
 });
 

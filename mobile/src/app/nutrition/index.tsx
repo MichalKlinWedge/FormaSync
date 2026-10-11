@@ -9,6 +9,7 @@ import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
 import { mealTypes } from '@/db/schema';
 import { describeEnergy } from '@/features/nutrition/energy';
+import { amountPrefix } from '@/features/nutrition/food';
 import { formatGrams, formatKcal, mealTime } from '@/features/nutrition/format';
 import { describeGoal } from '@/features/nutrition/goal';
 import { MEAL_LABELS } from '@/features/nutrition/meal';
@@ -32,7 +33,7 @@ export default function NutritionScreen() {
   const left = target === null ? null : target - totals.kcal;
 
   const confirmRemove = (entry: MealEntry) =>
-    Alert.alert('Usunąć wpis?', `${entry.title} · ${formatKcal(entry.kcal)}`, [
+    Alert.alert('Usunąć wpis?', `${amountPrefix(entry)}${entry.title} · ${formatKcal(entry.kcal)}`, [
       { text: 'Anuluj', style: 'cancel' },
       { text: 'Usuń', style: 'destructive', onPress: () => removeMeal(db, entry.id) },
     ]);
@@ -89,7 +90,7 @@ export default function NutritionScreen() {
                       {mealTime(entry.loggedAt)}
                     </ThemedText>
                     <View style={styles.rowText}>
-                      <ThemedText type="small">{entry.title}</ThemedText>
+                      <ThemedText type="small">{`${amountPrefix(entry)}${entry.title}`}</ThemedText>
                       <ThemedText type="small" themeColor="textSecondary">
                         {[
                           formatKcal(entry.kcal),
