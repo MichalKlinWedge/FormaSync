@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, ne } from 'drizzle-orm';
 
 import * as schema from '@/db/schema';
 import type { SyncDb } from '@/db/types';
@@ -96,53 +96,77 @@ export function deleteGoal(db: SyncDb, id: number, from: string = todayKey()): v
   sweepJunk(db, from);
 }
 
+/** Czy z jednostki coś już zostało: odbyty trening albo odhaczony termin. */
+function finished(db: SyncDb, workout: GoalWorkout): boolean {
+  if (workout.scheduledId === null) return false;
+  const term = db
+    .select({ isCompleted: schema.scheduledWorkouts.isCompleted })
+    .from(schema.scheduledWorkouts)
+    .where(eq(schema.scheduledWorkouts.id, workout.scheduledId))
+    .get();
+  if (term === undefined) return false;
+  if (term.isCompleted) return true;
+
+  return (
+    db
+      .select({ id: schema.workoutSessions.id })
+      .from(schema.workoutSessions)
+      .where(eq(schema.workoutSessions.scheduledId, workout.scheduledId))
+      .get() !== undefined
+  );
+}
+
 /**
- * Zapisuje wygenerowany plan, zastępując poprzedni. Jednostki już wpisane do kalendarza
- * zostawiamy nietknięte — przeliczenie planu nie może wymazać treningu, który się odbył.
+ * Zapisuje wygenerowany plan w miejsce poprzedniego. Przeliczenie ma dać jeden plan, a nie dwa
+ * obok siebie: cała przyszłość jest układana od nowa, razem z terminami, które zdążyły trafić do
+ * kalendarza. Wcześniej zostawały, więc drugi plan dokładał swoje jednostki do pierwszego i ten
+ * sam dzień bywał rozpisany dwa razy.
+ *
+ * Nie ruszamy przeszłości ani niczego, co się odbyło — to już historia treningu, nie plan.
+ * Terminy po usuniętych jednostkach sprzątamy tą samą drogą, co bezpańskie wpisy po celu.
  */
 export function savePlan(
   db: SyncDb,
   goalId: number,
   weeks: PlannedWeek[],
   plannedBy: string,
+  from: string = todayKey(),
 ): number {
-  return db.transaction((tx) => {
-    tx.delete(schema.goalWorkouts)
-      .where(and(eq(schema.goalWorkouts.goalId, goalId), isNull(schema.goalWorkouts.scheduledId)))
-      .run();
+  const kept = goalPlan(db, goalId).filter(
+    (workout) => workout.plannedDate < from || finished(db, workout),
+  );
+  const keptIds = new Set(kept.map((workout) => workout.id));
 
-    const taken = new Set(
-      tx
-        .select({ plannedDate: schema.goalWorkouts.plannedDate })
-        .from(schema.goalWorkouts)
-        .where(eq(schema.goalWorkouts.goalId, goalId))
-        .all()
-        .map((row) => row.plannedDate),
-    );
+  for (const workout of goalPlan(db, goalId)) {
+    if (keptIds.has(workout.id)) continue;
+    db.delete(schema.goalWorkouts).where(eq(schema.goalWorkouts.id, workout.id)).run();
+  }
+  // Terminy po usuniętych jednostkach nie mają już właściciela — i tak je rozpoznajemy.
+  sweepJunk(db, from);
 
-    const rows = weeks
-      .flatMap((week) => week.workouts)
-      .filter((workout) => !taken.has(workout.plannedDate))
-      .map((workout) => ({
-        goalId,
-        weekIndex: workout.weekIndex,
-        phase: workout.phase,
-        plannedDate: workout.plannedDate,
-        kind: workout.kind,
-        title: workout.title,
-        distanceMeters: workout.distanceMeters,
-        durationSeconds: workout.durationSeconds,
-        paceSeconds: workout.paceSeconds,
-        notes: workout.notes,
-      }));
+  const taken = new Set(kept.map((workout) => workout.plannedDate));
+  const rows = weeks
+    .flatMap((week) => week.workouts)
+    .filter((workout) => workout.plannedDate >= from && !taken.has(workout.plannedDate))
+    .map((workout) => ({
+      goalId,
+      weekIndex: workout.weekIndex,
+      phase: workout.phase,
+      plannedDate: workout.plannedDate,
+      kind: workout.kind,
+      title: workout.title,
+      distanceMeters: workout.distanceMeters,
+      durationSeconds: workout.durationSeconds,
+      paceSeconds: workout.paceSeconds,
+      notes: workout.notes,
+    }));
 
-    if (rows.length > 0) tx.insert(schema.goalWorkouts).values(rows).run();
-    tx.update(schema.trainingGoals)
-      .set({ plannedBy })
-      .where(eq(schema.trainingGoals.id, goalId))
-      .run();
-    return rows.length;
-  });
+  if (rows.length > 0) db.insert(schema.goalWorkouts).values(rows).run();
+  db.update(schema.trainingGoals)
+    .set({ plannedBy })
+    .where(eq(schema.trainingGoals.id, goalId))
+    .run();
+  return rows.length;
 }
 
 /** Jednostki planu po dacie. */

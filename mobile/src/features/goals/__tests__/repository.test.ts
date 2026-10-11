@@ -55,7 +55,7 @@ const FROM = '2026-10-12';
 /** Cel z zapisanym planem — stan, od którego zaczyna się wpisywanie do kalendarza. */
 function planned(db: ReturnType<typeof createTestDb>) {
   const goalId = saveGoal(db, GOAL);
-  savePlan(db, goalId, planGoal(BRIEF, FROM), 'RULES');
+  savePlan(db, goalId, planGoal(BRIEF, FROM), 'RULES', FROM);
   return goalId;
 }
 
@@ -118,21 +118,48 @@ describe('savePlan', () => {
     const goalId = planned(db);
     const before = goalPlan(db, goalId).length;
 
-    savePlan(db, goalId, planGoal(BRIEF, FROM), 'RULES');
+    savePlan(db, goalId, planGoal(BRIEF, FROM), 'RULES', FROM);
     expect(goalPlan(db, goalId)).toHaveLength(before);
   });
 
-  it('nie rusza jednostek już wpisanych do kalendarza', () => {
+  it('przelicza też to, co zdążyło trafić do kalendarza', () => {
     const db = createTestDb({ seed: true });
     const goalId = planned(db);
     materializeGoal(db, goalId, { scheduledTime: null, reminderOffsetMinutes: null, from: FROM });
-    const scheduled = goalPlan(db, goalId).filter((workout) => workout.scheduledId !== null);
+    expect(db.select().from(schema.scheduledWorkouts).all().length).toBeGreaterThan(50);
 
-    savePlan(db, goalId, [], 'GEMINI');
+    const weeks = planGoal({ ...BRIEF, weekDays: [0, 2, 4] }, FROM);
+    savePlan(db, goalId, weeks, 'GEMINI', FROM);
+
+    // Jeden plan, a nie dwa obok siebie: stare terminy schodzą razem ze starymi jednostkami.
+    expect(goalPlan(db, goalId)).toHaveLength(weeks.flatMap((week) => week.workouts).length);
+    expect(db.select().from(schema.scheduledWorkouts).all()).toEqual([]);
+  });
+
+  it('nie rusza jednostki, z której powstał trening', () => {
+    const db = createTestDb({ seed: true });
+    const goalId = planned(db);
+    materializeGoal(db, goalId, { scheduledTime: null, reminderOffsetMinutes: null, from: FROM });
+    const first = goalPlan(db, goalId).find((workout) => workout.scheduledId !== null)!;
+    finishSession(db, startSession(db, { kind: 'scheduled', scheduledId: first.scheduledId! }));
+
+    savePlan(db, goalId, [], 'GEMINI', FROM);
+
     const left = goalPlan(db, goalId);
-    // Pusty plan wymiótłby wszystko, gdyby nie ochrona wpisanych terminów.
-    expect(left).toHaveLength(scheduled.length);
-    expect(left.every((workout) => workout.scheduledId !== null)).toBe(true);
+    expect(left.map((workout) => workout.id)).toEqual([first.id]);
+    expect(db.select().from(schema.scheduledWorkouts).all()).toHaveLength(1);
+  });
+
+  it('nie rusza przeszłości', () => {
+    const db = createTestDb({ seed: true });
+    const goalId = planned(db);
+    const later = '2026-11-16';
+    const past = goalPlan(db, goalId).filter((workout) => workout.plannedDate < later);
+    expect(past.length).toBeGreaterThan(10);
+
+    savePlan(db, goalId, [], 'RULES', later);
+
+    expect(goalPlan(db, goalId).map((workout) => workout.id)).toEqual(past.map((w) => w.id));
   });
 });
 

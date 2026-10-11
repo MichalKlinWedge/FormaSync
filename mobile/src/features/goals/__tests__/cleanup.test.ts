@@ -45,7 +45,7 @@ type Db = ReturnType<typeof createTestDb>;
 /** Cel z planem wpisanym do kalendarza. */
 function materialized(db: Db): number {
   const goalId = saveGoal(db, GOAL);
-  savePlan(db, goalId, planGoal(BRIEF, FROM), 'RULES');
+  savePlan(db, goalId, planGoal(BRIEF, FROM), 'RULES', FROM);
   materializeGoal(db, goalId, { scheduledTime: null, reminderOffsetMinutes: null, from: FROM });
   return goalId;
 }

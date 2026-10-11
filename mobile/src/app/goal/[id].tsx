@@ -79,9 +79,9 @@ export default function GoalScreen() {
       return;
     }
     const added = savePlan(db, goalId, weeks, 'RULES');
-    Alert.alert(
+    askToWrite(
       'Plan gotowy',
-      `${pluralWith(weeks.length, 'tydzień', 'tygodnie', 'tygodni')}, ${pluralWith(added, 'jednostka', 'jednostki', 'jednostek')}. Przejrzyj go niżej i wpisz do kalendarza.`,
+      `${pluralWith(weeks.length, 'tydzień', 'tygodnie', 'tygodni')}, ${pluralWith(added, 'jednostka', 'jednostki', 'jednostek')}.`,
     );
   };
 
@@ -123,9 +123,9 @@ export default function GoalScreen() {
         buildContext(db, goal.sport, guidance()),
       );
       const added = savePlan(db, goalId, weeks, 'GEMINI');
-      Alert.alert(
+      askToWrite(
         'Plan od Gemini',
-        `${pluralWith(weeks.length, 'tydzień', 'tygodnie', 'tygodni')}, ${pluralWith(added, 'jednostka', 'jednostki', 'jednostek')}. Przejrzyj go niżej — tempa i odcinki policzyła aplikacja, nie model.`,
+        `${pluralWith(weeks.length, 'tydzień', 'tygodnie', 'tygodni')}, ${pluralWith(added, 'jednostka', 'jednostki', 'jednostek')}. Tempa i odcinki policzyła aplikacja, nie model.`,
       );
     } catch (e) {
       Alert.alert(
@@ -142,6 +142,16 @@ export default function GoalScreen() {
       setAsking(false);
     }
   };
+
+  /**
+   * Po przeliczeniu kalendarz jest pusty: stare terminy zeszły razem ze starym planem. Pytamy
+   * od razu, zamiast zostawiać cel bez terminów komuś, kto myśli, że wszystko już stoi.
+   */
+  const askToWrite = (title: string, body: string) =>
+    Alert.alert(title, `${body} Wpisać go do kalendarza?`, [
+      { text: 'Później', style: 'cancel' },
+      { text: 'Wpisz', onPress: () => materialize() },
+    ]);
 
   const materialize = () => {
     const written = materializeGoal(db, goalId, {
@@ -324,8 +334,9 @@ export default function GoalScreen() {
           )}
           {workouts.length > 0 && (
             <ThemedText type="small" themeColor="textSecondary">
-              Przeliczenie zostawia jednostki już wpisane do kalendarza i układa resztę od nowa —
-              przydaje się po chorobie albo po zmianie dni treningowych.
+              Przeliczenie układa całą przyszłość od nowa — razem z terminami, które są już
+              w kalendarzu, żeby został jeden plan, a nie dwa obok siebie. Przeszłość i treningi,
+              które się odbyły, zostają nietknięte.
             </ThemedText>
           )}
         </View>
