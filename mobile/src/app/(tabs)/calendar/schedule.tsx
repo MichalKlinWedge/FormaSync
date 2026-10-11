@@ -1,6 +1,6 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
@@ -19,9 +19,11 @@ import {
 } from '@/features/calendar/repository';
 import { toggleValue } from '@/features/exercises/filter';
 import { moveGarminSchedule, type MoveOutcome } from '@/features/garmin/connect/move-schedule';
+import { searchPlans } from '@/features/plans/search';
 import { usePlanList } from '@/features/plans/use-plans';
 import { SPORT_LABELS } from '@/features/sports/sport';
 import { useActiveSport } from '@/features/sports/sport-store';
+import { useTheme } from '@/hooks/use-theme';
 import { addDays, formatDate, formatDayWithWeekday, generateRecurringDates, todayKey, WEEKDAYS_SHORT } from '@/lib/date';
 
 const REMINDER_OPTIONS: { label: string; minutes: number | null }[] = [
@@ -41,22 +43,31 @@ export default function ScheduleScreen() {
   // i bez cyklu — przesuwa się jeden wpis, a nie zakłada nowe.
   const editedId = params.id === undefined ? null : Number(params.id);
   const [edited] = useState(() => (editedId === null ? null : loadScheduled(db, editedId)));
+  const theme = useTheme();
   const activeSport = useActiveSport();
   const { own, templates } = usePlanList();
   const plans = [...own, ...templates];
+  // Lista planów rośnie z każdym celem, więc wybór zaczyna się od zawężenia po nazwie.
+  const [search, setSearch] = useState('');
+  const matching = searchPlans(plans, search);
   // Kalendarz jest wspólny dla dyscyplin, więc planów nie zawężamy — ale dzielimy je na grupy
   // i aktywną dyscyplinę dajemy na górę. Bez tego lista to ściana nazw, z której nie widać,
   // że bieg czy pływanie w ogóle da się zaplanować.
   const groups = [...sports]
     .sort((a, b) => Number(b === activeSport) - Number(a === activeSport))
-    .map((sport) => ({ sport, items: plans.filter((plan) => plan.sport === sport) }))
+    .map((sport) => ({ sport, items: matching.filter((plan) => plan.sport === sport) }))
     .filter((group) => group.items.length > 0);
 
   const [startDate, setStartDate] = useState(edited?.scheduledDate ?? params.date ?? todayKey());
   // Plany dochodzą z zapytania na żywo, więc przy pierwszym rysowaniu lista jest pusta.
   // Wybór trzymamy jako „nic nie kliknięto” i dopiero wyliczamy z niego pierwszy plan.
   const [pickedPlanId, setPickedPlanId] = useState<number | null>(null);
-  const planId = pickedPlanId ?? groups[0]?.items[0]?.id ?? null;
+  // Wybrany plan musi być widoczny: po zawężeniu listy zostaje pierwszy z tych, które pasują,
+  // bo inaczej zapisalibyśmy termin z planem, którego na ekranie już nie ma.
+  const planId =
+    pickedPlanId !== null && matching.some((plan) => plan.id === pickedPlanId)
+      ? pickedPlanId
+      : (groups[0]?.items[0]?.id ?? null);
   const [repeat, setRepeat] = useState(false);
   const [weekdays, setWeekdays] = useState<number[]>([]);
   const [weeks, setWeeks] = useState(4);
@@ -155,6 +166,24 @@ export default function ScheduleScreen() {
 
         {edited === null && (
         <Field label="Plan">
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Szukaj po nazwie"
+            placeholderTextColor={theme.textSecondary}
+            autoCapitalize="none"
+            autoCorrect={false}
+            clearButtonMode="while-editing"
+            style={[
+              styles.search,
+              { color: theme.text, backgroundColor: theme.background, borderColor: theme.border },
+            ]}
+          />
+          {groups.length === 0 && (
+            <ThemedText type="small" themeColor="textSecondary">
+              {`Nic nie pasuje do „${search.trim()}”.`}
+            </ThemedText>
+          )}
           {groups.map((group) => (
             <View key={group.sport} style={styles.group}>
               <ThemedText type="small" themeColor="textSecondary">
@@ -319,6 +348,12 @@ const styles = StyleSheet.create({
   field: { gap: Spacing.two },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   group: { gap: Spacing.one },
+  search: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+  },
   dateRow: { flexDirection: 'row', gap: Spacing.two },
   timeRow: { flexDirection: 'row', gap: Spacing.three },
   summary: { borderRadius: 12, padding: Spacing.three },
