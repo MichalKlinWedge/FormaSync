@@ -17,6 +17,17 @@ const SPORT_TYPES: Record<Exclude<Sport, 'OTHER'>, Named> = {
   SWIMMING: { sportTypeId: 4, sportTypeKey: 'swimming', displayOrder: 5 },
 };
 
+export type SportType = { sportTypeId: number; sportTypeKey: string; displayOrder?: number };
+
+/**
+ * Kategoria dla „Różnych”. Garmin nie ma kafelka „taniec”, ale ma kardio i to jest najbliższe
+ * temu, czym są te treningi: czas, tętno i żadnych odcinków do odliczania.
+ *
+ * Numer bierzemy z biblioteki użytkownika, gdy da się go stamtąd odczytać, a ten tutaj jest
+ * tylko punktem wyjścia — pochodzi z nieoficjalnych opisów API, nie z dokumentacji.
+ */
+export const CARDIO_SPORT: SportType = { sportTypeId: 6, sportTypeKey: 'cardio', displayOrder: 6 };
+
 const STEP_TYPES: Record<SegmentKind | 'REST', Named> = {
   WARMUP: { stepTypeId: 1, stepTypeKey: 'warmup', displayOrder: 1 },
   COOLDOWN: { stepTypeId: 2, stepTypeKey: 'cooldown', displayOrder: 2 },
@@ -88,9 +99,16 @@ export class EmptyPlanError extends Error {
   }
 }
 
+/**
+ * Garmin odrzucił kategorię, pod którą idą treningi z „Różnych”. Numer tej kategorii bierzemy
+ * z nieoficjalnych opisów API, więc może być nieaktualny — ale da się go odczytać wprost
+ * z konta, jeśli stoi tam choć jeden trening kardio.
+ */
 export class SportNotOnWatchError extends Error {
-  constructor() {
-    super('Garmin nie ma kategorii na „Różne”, więc taki plan zostaje w telefonie.');
+  constructor(reason: string) {
+    super(
+      `Garmin nie przyjął kategorii „Kardio”, pod którą idą treningi z „Różnych”. ${reason} Załóż raz dowolny trening kardio w Garmin Connect — odczytamy stamtąd właściwą kategorię i kolejna wysyłka pójdzie już sama.`,
+    );
   }
 }
 
@@ -223,17 +241,24 @@ function strengthSteps(exercises: GarminExercise[]): Named[] {
   return steps;
 }
 
-/** Gotowa treść do wysłania pod `/workout-service/workout`. */
-export function buildWorkoutPayload(plan: GarminPlan): Named {
-  // Zabezpieczenie na wypadek wysyłki z pominięciem ekranu planu; przycisk i tak się tam nie pokazuje.
-  if (plan.sport === 'OTHER') throw new SportNotOnWatchError();
+/**
+ * Gotowa treść do wysłania pod `/workout-service/workout`.
+ *
+ * `otherType` dotyczy wyłącznie dyscypliny „Różne”: Garmin nie ma dla niej własnego kafelka,
+ * więc kategorię podaje wywołujący — odczytaną z biblioteki użytkownika albo domyślne kardio.
+ */
+export function buildWorkoutPayload(plan: GarminPlan, otherType: SportType = CARDIO_SPORT): Named {
+  // „Różne” to u nas wszystko bez swojej dyscypliny: taniec, joga, wiosła. Ćwiczenia znaczą plan
+  // siłowy w środku, odcinki — wytrzymałościowy; bierzemy to, co w planie faktycznie jest.
   const steps =
-    plan.sport === 'STRENGTH' ? strengthSteps(plan.exercises) : enduranceSteps(plan.segments);
+    plan.sport === 'STRENGTH' || (plan.sport === 'OTHER' && plan.exercises.length > 0)
+      ? strengthSteps(plan.exercises)
+      : enduranceSteps(plan.segments);
   if (steps.length === 0) throw new EmptyPlanError();
 
   // Treść przyjmowana przez Garmina ma tu drobną niekonsekwencję, którą powtarzamy świadomie:
   // przy sile `displayOrder` jest tylko na górze, przy wytrzymałości w obu miejscach.
-  const sportType = { ...SPORT_TYPES[plan.sport] };
+  const sportType = plan.sport === 'OTHER' ? { ...otherType } : { ...SPORT_TYPES[plan.sport] };
   const segmentSport =
     plan.sport === 'STRENGTH' ? { sportTypeId: 5, sportTypeKey: 'strength_training' } : { ...sportType };
   return {

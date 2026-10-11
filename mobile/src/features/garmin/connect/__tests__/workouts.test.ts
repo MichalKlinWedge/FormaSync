@@ -10,7 +10,7 @@ import { saveEndurancePlan } from '@/features/endurance/repository';
 import { savePlan } from '@/features/plans/repository';
 
 import { buildWorkoutPayload } from '../payload';
-import { loadGarminPlan } from '../workouts';
+import { cardioTypeIn, loadGarminPlan, matchingName } from '../workouts';
 
 describe('loadGarminPlan', () => {
   it('plan siłowy przychodzi z ćwiczeniami w kolejności planu', () => {
@@ -95,5 +95,42 @@ describe('loadGarminPlan', () => {
 
   it('nieistniejący plan to null, a nie wyjątek', () => {
     expect(loadGarminPlan(createTestDb({ seed: true }), 9999)).toBeNull();
+  });
+});
+
+describe('cardioTypeIn', () => {
+  it('bierze kategorię kardio z biblioteki użytkownika', () => {
+    // Numer prosto od Garmina jest pewniejszy niż ten z nieoficjalnych opisów API.
+    const type = cardioTypeIn([
+      { workoutId: 1, workoutName: 'Bieg', sportType: { sportTypeId: 1, sportTypeKey: 'running' } },
+      { workoutId: 2, workoutName: 'Kardio', sportType: { sportTypeId: 17, sportTypeKey: 'cardio_training' } },
+    ]);
+    expect(type).toEqual({ sportTypeId: 17, sportTypeKey: 'cardio_training' });
+  });
+
+  it('bez takiego treningu zostaje domyślne kardio', () => {
+    expect(cardioTypeIn([{ workoutId: 1, workoutName: 'Bieg', sportType: { sportTypeId: 1, sportTypeKey: 'running' } }]))
+      .toEqual({ sportTypeId: 6, sportTypeKey: 'cardio', displayOrder: 6 });
+    expect(cardioTypeIn([])).toEqual({ sportTypeId: 6, sportTypeKey: 'cardio', displayOrder: 6 });
+  });
+
+  it('wpis bez kategorii niczego nie wywraca', () => {
+    expect(cardioTypeIn([{ workoutId: 1, workoutName: 'Bez kategorii', sportType: null }]).sportTypeKey).toBe('cardio');
+  });
+});
+
+describe('matchingName', () => {
+  const list = [
+    { workoutId: 3, workoutName: 'Długi 16 km', sportType: null },
+    { workoutId: 9, workoutName: ' długi 16 km ', sportType: null },
+    { workoutId: 5, workoutName: 'Interwały', sportType: null },
+  ];
+
+  it('nie patrzy na wielkość liter ani spacje, a najnowszy jest pierwszy', () => {
+    expect(matchingName(list, 'DŁUGI 16 KM')).toEqual([9, 3]);
+  });
+
+  it('bez dopasowania zwraca pustą listę', () => {
+    expect(matchingName(list, 'Taniec')).toEqual([]);
   });
 });

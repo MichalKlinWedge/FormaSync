@@ -10,7 +10,7 @@ import { clearGarminSchedule, setGarminSchedule } from '@/features/calendar/repo
 import { formatDate } from '@/lib/date';
 
 import { GarminAuthExpired, GarminError, isConnected } from './client';
-import { EmptyPlanError } from './payload';
+import { EmptyPlanError, SportNotOnWatchError } from './payload';
 import { scheduleOnGarmin, sendPlan, unscheduleOnGarmin } from './workouts';
 
 type Props = {
@@ -120,7 +120,9 @@ export function GarminScheduleButton({
 }
 
 function describe(error: unknown): string {
-  if (error instanceof EmptyPlanError) return error.message;
+  if (error instanceof EmptyPlanError || error instanceof SportNotOnWatchError) {
+    return error.message;
+  }
   if (error instanceof GarminAuthExpired) {
     return 'Połączenie z Garmin Connect wygasło. Zaloguj się ponownie w Ustawieniach.';
   }

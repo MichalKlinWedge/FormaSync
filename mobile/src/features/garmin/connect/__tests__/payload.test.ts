@@ -11,7 +11,6 @@ import {
   type GarminExercise,
   type GarminPlan,
   type GarminSegment,
-  SportNotOnWatchError,
 } from '../payload';
 import reference from './reference-payloads.json';
 
@@ -204,14 +203,42 @@ describe('dyscyplina', () => {
   });
 });
 
-describe('odmowy', () => {
-  it('„Różne” nie jedzie na zegarek, bo Garmin nie ma na to kategorii', () => {
-    expect(() =>
-      buildWorkoutPayload(
-        plan({ sport: 'OTHER', segments: [segment({ durationType: 'TIME', durationSeconds: 3600 })] }),
-      ),
-    ).toThrow(SportNotOnWatchError);
+describe('„Różne” jako kardio', () => {
+  const dance = plan({
+    sport: 'OTHER',
+    title: 'Taniec 60 minut',
+    segments: [segment({ durationType: 'TIME', durationSeconds: 3600 })],
   });
+
+  it('jedzie pod kategorią kardio, zamiast nie jechać wcale', () => {
+    // Garmin nie ma kafelka na taniec, ale ma kardio — i to jest najbliższe temu, czym te
+    // treningi są: czas, tętno i żadnych odcinków do odliczania.
+    const payload = buildWorkoutPayload(dance) as {
+      sportType: { sportTypeKey: string };
+      workoutSegments: { sportType: { sportTypeKey: string }; workoutSteps: unknown[] }[];
+    };
+    expect(payload.sportType.sportTypeKey).toBe('cardio');
+    expect(payload.workoutSegments[0].sportType.sportTypeKey).toBe('cardio');
+    expect(payload.workoutSegments[0].workoutSteps).toHaveLength(1);
+  });
+
+  it('bierze kategorię podaną przez wywołującego, gdy odczytał ją z biblioteki', () => {
+    const payload = buildWorkoutPayload(dance, {
+      sportTypeId: 17,
+      sportTypeKey: 'cardio_training',
+    }) as { sportType: { sportTypeId: number; sportTypeKey: string } };
+    expect(payload.sportType).toMatchObject({ sportTypeId: 17, sportTypeKey: 'cardio_training' });
+  });
+
+  it('z ćwiczeniami w środku wychodzi plan siłowy, a nie pusty', () => {
+    const payload = buildWorkoutPayload(
+      plan({ sport: 'OTHER', exercises: [exercise()], segments: [] }),
+    ) as { workoutSegments: { workoutSteps: unknown[] }[] };
+    expect(payload.workoutSegments[0].workoutSteps.length).toBeGreaterThan(0);
+  });
+});
+
+describe('odmowy', () => {
 
   it('plan bez treści nie jedzie nigdzie', () => {
     expect(() => buildWorkoutPayload(plan({}))).toThrow(EmptyPlanError);

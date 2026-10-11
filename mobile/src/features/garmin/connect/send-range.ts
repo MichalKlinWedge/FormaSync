@@ -5,7 +5,7 @@ import { addDays, startOfWeek, todayKey } from '@/lib/date';
 import { pluralWith } from '@/lib/number';
 
 import { GarminAuthExpired, GarminError } from './client';
-import { EmptyPlanError } from './payload';
+import { EmptyPlanError, SportNotOnWatchError } from './payload';
 import { calendarMonth, scheduleIdIn, scheduleOnGarmin, sendPlan, type CalendarItem } from './workouts';
 
 /**
@@ -98,7 +98,9 @@ export function describeSend(result: SendResult): string {
 }
 
 function describe(error: unknown): string {
-  if (error instanceof EmptyPlanError) return error.message;
+  if (error instanceof EmptyPlanError || error instanceof SportNotOnWatchError) {
+    return error.message;
+  }
   if (error instanceof GarminError) return error.message;
   return 'Nie udało się połączyć z Garminem.';
 }

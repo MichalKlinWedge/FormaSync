@@ -8,7 +8,14 @@ import { DEFAULT_POOL_LENGTH, POOL_LENGTH_KEY } from '@/features/endurance/swim'
 import { getSetting } from '@/db/settings';
 
 import { connectApi, GarminError } from './client';
-import { buildWorkoutPayload, type GarminPlan, type GarminSegment } from './payload';
+import {
+  buildWorkoutPayload,
+  CARDIO_SPORT,
+  SportNotOnWatchError,
+  type GarminPlan,
+  type GarminSegment,
+  type SportType,
+} from './payload';
 
 /** Wysyłka planu do biblioteki Garmin Connect i wpisywanie go do kalendarza Garmina. */
 
@@ -79,19 +86,46 @@ export function loadGarminPlan(db: SyncDb, planId: number): GarminPlan | null {
   };
 }
 
-type WorkoutListItem = { workoutId: number; workoutName: string | null };
+type WorkoutListItem = {
+  workoutId: number;
+  workoutName: string | null;
+  sportType?: { sportTypeId?: number; sportTypeKey?: string } | null;
+};
+
+const library = (): Promise<WorkoutListItem[]> =>
+  connectApi<WorkoutListItem[]>(`${WORKOUTS}/workouts?start=0&limit=100`).then((list) => list ?? []);
 
 /**
  * Identyfikatory treningów o tej samej nazwie, od najnowszego. Kolejność ma znaczenie:
  * nadpisujemy najnowszy, bo to jego zwykle dotyczą wpisy w kalendarzu Garmina.
  */
-export async function findByName(title: string): Promise<number[]> {
-  const list = (await connectApi<WorkoutListItem[]>(`${WORKOUTS}/workouts?start=0&limit=100`)) ?? [];
+export function matchingName(list: WorkoutListItem[], title: string): number[] {
   const wanted = title.trim().toLowerCase();
   return list
     .filter((item) => (item.workoutName ?? '').trim().toLowerCase() === wanted)
     .map((item) => item.workoutId)
     .sort((a, b) => b - a);
+}
+
+export const findByName = async (title: string): Promise<number[]> =>
+  matchingName(await library(), title);
+
+/**
+ * Kategoria, pod którą idą treningi z „Różnych”. Najpierw szukamy jej w bibliotece użytkownika:
+ * jeśli stoi tam choć jeden trening kardio, mamy numer prosto od Garmina, a nie z opisów API.
+ * Dopiero bez takiego treningu zostaje domyślny — i to on może zostać odrzucony.
+ */
+export function cardioTypeIn(list: WorkoutListItem[]): SportType {
+  const known = list
+    .map((item) => item.sportType)
+    .find(
+      (type) =>
+        typeof type?.sportTypeId === 'number' &&
+        (type.sportTypeKey ?? '').toLowerCase().includes('cardio'),
+    );
+  return known === undefined || known === null
+    ? CARDIO_SPORT
+    : { sportTypeId: known.sportTypeId as number, sportTypeKey: known.sportTypeKey ?? 'cardio' };
 }
 
 export type SendResult = {
@@ -111,24 +145,40 @@ export async function sendPlan(db: SyncDb, planId: number): Promise<SendResult> 
   const plan = loadGarminPlan(db, planId);
   if (!plan) throw new Error('Nie ma takiego planu.');
 
-  const payload = buildWorkoutPayload(plan);
-  const existing = await findByName(plan.title);
+  // Jedno zapytanie na dwie potrzeby: nazwy do nadpisania i kategoria kardio dla „Różnych”.
+  const list = await library();
+  const cardio = cardioTypeIn(list);
+  const payload = buildWorkoutPayload(plan, cardio);
+  const existing = matchingName(list, plan.title);
+
+  // Odmowa przy „Różnych” z kategorią wziętą z opisów API, a nie z konta, ma własne wyjaśnienie:
+  // z samego komunikatu Garmina nie wynika, że da się to naprawić jednym treningiem kardio.
+  const guessing = plan.sport === 'OTHER' && cardio === CARDIO_SPORT;
+  const send = async <T>(call: Promise<T>): Promise<T> => {
+    try {
+      return await call;
+    } catch (error) {
+      if (guessing && error instanceof GarminError) throw new SportNotOnWatchError(error.message);
+      throw error;
+    }
+  };
 
   if (existing.length === 0) {
-    const created = await connectApi<{ workoutId: number }>(`${WORKOUTS}/workout`, {
-      method: 'POST',
-      body: payload,
-    });
+    const created = await send(
+      connectApi<{ workoutId: number }>(`${WORKOUTS}/workout`, { method: 'POST', body: payload }),
+    );
     const workoutId = created!.workoutId;
     rememberWorkoutId(db, planId, workoutId);
     return { workoutId, overwritten: false, duplicates: [] };
   }
 
   const [workoutId, ...duplicates] = existing;
-  await connectApi(`${WORKOUTS}/workout/${workoutId}`, {
-    method: 'PUT',
-    body: { ...payload, workoutId },
-  });
+  await send(
+    connectApi(`${WORKOUTS}/workout/${workoutId}`, {
+      method: 'PUT',
+      body: { ...payload, workoutId },
+    }),
+  );
   rememberWorkoutId(db, planId, workoutId);
   return { workoutId, overwritten: true, duplicates };
 }
