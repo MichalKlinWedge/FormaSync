@@ -98,6 +98,29 @@ export default function AddMealScreen() {
           </View>
         </View>
 
+        {/*
+          Skan i opis słowami stoją nad listą, bo to też są sposoby dodania posiłku — a lista
+          produktów rośnie z każdym tygodniem i przyciski pod nią uciekały coraz niżej.
+        */}
+        <View style={styles.row}>
+          <View style={styles.cell}>
+            <Button
+              label="Kod kreskowy"
+              icon="barcode_scanner"
+              variant="secondary"
+              onPress={() => router.push('/nutrition/scan')}
+            />
+          </View>
+          <View style={styles.cell}>
+            <Button
+              label="Opisz słowami"
+              icon="auto_awesome"
+              variant="secondary"
+              onPress={() => router.push('/nutrition/describe')}
+            />
+          </View>
+        </View>
+
         {source === 'BASE' ? (
           <FoodPicker onPick={fromBase} onCreate={() => router.push('/nutrition/food')} />
         ) : (
@@ -157,18 +180,6 @@ export default function AddMealScreen() {
         )}
 
         <Button
-          label="Zeskanuj kod kreskowy"
-          icon="barcode_scanner"
-          variant="secondary"
-          onPress={() => router.push('/nutrition/scan')}
-        />
-        <Button
-          label="Opisz słowami (Gemini)"
-          icon="auto_awesome"
-          variant="secondary"
-          onPress={() => router.push('/nutrition/describe')}
-        />
-        <Button
           label="Baza produktów"
           icon="list"
           variant="secondary"
@@ -186,6 +197,7 @@ const styles = StyleSheet.create({
   section: { gap: Spacing.two },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   row: { flexDirection: 'row', gap: Spacing.two },
+  cell: { flex: 1 },
   input: {
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
