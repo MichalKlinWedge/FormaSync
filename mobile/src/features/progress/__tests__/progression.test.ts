@@ -27,7 +27,11 @@ const performance = (overrides: Partial<ExercisePerformance> = {}): ExercisePerf
   ...overrides,
 });
 
-const done = (reps: number, rpe: number | null = null) => ({ reps, weightKg: 100, rpe });
+const done = (reps: number, rpe: number | null = null, weightKg: number | null = 100) => ({
+  reps,
+  weightKg,
+  rpe,
+});
 
 describe('suggestProgression', () => {
   it('podnosi o 5% po komplecie serii przy niskim RPE', () => {
@@ -71,11 +75,53 @@ describe('suggestProgression', () => {
 
   it('zawsze zmienia ciężar o co najmniej jeden krok', () => {
     // 5% z 20 kg to 1 kg — zaokrąglenie do 2,5 kg dałoby brak zmiany.
-    expect(suggestProgression(performance({ targetWeight: 20, sets: [done(8), done(8), done(8)] }))).toMatchObject({
-      suggestedWeight: 22.5,
+    const light = { targetWeight: 20, sets: [done(8, null, 20), done(8, null, 20), done(8, null, 20)] };
+    expect(suggestProgression(performance(light))).toMatchObject({ suggestedWeight: 22.5 });
+    expect(
+      suggestProgression(performance({ targetWeight: 20, sets: [done(1, null, 20), done(1, null, 20)] })),
+    ).toMatchObject({ suggestedWeight: 17.5 });
+  });
+
+  it('liczy procent od kompletu z sesji, a nie od ciężaru z planu', () => {
+    const heavier = [done(8, 7, 85), done(8, 7, 85), done(8, 7, 85)];
+    const suggestion = suggestProgression(performance({ targetWeight: 80, sets: heavier }))!;
+    // Plan mówił 80, komplet poszedł na 85 — sugestia nie może cofać tego, co już udźwignięte.
+    expect(suggestion).toMatchObject({ advice: 'INCREASE', currentWeight: 85, suggestedWeight: 90 });
+    expect(suggestion.reason).toContain('na 85 kg');
+  });
+
+  it('komplet w dojściu do ciężaru liczy od najlżejszej serii kompletu', () => {
+    // Trzy serie „nie lżej niż 70” to komplet na 70, a nie na 85 — tam stanęła tylko jedna seria.
+    const ramp = [done(8, null, 70), done(8, null, 80), done(8, null, 85)];
+    expect(suggestProgression(performance({ targetWeight: 80, sets: ramp }))).toMatchObject({
+      currentWeight: 70,
+      suggestedWeight: 72.5,
     });
-    expect(suggestProgression(performance({ targetWeight: 20, sets: [done(1), done(1)] }))).toMatchObject({
-      suggestedWeight: 17.5,
+  });
+
+  it('pojedyncza ciężka próba nie zostaje podstawą', () => {
+    const work = [done(8, null, 80), done(8, null, 80), done(8, null, 80), done(1, null, 100)];
+    expect(suggestProgression(performance({ targetWeight: 80, sets: work }))).toMatchObject({
+      advice: 'HOLD',
+      currentWeight: 80,
+      suggestedWeight: 80,
+    });
+  });
+
+  it('obniża od ciężaru, przy którym trening się nie udał', () => {
+    const failed = [done(4, null, 85), done(3, null, 85)];
+    expect(suggestProgression(performance({ targetWeight: 80, sets: failed }))).toMatchObject({
+      advice: 'DECREASE',
+      currentWeight: 85,
+      suggestedWeight: 80,
+    });
+  });
+
+  it('bez ciężaru w zapisanych seriach zostaje cel z planu', () => {
+    const noWeight = [done(8, null, null), done(8, null, null), done(8, null, null)];
+    expect(suggestProgression(performance({ targetWeight: 100, sets: noWeight }))).toMatchObject({
+      currentWeight: 100,
+      suggestedWeight: 105,
     });
   });
 
@@ -159,6 +205,22 @@ describe('proposeProgression', () => {
       currentWeight: 100,
       suggestedWeight: 105,
     });
+  });
+
+  it('bierze ciężar z serii, a nie z planu', () => {
+    const { db, planId } = setup();
+    const session = startSession(db, { kind: 'plan', planId }, '2026-10-08T10:00:00.000Z');
+    // Plan zakłada 100 kg, ale cały komplet poszedł na 110.
+    loadSession(db, session)!.exercises[0].sets.forEach((set, index) =>
+      completeSet(db, set.id, { repsCompleted: 5, weightKg: 110, rpe: 7 }, `2026-10-08T10:0${index}:00.000Z`),
+    );
+    finishSession(db, session, {}, '2026-10-08T11:00:00.000Z');
+
+    const proposal = proposeProgression(db, planId)!;
+    expect(proposal.suggestions[0]).toMatchObject({ currentWeight: 110, suggestedWeight: 115 });
+
+    applyProgression(db, proposal.suggestions);
+    expect(loadPlanDraft(db, planId).items[0].targetWeight).toBe(115);
   });
 
   it('zapisuje zaakceptowane ciężary w planie', () => {

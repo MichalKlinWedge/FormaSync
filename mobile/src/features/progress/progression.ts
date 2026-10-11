@@ -2,6 +2,7 @@ import { and, asc, desc, eq, isNotNull } from 'drizzle-orm';
 
 import * as schema from '@/db/schema';
 import type { SyncDb } from '@/db/types';
+import { formatKg } from '@/lib/number';
 
 // Sugestie korekty ciężaru na kolejny tydzień na podstawie ostatniego wykonania planu.
 // Reguły są celowo zachowawcze, a każdą zmianę zatwierdza użytkownik.
@@ -29,7 +30,10 @@ export type Suggestion = {
   exerciseId: number;
   exerciseName: string;
   advice: ProgressionAdvice;
+  /** Ciężar z ostatniej sesji, od którego policzona jest sugestia. */
   currentWeight: number;
+  /** Ciężar wpisany dziś w planie — ten zmieni się po zatwierdzeniu. */
+  planWeight: number;
   suggestedWeight: number;
   reason: string;
 };
@@ -62,9 +66,47 @@ export type WorkDone = {
 /** Werdykt reguły: co zrobić z ciężarem i dlaczego. */
 export type ProgressionCall = {
   advice: ProgressionAdvice;
+  /** Ciężar, od którego liczona jest sugestia — z sesji, nie z planu. */
+  currentWeight: number;
   suggestedWeight: number;
   reason: string;
 };
+
+/** Ciężary zapisanych serii od najcięższej; bez serii bez ciężaru i bez `minReps` powtórzeń. */
+const workWeights = (sets: SetOutcome[], minReps: number): number[] =>
+  sets
+    .filter((set) => (set.reps ?? 0) >= minReps && (set.weightKg ?? 0) > 0)
+    .map((set) => set.weightKg as number)
+    .sort((a, b) => b - a);
+
+/**
+ * Najcięższy ciężar, na którym wyszedł komplet: tyle serii, ile zakładał cel, każda z pełną liczbą
+ * powtórzeń. Serie cięższe liczą się do kompletu lżejszego — kto doszedł do 85 kg przez 80, zrobił
+ * komplet trzech serii „nie lżej niż 80”, a nie trzech serii na 85. Po posortowaniu malejąco stoi
+ * on więc dokładnie na pozycji `targetSets`.
+ *
+ * Stąd dwie rzeczy wychodzą same: komplet zrobiony ponad planem staje się podstawą progresji,
+ * a pojedyncza ciężka próba poza planem — nie, bo kompletem nie jest.
+ */
+export function heaviestComplete(
+  sets: SetOutcome[],
+  targetSets: number,
+  targetReps: number,
+): number | null {
+  const weights = workWeights(sets, targetReps);
+  return weights.length < targetSets ? null : weights[targetSets - 1];
+}
+
+/**
+ * Ciężar, z którym się mierzono, gdy kompletu nie było — podstawa dla „utrzymaj” i „obniż”.
+ * Liczony tak samo jak komplet, tylko bez wymogu pełnych powtórzeń, a przy sesji krótszej od celu
+ * bierze najlżejszą z zapisanych serii. Dzięki temu jedna ciężka próba nie podnosi podstawy ponad
+ * to, co w tym treningu było pracą.
+ */
+function attemptedWeight(sets: SetOutcome[], targetSets: number): number | null {
+  const weights = workWeights(sets, 1);
+  return weights.length === 0 ? null : weights[Math.min(targetSets, weights.length) - 1];
+}
 
 /**
  * Reguła progresji:
@@ -72,6 +114,10 @@ export type ProgressionCall = {
  * — to samo przy RPE 8 → +2,5% (ostrożny krok),
  * — RPE 9–10 albo niepełne powtórzenia → utrzymaj ciężar,
  * — mniej niż połowa zaplanowanej pracy → −5%.
+ *
+ * Procent liczy się od ciężaru z sesji, nie z planu: kto zrobił komplet na 85 kg przy planie na 80,
+ * dostaje 90, a nie 85. Inaczej sugestia wlokłaby się za tym, co zawodnik już dźwiga, a plan po
+ * zatwierdzeniu cofałby ciężar. Gdy serie nie mają zapisanego ciężaru, zostaje cel z planu.
  *
  * Zwraca null dla ćwiczeń, których nie da się ocenić: bez ciężaru docelowego,
  * bez celu powtórzeń (ćwiczenia na czas) albo bez ani jednej wykonanej serii.
@@ -90,19 +136,26 @@ export function decideProgression(work: WorkDone): ProgressionCall | null {
   const allSetsDone = sets.length >= targetSets;
   const allRepsMet = completedReps.every((reps) => reps >= targetReps);
   const avgRpe = average(sets.map((set) => set.rpe).filter((rpe): rpe is number => rpe !== null));
+  const base =
+    heaviestComplete(sets, targetSets, targetReps) ?? attemptedWeight(sets, targetSets) ?? targetWeight;
+  // Ciężar inny niż w planie trzeba nazwać wprost, bo samo „90 kg” przy planie na 80 wygląda
+  // na usterkę, a nie na wniosek z ostatniego treningu.
+  const onWeight = base === targetWeight ? '' : ` na ${formatKg(base)}`;
 
   if (totalDone * 2 < totalPlanned) {
     return {
       advice: 'DECREASE',
-      suggestedWeight: applyPercent(targetWeight, -0.05),
-      reason: `Wykonano ${totalDone} z ${totalPlanned} powtórzeń — ciężar był za duży.`,
+      currentWeight: base,
+      suggestedWeight: applyPercent(base, -0.05),
+      reason: `Wykonano ${totalDone} z ${totalPlanned} powtórzeń${onWeight} — ciężar był za duży.`,
     };
   }
 
   if (!allSetsDone || !allRepsMet) {
     return {
       advice: 'HOLD',
-      suggestedWeight: targetWeight,
+      currentWeight: base,
+      suggestedWeight: base,
       reason: allSetsDone
         ? `Nie we wszystkich seriach wyszło po ${targetReps} powt. — powtórz ten ciężar.`
         : `Ukończono ${sets.length} z ${targetSets} serii — powtórz ten ciężar.`,
@@ -112,19 +165,19 @@ export function decideProgression(work: WorkDone): ProgressionCall | null {
   if (avgRpe !== null && avgRpe >= 9) {
     return {
       advice: 'HOLD',
-      suggestedWeight: targetWeight,
+      currentWeight: base,
+      suggestedWeight: base,
       reason: `Komplet serii, ale przy RPE ${formatRpe(avgRpe)} — utrwal ten ciężar.`,
     };
   }
 
   const percent = avgRpe !== null && avgRpe > 7 ? 0.025 : 0.05;
+  const rpePart = avgRpe === null ? '' : ` przy RPE ${formatRpe(avgRpe)}`;
   return {
     advice: 'INCREASE',
-    suggestedWeight: applyPercent(targetWeight, percent),
-    reason:
-      avgRpe === null
-        ? `Komplet ${targetSets} × ${targetReps} powt. — czas na więcej.`
-        : `Komplet ${targetSets} × ${targetReps} powt. przy RPE ${formatRpe(avgRpe)} — czas na więcej.`,
+    currentWeight: base,
+    suggestedWeight: applyPercent(base, percent),
+    reason: `Komplet ${targetSets} × ${targetReps} powt.${onWeight}${rpePart} — czas na więcej.`,
   };
 }
 
@@ -136,7 +189,7 @@ export function suggestProgression(performance: ExercisePerformance): Suggestion
     planExerciseId: performance.planExerciseId,
     exerciseId: performance.exerciseId,
     exerciseName: performance.exerciseName,
-    currentWeight: performance.targetWeight as number,
+    planWeight: performance.targetWeight as number,
     ...call,
   };
 }

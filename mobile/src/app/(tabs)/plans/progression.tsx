@@ -25,27 +25,31 @@ const ADVICE_LABELS: Record<ProgressionAdvice, string> = {
   DECREASE: 'mniej',
 };
 
+/**
+ * Czy wiersz ma co zapisać. Nie wystarczy sam werdykt: „utrzymaj” po treningu zrobionym ciężej,
+ * niż mówi plan, też jest zmianą w planie — i to właśnie tą, o którą prosi reguła, każąc powtórzyć
+ * ten sam ciężar.
+ */
+const changes = (suggestion: Suggestion): boolean => suggestion.suggestedWeight !== suggestion.planWeight;
+
 /** Przegląd i zatwierdzenie sugerowanych ciężarów na kolejny tydzień. */
 export default function ProgressionScreen() {
   const theme = useTheme();
   const planId = Number(useLocalSearchParams<{ id: string }>().id);
   const [proposal] = useState(() => proposeProgression(db, planId));
-  // Domyślnie zaznaczamy tylko realne zmiany — „bez zmian” nie ma czego zapisywać.
+  // Domyślnie zaznaczamy tylko realne zmiany — ciężar, który już stoi w planie, nie ma czego zapisywać.
   const [accepted, setAccepted] = useState<number[]>(
-    () =>
-      proposal?.suggestions
-        .filter((s) => s.advice !== 'HOLD')
-        .map((s) => s.planExerciseId) ?? [],
+    () => proposal?.suggestions.filter(changes).map((s) => s.planExerciseId) ?? [],
   );
 
   if (!proposal) return <ThemedView style={styles.flex} />;
 
-  const actionable = proposal.suggestions.filter((s) => s.advice !== 'HOLD');
+  const actionable = proposal.suggestions.filter(changes);
 
   const apply = () => {
     applyProgression(
       db,
-      proposal.suggestions.filter((s) => accepted.includes(s.planExerciseId) && s.advice !== 'HOLD'),
+      proposal.suggestions.filter((s) => accepted.includes(s.planExerciseId) && changes(s)),
     );
     router.back();
   };
@@ -54,8 +58,8 @@ export default function ProgressionScreen() {
     <ThemedView style={styles.flex}>
       <ScrollView contentContainerStyle={styles.content}>
         <ThemedText type="small" themeColor="textSecondary">
-          Na podstawie treningu z {formatDateTime(proposal.basedOn)}. Sugestie są zachowawcze — zatwierdź tylko
-          to, co ma sens.
+          Na podstawie treningu z {formatDateTime(proposal.basedOn)} — liczymy od ciężaru, który wtedy poszedł,
+          nie od tego, co stoi w planie. Sugestie są zachowawcze; zatwierdź tylko to, co ma sens.
         </ThemedText>
 
         {proposal.suggestions.length === 0 ? (
@@ -116,21 +120,21 @@ function SuggestionRow({
   onToggle: () => void;
 }) {
   const theme = useTheme();
-  const hold = suggestion.advice === 'HOLD';
-  const color = hold ? theme.textSecondary : suggestion.advice === 'INCREASE' ? theme.success : theme.accent;
+  const idle = !changes(suggestion);
+  const color = idle ? theme.textSecondary : suggestion.advice === 'DECREASE' ? theme.accent : theme.success;
 
   return (
     <Pressable
-      disabled={hold}
+      disabled={idle}
       onPress={onToggle}
       style={({ pressed }) => [
         styles.row,
-        { backgroundColor: theme.backgroundElement, opacity: hold ? 0.6 : pressed ? 0.7 : 1 },
+        { backgroundColor: theme.backgroundElement, opacity: idle ? 0.6 : pressed ? 0.7 : 1 },
       ]}>
       <Icon
-        name={hold ? 'remove' : selected ? 'check_circle' : 'radio_button_unchecked'}
+        name={idle ? 'remove' : selected ? 'check_circle' : 'radio_button_unchecked'}
         size={24}
-        color={selected && !hold ? theme.accent : theme.textSecondary}
+        color={selected && !idle ? theme.accent : theme.textSecondary}
       />
       <View style={styles.rowText}>
         <View style={styles.rowTitle}>
@@ -145,10 +149,10 @@ function SuggestionRow({
       </View>
       <View style={styles.change}>
         <ThemedText type="smallBold" style={{ color }}>
-          {hold ? formatKg(suggestion.currentWeight) : formatKg(suggestion.suggestedWeight)}
+          {formatKg(suggestion.suggestedWeight)}
         </ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
-          {ADVICE_LABELS[suggestion.advice]}
+          {idle ? ADVICE_LABELS[suggestion.advice] : `z ${formatKg(suggestion.planWeight)}`}
         </ThemedText>
       </View>
     </Pressable>
