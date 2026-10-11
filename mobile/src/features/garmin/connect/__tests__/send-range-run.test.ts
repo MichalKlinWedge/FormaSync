@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { ScheduledEntry } from '@/features/calendar/repository';
 
 import { GarminAuthExpired, GarminError } from '../client';
-import { sendWeekToGarmin } from '../send-week';
+import { sendToGarmin, type SendProgress } from '../send-range';
 
 /**
  * Wysyłka tygodnia to kilka niezależnych rozmów z Garminem pod rząd. Sprawdzamy, co się dzieje,
@@ -18,6 +18,8 @@ import { sendWeekToGarmin } from '../send-week';
 const mockSendPlan = jest.fn<(db: unknown, planId: number) => Promise<{ workoutId: number }>>();
 const mockSchedule = jest.fn<(workoutId: number, date: string) => Promise<number>>();
 const mockSetGarminSchedule = jest.fn();
+const mockCalendarMonth = jest.fn<() => Promise<unknown[]>>();
+const mockScheduleIdIn = jest.fn<(...args: unknown[]) => number | null>();
 
 jest.mock('@/features/calendar/repository', () => ({
   setGarminSchedule: (...args: unknown[]) => mockSetGarminSchedule(...args),
@@ -32,6 +34,8 @@ jest.mock('../client', () => ({
 jest.mock('../workouts', () => ({
   sendPlan: (db: unknown, planId: number) => mockSendPlan(db, planId),
   scheduleOnGarmin: (workoutId: number, date: string) => mockSchedule(workoutId, date),
+  calendarMonth: () => mockCalendarMonth(),
+  scheduleIdIn: (...args: unknown[]) => mockScheduleIdIn(...args),
 }));
 
 const entry = (id: number, date: string, overrides: Partial<ScheduledEntry> = {}): ScheduledEntry => ({
@@ -55,32 +59,36 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockSendPlan.mockImplementation((_db, planId) => Promise.resolve({ workoutId: planId + 1 }));
   mockSchedule.mockImplementation(() => Promise.resolve(99));
+  mockCalendarMonth.mockImplementation(() => Promise.resolve([]));
+  mockScheduleIdIn.mockImplementation(() => null);
 });
 
-describe('sendWeekToGarmin', () => {
+describe('sendToGarmin', () => {
   it('wysyła każdy trening i zapamiętuje numer wpisu', async () => {
-    const result = await sendWeekToGarmin({} as never, WEEK);
+    const result = await sendToGarmin({} as never, WEEK, undefined, '2026-10-12');
 
-    expect(result).toMatchObject({ sent: 3, already: 0, stopped: false });
+    expect(result).toMatchObject({ sent: 3, known: 0, adopted: 0, stopped: false });
     expect(result.failures).toEqual([]);
     expect(mockSchedule).toHaveBeenCalledTimes(3);
     expect(mockSetGarminSchedule).toHaveBeenCalledTimes(3);
   });
 
   it('pomija to, co już stoi u Garmina', async () => {
-    const result = await sendWeekToGarmin({} as never, [
-      WEEK[0],
-      entry(2, '2026-10-14', { garminScheduleId: '77' }),
-    ]);
+    const result = await sendToGarmin(
+      {} as never,
+      [WEEK[0], entry(2, '2026-10-14', { garminScheduleId: '77' })],
+      undefined,
+      '2026-10-12',
+    );
 
-    expect(result).toMatchObject({ sent: 1, already: 1 });
+    expect(result).toMatchObject({ sent: 1, known: 1 });
     expect(mockSendPlan).toHaveBeenCalledTimes(1);
   });
 
   it('błąd na jednym treningu nie zatrzymuje reszty tygodnia', async () => {
     mockSchedule.mockImplementationOnce(() => Promise.reject(new GarminError('Kalendarz odmówił.')));
 
-    const result = await sendWeekToGarmin({} as never, WEEK);
+    const result = await sendToGarmin({} as never, WEEK, undefined, '2026-10-12');
 
     expect(result.sent).toBe(2);
     expect(result.failures).toEqual([
@@ -94,7 +102,7 @@ describe('sendWeekToGarmin', () => {
       .mockImplementationOnce(() => Promise.resolve(99))
       .mockImplementationOnce(() => Promise.reject(new GarminAuthExpired()));
 
-    const result = await sendWeekToGarmin({} as never, WEEK);
+    const result = await sendToGarmin({} as never, WEEK, undefined, '2026-10-12');
 
     expect(result).toMatchObject({ sent: 1, stopped: true });
     expect(result.failures).toEqual([]);
@@ -102,10 +110,33 @@ describe('sendWeekToGarmin', () => {
     expect(mockSendPlan).toHaveBeenCalledTimes(2);
   });
 
+  it('nie wpisuje drugi raz treningu, który już stoi u Garmina tego dnia', async () => {
+    // Tak bywa po wpisaniu z innego urządzenia albo po przeniesieniu terminu, przy którym numer
+    // wpisu zniknął z telefonu. Zastany wpis dopinamy, zamiast zakładać drugi taki sam.
+    mockScheduleIdIn.mockImplementation(() => 4321);
+
+    const result = await sendToGarmin({} as never, WEEK, undefined, '2026-10-12');
+
+    expect(result).toMatchObject({ sent: 0, adopted: 3 });
+    expect(mockSchedule).not.toHaveBeenCalled();
+    expect(mockSetGarminSchedule).toHaveBeenCalledWith({}, 1, {
+      workoutId: 11,
+      scheduleId: 4321,
+    });
+  });
+
+  it('kalendarz Garmina czyta raz na miesiąc, a nie raz na trening', async () => {
+    await sendToGarmin({} as never, WEEK, undefined, '2026-10-12');
+    expect(mockCalendarMonth).toHaveBeenCalledTimes(1);
+  });
+
   it('melduje postęp po każdym treningu', async () => {
     const seen: string[] = [];
-    await sendWeekToGarmin({} as never, WEEK, (progress) =>
-      seen.push(`${progress.done}/${progress.total}`),
+    await sendToGarmin(
+      {} as never,
+      WEEK,
+      (progress: SendProgress) => seen.push(`${progress.done}/${progress.total}`),
+      '2026-10-12',
     );
     expect(seen).toEqual(['0/3', '1/3', '2/3', '3/3']);
   });

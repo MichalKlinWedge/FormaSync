@@ -25,36 +25,21 @@ import {
   useScheduledRange,
 } from '@/features/calendar/use-calendar';
 import { formatDistance, formatSeconds } from '@/features/endurance/format';
-import { weekOf } from '@/features/garmin/connect/send-week';
-import { GarminWeekButton } from '@/features/garmin/connect/week-button';
 import { SPORT_ICONS, SPORT_LABELS } from '@/features/sports/sport';
 import { useSportStore } from '@/features/sports/sport-store';
 import { ensureNotificationPermission } from '@/features/workout/notifications';
 import { ActiveSessionExistsError, startSession } from '@/features/workout/repository';
 import { useTheme } from '@/hooks/use-theme';
 import {
-  addDays,
   addMonths,
-  formatDate,
   formatDayWithWeekday,
   fromDateKey,
   isSameMonth,
   monthGrid,
   monthTitle,
-  startOfWeek,
   todayKey,
   WEEKDAYS_SHORT,
 } from '@/lib/date';
-
-/** „Tydzień 12–18 października”, a przy przełomie miesiąca „29 października – 4 listopada”. */
-function weekLabel(weekStart: string): string {
-  const end = addDays(weekStart, 6);
-  // Z „18 października 2026” zostawiamy dzień i miesiąc: rok w nagłówku tygodnia nic nie wnosi.
-  const dayAndMonth = (key: string) => formatDate(key).split(' ').slice(0, 2).join(' ');
-  return fromDateKey(weekStart).getMonth() === fromDateKey(end).getMonth()
-    ? `Tydzień ${fromDateKey(weekStart).getDate()}–${dayAndMonth(end)}`
-    : `Tydzień ${dayAndMonth(weekStart)} – ${dayAndMonth(end)}`;
-}
 
 export default function CalendarScreen() {
   const theme = useTheme();
@@ -80,11 +65,6 @@ export default function CalendarScreen() {
   const logged = filter === null ? allLogged : allLogged.filter((entry) => entry.sport === filter);
   const loggedByDay = groupLoggedByDay(logged);
   const selectedLogged = loggedByDay.get(selected) ?? [];
-
-  // Plan układa się tygodniami, więc i wysyłka na zegarek jest tygodniowa. Bierzemy tydzień
-  // wybranego dnia i to, co w nim widać — razem z zawężeniem do dyscypliny.
-  const weekStart = startOfWeek(selected);
-  const weekEntries = weekOf(entries, selected);
 
   const statusColor = (status: ScheduleStatus) =>
     status === 'COMPLETED' ? theme.success : status === 'MISSED' ? theme.textSecondary : theme.accent;
@@ -194,11 +174,12 @@ export default function CalendarScreen() {
           </View>
 
           <View style={styles.dayList}>
-            <ThemedText type="smallBold" themeColor="textSecondary">
-              {weekLabel(weekStart).toUpperCase()}
-            </ThemedText>
-            <GarminWeekButton entries={weekEntries} weekStart={weekStart} />
-
+            <Button
+              label="Wyślij treningi do Garmina"
+              icon="cloud_upload"
+              variant="secondary"
+              onPress={() => router.push('/calendar/garmin')}
+            />
             <ThemedText type="smallBold" themeColor="textSecondary">
               {formatDayWithWeekday(selected).toUpperCase()}
             </ThemedText>

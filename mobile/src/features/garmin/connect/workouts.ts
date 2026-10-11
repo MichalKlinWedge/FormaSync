@@ -140,7 +140,32 @@ function rememberWorkoutId(db: SyncDb, planId: number, workoutId: number): void 
     .run();
 }
 
-type CalendarItem = { id: number; date: string; itemType: string; workoutId: number | null };
+export type CalendarItem = { id: number; date: string; itemType: string; workoutId: number | null };
+
+/** Kalendarz Garmina z miesiąca, w którym leży podany dzień. */
+export async function calendarMonth(dateKey: string): Promise<CalendarItem[]> {
+  const [year, month] = dateKey.split('-').map(Number);
+  // Miesiące w kalendarzu Garmina liczą się od zera.
+  const calendar = await connectApi<{ calendarItems?: CalendarItem[] }>(
+    `/calendar-service/year/${year}/month/${month - 1}`,
+  );
+  return calendar?.calendarItems ?? [];
+}
+
+/** Numer wpisu z tym treningiem w tym dniu; null, gdy go tam nie ma. */
+export function scheduleIdIn(
+  items: CalendarItem[],
+  workoutId: number,
+  dateKey: string,
+): number | null {
+  const ids = items
+    .filter(
+      (item) => item.itemType === 'workout' && item.date === dateKey && item.workoutId === workoutId,
+    )
+    .map((item) => item.id);
+  // Przy kilku wpisach bierzemy najnowszy — to ten, który właśnie powstał.
+  return ids.length === 0 ? null : Math.max(...ids);
+}
 
 /**
  * Numer wpisu odczytany z kalendarza Garmina. Potrzebny, gdy odpowiedź na wpisanie go nie
@@ -148,18 +173,7 @@ type CalendarItem = { id: number; date: string; itemType: string; workoutId: num
  * odpowiedzi potrafią się zmienić bez zapowiedzi.
  */
 async function findScheduleId(workoutId: number, dateKey: string): Promise<number | null> {
-  const [year, month] = dateKey.split('-').map(Number);
-  // Miesiące w kalendarzu Garmina liczą się od zera.
-  const calendar = await connectApi<{ calendarItems?: CalendarItem[] }>(
-    `/calendar-service/year/${year}/month/${month - 1}`,
-  );
-  const ids = (calendar?.calendarItems ?? [])
-    .filter(
-      (item) => item.itemType === 'workout' && item.date === dateKey && item.workoutId === workoutId,
-    )
-    .map((item) => item.id);
-  // Przy kilku wpisach bierzemy najnowszy — to ten, który właśnie powstał.
-  return ids.length === 0 ? null : Math.max(...ids);
+  return scheduleIdIn(await calendarMonth(dateKey), workoutId, dateKey);
 }
 
 /**
