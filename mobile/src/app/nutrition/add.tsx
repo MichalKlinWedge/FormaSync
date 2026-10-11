@@ -157,6 +157,12 @@ export default function AddMealScreen() {
         )}
 
         <Button
+          label="Opisz słowami (Gemini)"
+          icon="auto_awesome"
+          variant="secondary"
+          onPress={() => router.push('/nutrition/describe')}
+        />
+        <Button
           label="Baza produktów"
           icon="list"
           variant="secondary"

@@ -10,7 +10,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
 import { foods } from '@/db/schema';
-import { describeFood } from '@/features/nutrition/food';
+import { describeFood, SOURCE_NOTES } from '@/features/nutrition/food';
 import { listFoods } from '@/features/nutrition/food-repository';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -72,7 +72,9 @@ export default function FoodsScreen() {
                   {food.name}
                 </ThemedText>
                 <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
-                  {[food.brand, describeFood(food)].filter(Boolean).join(' · ')}
+                  {[food.brand, describeFood(food), SOURCE_NOTES[food.source]]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </ThemedText>
               </View>
               <Icon name="chevron_right" size={22} color={theme.textSecondary} />

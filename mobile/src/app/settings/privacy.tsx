@@ -38,6 +38,12 @@ export default function PrivacyScreen() {
             — data, dystans, czas i tempo każdego. Nie idą pomiary ciała, tętno, sen, ciśnienie ani
             nazwa konta Garmina. Zapytanie leci wprost z telefonu do Google, bez serwera pośrodku.
           </Bullet>
+          <Bullet>
+            Gemini przy kaloriach — jeśli opiszesz posiłek słowami i dotkniesz „Oszacuj”, do Google
+            leci sam ten opis i prośba o wartości odżywcze. Nie idą z nim ani pozostałe posiłki, ani
+            masa ciała, ani cel diety. Całe liczenie kalorii działa bez tego — opis słowami jest
+            jedną z trzech dróg, obok bazy produktów i wpisu z ręki.
+          </Bullet>
         </Section>
 
         <Section title="Planista AI">

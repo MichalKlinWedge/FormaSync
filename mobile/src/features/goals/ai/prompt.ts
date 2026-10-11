@@ -1,6 +1,7 @@
 import { goalPhases, goalWorkoutKinds, type GoalPhase, type GoalWorkoutKind } from '@/db/schema';
 import { formatDistance, formatSeconds } from '@/features/endurance/format';
 import { addDays, startOfWeek, weekdayIndex, WEEKDAYS_LONG } from '@/lib/date';
+import { unwrapJson } from '@/lib/json';
 
 import type { FormWorkout } from '../brief';
 import { durationFrom, paceFor, racePace } from '../paces';
@@ -140,13 +141,9 @@ type RawWeek = { phase?: unknown; workouts?: unknown };
 
 /** Model lubi owinąć JSON w blok kodu — zdejmujemy go, zamiast odrzucać całą odpowiedź. */
 function unwrap(text: string): string {
-  const fenced = /```(?:json)?\s*([\s\S]*?)```/.exec(text);
-  const body = (fenced === null ? text : fenced[1]).trim();
-  // Czasem dochodzi jedno zdanie przed albo po — bierzemy sam obiekt.
-  const start = body.indexOf('{');
-  const end = body.lastIndexOf('}');
-  if (start === -1 || end <= start) throw new PlanReplyError('Model nie zwrócił JSON-a.');
-  return body.slice(start, end + 1);
+  const body = unwrapJson(text);
+  if (body === null) throw new PlanReplyError('Model nie zwrócił JSON-a.');
+  return body;
 }
 
 const isKind = (value: unknown): value is GoalWorkoutKind =>

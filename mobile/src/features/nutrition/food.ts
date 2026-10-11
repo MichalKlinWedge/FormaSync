@@ -1,4 +1,4 @@
-import type { FoodBasis } from '@/db/schema';
+import type { FoodBasis, FoodSource } from '@/db/schema';
 import { normalizeText } from '@/features/exercises/filter';
 import { formatNumber } from '@/lib/number';
 
@@ -26,6 +26,17 @@ export type Nutrients = {
   proteinG: number | null;
   carbsG: number | null;
   fatG: number | null;
+};
+
+/**
+ * Skąd liczby produktu — dopisek przy nazwie. Wpisane ręcznie nie potrzebują adnotacji, bo to
+ * domyślny przypadek; oszacowanie i odczyt z kodu trzeba widzieć, zanim się na nich oprze cały
+ * dzień.
+ */
+export const SOURCE_NOTES: Record<FoodSource, string | null> = {
+  OWN: null,
+  OFF: 'z kodu kreskowego',
+  AI: 'oszacowane przez AI',
 };
 
 /** Ilość podaje się w gramach albo w porcjach — zależnie od tego, co produkt opisuje. */

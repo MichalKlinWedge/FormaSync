@@ -11,7 +11,14 @@ import { db } from '@/db/client';
 import { foods } from '@/db/schema';
 import { useTheme } from '@/hooks/use-theme';
 
-import { AMOUNT_UNITS, describeFood, nutrientsFor, portionChoices, referenceAmount } from './food';
+import {
+  AMOUNT_UNITS,
+  describeFood,
+  nutrientsFor,
+  portionChoices,
+  referenceAmount,
+  SOURCE_NOTES,
+} from './food';
 import { listFoods, loadFood } from './food-repository';
 import { formatGrams, formatKcal } from './format';
 
@@ -105,7 +112,9 @@ export function FoodPicker({ onPick, onCreate }: Props) {
                 {food.name}
               </ThemedText>
               <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-                {[food.brand, describeFood(food)].filter(Boolean).join(' · ')}
+                {[food.brand, describeFood(food), SOURCE_NOTES[food.source]]
+                  .filter(Boolean)
+                  .join(' · ')}
               </ThemedText>
             </View>
           </Pressable>
