@@ -7,8 +7,19 @@ import { and, eq } from 'drizzle-orm';
 import * as schema from '@/db/schema';
 import { createTestDb } from '@/db/test-utils';
 
+import { completeSet, finishSession, loadSession, startSession } from '@/features/workout/repository';
+
 import { updateItem } from '../draft';
-import { copyPlan, deletePlan, loadPlanDraft, savePlan } from '../repository';
+import { copyPlan, deletePlan, draftFromPlan, loadPlanDraft, savePlan } from '../repository';
+
+/** Wykonuje pierwsze ćwiczenie szablonu zadaną liczbą powtórzeń na 60 kg. */
+function trainFirstExercise(db: ReturnType<typeof createTestDb>, planId: number, reps: number | null) {
+  const session = startSession(db, { kind: 'plan', planId }, '2026-10-08T10:00:00.000Z');
+  loadSession(db, session)!.exercises[0].sets.forEach((row, index) =>
+    completeSet(db, row.id, { repsCompleted: reps, weightKg: 60, rpe: 7 }, `2026-10-08T10:0${index}:00.000Z`),
+  );
+  finishSession(db, session, {}, '2026-10-08T11:00:00.000Z');
+}
 
 function setup() {
   const db = createTestDb({ seed: true });
@@ -56,6 +67,49 @@ describe('kopiowanie szablonu (kryterium odbioru etapu 3)', () => {
     const first = copyPlan(db, ppl.id);
     const second = copyPlan(db, first);
     expect(loadPlanDraft(db, second).title).toBe(`${ppl.title} (kopia)`);
+  });
+});
+
+describe('kopia szablonu bierze ciężary z historii', () => {
+  it('podstawia ciężar z ostatniego treningu i mówi, skąd się wziął', () => {
+    const { db, ppl } = setup();
+    const template = loadPlanDraft(db, ppl.id);
+    const first = template.items[0];
+    trainFirstExercise(db, ppl.id, first.targetReps);
+
+    const copy = draftFromPlan(db, ppl.id);
+    // Serie i powtórzenia są zamysłem szablonu i zostają; zmienia się ciężar, bo jego szablon
+    // znać nie może.
+    expect(copy.items[0]).toMatchObject({
+      targetSets: first.targetSets,
+      targetReps: first.targetReps,
+      targetWeight: 62.5,
+    });
+    expect(copy.items[0].hint).toContain('62,5');
+    // Pozostałych ćwiczeń nikt nie robił — liczby szablonu zostają bez słowa komentarza.
+    expect(copy.items[1]).toMatchObject({ targetWeight: template.items[1].targetWeight });
+    expect(copy.items[1].hint).toBeUndefined();
+  });
+
+  it('przy innej liczbie powtórzeń niż w szablonie nie podmienia ciężaru', () => {
+    const { db, ppl } = setup();
+    const first = loadPlanDraft(db, ppl.id).items[0];
+    trainFirstExercise(db, ppl.id, (first.targetReps ?? 8) + 3);
+
+    const copy = draftFromPlan(db, ppl.id);
+    expect(copy.items[0].targetWeight).toBe(first.targetWeight);
+    expect(copy.items[0].hint).toContain('dobierz sam');
+  });
+
+  it('kopia własnego planu zostaje przy swoich liczbach', () => {
+    const { db, ppl } = setup();
+    const own = copyPlan(db, ppl.id);
+    const before = loadPlanDraft(db, own).items[0];
+    trainFirstExercise(db, own, before.targetReps);
+
+    const copy = draftFromPlan(db, own);
+    expect(copy.items[0].targetWeight).toBe(before.targetWeight);
+    expect(copy.items[0].hint).toBeUndefined();
   });
 });
 

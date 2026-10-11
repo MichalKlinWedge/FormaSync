@@ -194,6 +194,14 @@ export function suggestProgression(performance: ExercisePerformance): Suggestion
   };
 }
 
+/**
+ * Czy sugestia ma co zapisać w planie. Nie wystarczy sam werdykt: „utrzymaj” po treningu
+ * zrobionym ciężej, niż mówi plan, też jest zmianą w planie — i to właśnie tą, o którą reguła
+ * prosi, każąc powtórzyć ten sam ciężar.
+ */
+export const changesPlan = (suggestion: Suggestion): boolean =>
+  suggestion.suggestedWeight !== suggestion.planWeight;
+
 export type ProgressionProposal = {
   planId: number;
   planTitle: string;

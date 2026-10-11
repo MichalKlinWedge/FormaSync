@@ -2,8 +2,9 @@ import { asc, eq } from 'drizzle-orm';
 
 import * as schema from '@/db/schema';
 import type { SyncDb } from '@/db/types';
+import { suggestedTarget } from '@/features/progress/repository';
 
-import { newItemKey, type PlanDraft, validateDraft } from './draft';
+import { type DraftItem, newItemKey, type PlanDraft, validateDraft } from './draft';
 
 function getPlan(db: SyncDb, id: number) {
   const plan = db.select().from(schema.workoutPlans).where(eq(schema.workoutPlans.id, id)).get();
@@ -90,11 +91,37 @@ export function savePlan(db: SyncDb, draft: PlanDraft): number {
  */
 export function draftFromPlan(db: SyncDb, id: number): PlanDraft {
   const source = getPlan(db, id);
+  const draft = loadPlanDraft(db, id);
   return {
-    ...loadPlanDraft(db, id),
+    ...draft,
     id: undefined,
     title: source.isTemplate ? source.title : `${source.title} (kopia)`,
     sourceTemplateId: source.isTemplate ? source.id : source.sourceTemplateId,
+    // Ciężary w szablonie są katalogowe — dla kogoś, kto te ćwiczenia już robił, znaczą mniej
+    // niż jego własny ostatni trening. W kopii własnego planu liczby są już jego, więc zostają.
+    items: source.isTemplate ? draft.items.map((item) => fromHistory(db, item)) : draft.items,
+  };
+}
+
+/**
+ * Pozycja szablonu uzupełniona historią. Szablon mówi, ile serii i powtórzeń — to jego zamysł
+ * i zostaje. Podmieniamy ciężar, bo tego szablon wiedzieć nie może, ale tylko gdy ostatni trening
+ * szedł na tyle samo powtórzeń: przy innym celu ten sam ciężar znaczy co innego, więc zostaje
+ * podpowiedź zamiast podmiany. Przy ćwiczeniu na czas podmieniamy czas, bo nic innego tam nie ma.
+ */
+function fromHistory(db: SyncDb, item: DraftItem): DraftItem {
+  const target = suggestedTarget(db, item.exerciseId, item.trackingType);
+  if (target === null) return item;
+  if (item.trackingType === 'TIME') {
+    return { ...item, targetDurationSeconds: target.targetDurationSeconds, hint: target.reason };
+  }
+  const sameReps = target.targetReps !== null && target.targetReps === item.targetReps;
+  return {
+    ...item,
+    targetWeight: sameReps ? target.targetWeight : item.targetWeight,
+    hint: sameReps
+      ? target.reason
+      : `${target.reason} Szablon zakłada inną liczbę powtórzeń, więc ciężar dobierz sam.`,
   };
 }
 

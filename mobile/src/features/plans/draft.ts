@@ -1,4 +1,5 @@
 import type { Sport, TrackingType } from '@/db/schema';
+import type { NextTarget } from '@/features/progress/targets';
 
 // Wersja robocza planu edytowana w kreatorze (przed zapisem do bazy).
 
@@ -14,6 +15,11 @@ export type DraftItem = {
   targetDurationSeconds: number | null;
   restDurationSeconds: number;
   notes: string | null;
+  /**
+   * Skąd wzięły się liczby, gdy nie z wartości domyślnych — zdanie pod polami. Do bazy nie
+   * trafia, więc pozycja wczytana z planu go nie ma.
+   */
+  hint?: string;
 };
 
 export type PlanDraft = {
@@ -27,6 +33,9 @@ export type PlanDraft = {
 };
 
 export type ExerciseRef = { id: number; name: string; trackingType: TrackingType };
+
+/** Co podpowiedzieć dla ćwiczenia dopisywanego do planu; null = nic nie wiemy. */
+export type TargetSource = (exercise: ExerciseRef) => NextTarget | null;
 
 export const DEFAULT_SETS = 3;
 export const DEFAULT_REPS = 10;
@@ -44,24 +53,33 @@ export const emptyDraft = (sport: Sport): PlanDraft => ({
   items: [],
 });
 
-export function createItem(exercise: ExerciseRef): DraftItem {
+/**
+ * Nowa pozycja planu. Liczby bierzemy z ostatniego treningu tego ćwiczenia, a wartości domyślne
+ * zostają na to, czego historia nie zna: trzy serie po dziesięć powtórzeń to nie czyjś cel, tylko
+ * nasze „musiało coś tam stać”. Kto ćwiczenie już robił, dostaje swoje liczby i zdanie, skąd są.
+ */
+export function createItem(exercise: ExerciseRef, target: NextTarget | null = null): DraftItem {
   const timed = exercise.trackingType === 'TIME';
   return {
     key: newItemKey(),
     exerciseId: exercise.id,
     exerciseName: exercise.name,
     trackingType: exercise.trackingType,
-    targetSets: DEFAULT_SETS,
-    targetReps: timed ? null : DEFAULT_REPS,
-    targetWeight: null,
-    targetDurationSeconds: timed ? DEFAULT_DURATION_SECONDS : null,
+    targetSets: target?.targetSets ?? DEFAULT_SETS,
+    targetReps: timed ? null : (target?.targetReps ?? DEFAULT_REPS),
+    targetWeight: timed ? null : (target?.targetWeight ?? null),
+    targetDurationSeconds: timed ? (target?.targetDurationSeconds ?? DEFAULT_DURATION_SECONDS) : null,
     restDurationSeconds: DEFAULT_REST_SECONDS,
     notes: null,
+    hint: target?.reason,
   };
 }
 
-export function addExercises(draft: PlanDraft, exercises: ExerciseRef[]): PlanDraft {
-  return { ...draft, items: [...draft.items, ...exercises.map(createItem)] };
+export function addExercises(draft: PlanDraft, exercises: ExerciseRef[], target?: TargetSource): PlanDraft {
+  return {
+    ...draft,
+    items: [...draft.items, ...exercises.map((exercise) => createItem(exercise, target?.(exercise) ?? null))],
+  };
 }
 
 export function updateItem(draft: PlanDraft, key: string, patch: Partial<Omit<DraftItem, 'key'>>): PlanDraft {

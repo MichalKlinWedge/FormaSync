@@ -168,6 +168,11 @@ function PlanItemEditor({ item, index, isFirst, isLast, onChange, onMove, onRemo
           onChange={(v) => onChange({ restDurationSeconds: v ?? 0 })}
         />
       </View>
+      {item.hint !== undefined && (
+        <ThemedText type="small" themeColor="textSecondary">
+          {item.hint}
+        </ThemedText>
+      )}
     </ThemedView>
   );
 }

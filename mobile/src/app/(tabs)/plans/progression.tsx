@@ -11,6 +11,7 @@ import { db } from '@/db/client';
 import { ExerciseLink } from '@/features/exercises/exercise-link';
 import {
   applyProgression,
+  changesPlan,
   type ProgressionAdvice,
   proposeProgression,
   type Suggestion,
@@ -25,12 +26,6 @@ const ADVICE_LABELS: Record<ProgressionAdvice, string> = {
   DECREASE: 'mniej',
 };
 
-/**
- * Czy wiersz ma co zapisać. Nie wystarczy sam werdykt: „utrzymaj” po treningu zrobionym ciężej,
- * niż mówi plan, też jest zmianą w planie — i to właśnie tą, o którą prosi reguła, każąc powtórzyć
- * ten sam ciężar.
- */
-const changes = (suggestion: Suggestion): boolean => suggestion.suggestedWeight !== suggestion.planWeight;
 
 /** Przegląd i zatwierdzenie sugerowanych ciężarów na kolejny tydzień. */
 export default function ProgressionScreen() {
@@ -39,17 +34,17 @@ export default function ProgressionScreen() {
   const [proposal] = useState(() => proposeProgression(db, planId));
   // Domyślnie zaznaczamy tylko realne zmiany — ciężar, który już stoi w planie, nie ma czego zapisywać.
   const [accepted, setAccepted] = useState<number[]>(
-    () => proposal?.suggestions.filter(changes).map((s) => s.planExerciseId) ?? [],
+    () => proposal?.suggestions.filter(changesPlan).map((s) => s.planExerciseId) ?? [],
   );
 
   if (!proposal) return <ThemedView style={styles.flex} />;
 
-  const actionable = proposal.suggestions.filter(changes);
+  const actionable = proposal.suggestions.filter(changesPlan);
 
   const apply = () => {
     applyProgression(
       db,
-      proposal.suggestions.filter((s) => accepted.includes(s.planExerciseId) && changes(s)),
+      proposal.suggestions.filter((s) => accepted.includes(s.planExerciseId) && changesPlan(s)),
     );
     router.back();
   };
@@ -120,7 +115,7 @@ function SuggestionRow({
   onToggle: () => void;
 }) {
   const theme = useTheme();
-  const idle = !changes(suggestion);
+  const idle = !changesPlan(suggestion);
   const color = idle ? theme.textSecondary : suggestion.advice === 'DECREASE' ? theme.accent : theme.success;
 
   return (

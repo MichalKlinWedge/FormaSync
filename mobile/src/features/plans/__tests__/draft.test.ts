@@ -32,6 +32,46 @@ describe('addExercises', () => {
     expect(a.key).not.toBe(b.key);
   });
 
+  it('bierze liczby z podpowiedzi, gdy historia ma co powiedzieć', () => {
+    const target = {
+      targetSets: 4,
+      targetReps: 6,
+      targetWeight: 85,
+      targetDurationSeconds: null,
+      reason: 'Komplet 4 × 6 powt. — czas na więcej.',
+    };
+    const draft = addExercises(emptyDraft('STRENGTH'), [squat], () => target);
+    expect(draft.items[0]).toMatchObject({
+      targetSets: 4,
+      targetReps: 6,
+      targetWeight: 85,
+      hint: target.reason,
+    });
+  });
+
+  it('ćwiczeniu na czas podstawia czas, nie ciężar', () => {
+    const target = {
+      targetSets: 2,
+      targetReps: null,
+      targetWeight: null,
+      targetDurationSeconds: 70,
+      reason: 'Ostatnio najdłużej 60 s.',
+    };
+    const draft = addExercises(emptyDraft('STRENGTH'), [plank], () => target);
+    expect(draft.items[0]).toMatchObject({
+      targetSets: 2,
+      targetReps: null,
+      targetWeight: null,
+      targetDurationSeconds: 70,
+    });
+  });
+
+  it('bez historii zostają wartości domyślne i żadnego zdania pod polami', () => {
+    const draft = addExercises(emptyDraft('STRENGTH'), [squat], () => null);
+    expect(draft.items[0]).toMatchObject({ targetSets: 3, targetReps: 10, targetWeight: null });
+    expect(draft.items[0].hint).toBeUndefined();
+  });
+
   it('pozwala dodać to samo ćwiczenie dwukrotnie', () => {
     const draft = draftWith(squat, squat);
     expect(draft.items).toHaveLength(2);

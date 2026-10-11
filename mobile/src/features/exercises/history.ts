@@ -1,15 +1,14 @@
 import type { TrackingType } from '@/db/schema';
 import { estimateOneRepMax } from '@/features/progress/analytics';
-import { decideProgression, type SetOutcome } from '@/features/progress/progression';
-import { formatKg, formatNumber, pluralWith } from '@/lib/number';
+import { nextTarget } from '@/features/progress/targets';
+import { formatKg, formatNumber } from '@/lib/number';
 
 /**
  * Dorobek w jednym ćwiczeniu: ile razy było robione, czy coś z tego wyszło i co zrobić
  * następnym razem.
  *
- * Sugestia liczy się tą samą regułą, co progresja planu — zmienia się tylko to, skąd bierze
- * się cel. Plan ma go wpisanego, a tutaj celem jest ostatni trening: tyle serii, ile poszło
- * na najcięższym ciężarze, i tyle powtórzeń, ile wtedy wyszło.
+ * Sugestię liczy `nextTarget` — ta sama reguła, która podpowiada cel przy dodawaniu ćwiczenia
+ * do planu. Tutaj z niej bierzemy samo zdanie, bo karta ćwiczenia niczego nie zapisuje.
  */
 
 /** Pojedyncza wykonana seria tego ćwiczenia, razem z sesją, w której padła. */
@@ -80,9 +79,6 @@ const scoreOf = (set: ExerciseSetRecord, tracking: TrackingType): number => {
 const bestOf = (sets: ExerciseSetRecord[], tracking: TrackingType): ExerciseSetRecord =>
   sets.reduce((best, set) => (scoreOf(set, tracking) > scoreOf(best, tracking) ? set : best));
 
-const average = (values: number[]): number | null =>
-  values.length === 0 ? null : values.reduce((sum, v) => sum + v, 0) / values.length;
-
 /**
  * Składa dorobek z zapisanych serii. Zwraca null, gdy ćwiczenia nigdy nie wykonano — wtedy nie
  * ma o czym pisać i sekcja w ogóle się nie pokazuje.
@@ -122,64 +118,15 @@ export function summarizeExercise(
 }
 
 /**
- * Sugestia na kolejny trening. Przy ciężarze oddajemy głos regule progresji; bez ciężaru
- * zostają powtórzenia albo czas, a tam krok jest z natury mniejszy i prostszy.
+ * Sugestia na kolejny trening. Bez zapisanych powtórzeń ani czasu nie ma czego policzyć, więc
+ * zostaje prośba o zapis — i tyle, bo zmyślona liczba byłaby gorsza od jej braku.
  */
 function adviseNext(sets: ExerciseSetRecord[], tracking: TrackingType): string {
-  if (tracking === 'TIME') return adviseTime(sets);
-
-  const heaviest = Math.max(...sets.map((set) => set.weightKg ?? 0));
-  if (heaviest > 0) {
-    // Serie rozgrzewkowe nie mówią nic o progresji — liczy się to, co poszło na docelowym ciężarze.
-    const working = sets.filter((set) => (set.weightKg ?? 0) === heaviest);
-    const call = decideProgression({
-      targetSets: working.length,
-      targetReps: Math.max(...working.map((set) => set.reps ?? 0)),
-      targetWeight: heaviest,
-      sets: working.map(toOutcome),
-    });
-    if (call !== null) {
-      return call.advice === 'HOLD'
-        ? `${call.reason} Zostań przy ${formatKg(heaviest)}.`
-        : `${call.reason} Następnym razem ${formatKg(call.suggestedWeight)}.`;
-    }
-  }
-
-  return adviseReps(sets);
-}
-
-const toOutcome = (set: ExerciseSetRecord): SetOutcome => ({
-  reps: set.reps,
-  weightKg: set.weightKg,
-  rpe: set.rpe,
-});
-
-/** Ćwiczenie na masie ciała: rośnie liczba powtórzeń, nie ciężar. */
-function adviseReps(sets: ExerciseSetRecord[]): string {
-  const reps = sets.map((set) => set.reps ?? 0).filter((value) => value > 0);
-  if (reps.length === 0) return 'Zapisz powtórzenia w kolejnym treningu, a podpowiem, co dalej.';
-
-  const top = Math.max(...reps);
-  const done = `Ostatnio ${pluralWith(sets.length, 'seria', 'serie', 'serii')} po ${formatNumber(top)} powt.`;
-  const rpe = average(sets.map((set) => set.rpe).filter((value): value is number => value !== null));
-
-  if (rpe !== null && rpe >= 9) return `${done} przy wysokim RPE — powtórz ten sam układ.`;
-  if (reps.some((value) => value < top)) return `${done} Wyrównaj serie, zanim dołożysz powtórzenia.`;
-  return `${done} Spróbuj dołożyć po jednym: ${sets.length} × ${formatNumber(top + 1)}.`;
-}
-
-/** Ćwiczenie na czas: krok to sekundy, a przy ciężkim ostatnim razie żaden. */
-function adviseTime(sets: ExerciseSetRecord[]): string {
-  const seconds = sets.map((set) => set.durationSeconds ?? 0).filter((value) => value > 0);
-  if (seconds.length === 0) return 'Zapisz czas w kolejnym treningu, a podpowiem, co dalej.';
-
-  const top = Math.max(...seconds);
-  const done = `Ostatnio najdłużej ${formatNumber(top)} s.`;
-  const rpe = average(sets.map((set) => set.rpe).filter((value): value is number => value !== null));
-
-  if (rpe !== null && rpe >= 9) return `${done} Przy tym wysiłku powtórz ten sam czas.`;
-  const step = rpe !== null && rpe > 7 ? 5 : 10;
-  return `${done} Spróbuj wytrzymać ${formatNumber(top + step)} s.`;
+  const target = nextTarget(sets, tracking);
+  if (target !== null) return target.reason;
+  return tracking === 'TIME'
+    ? 'Zapisz czas w kolejnym treningu, a podpowiem, co dalej.'
+    : 'Zapisz powtórzenia w kolejnym treningu, a podpowiem, co dalej.';
 }
 
 /** Opis najlepszej serii — tyle, ile da się o niej powiedzieć. */

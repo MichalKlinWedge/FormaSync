@@ -21,10 +21,17 @@ import { toggleValue } from '@/features/exercises/filter';
 import { moveGarminSchedule, type MoveOutcome } from '@/features/garmin/connect/move-schedule';
 import { searchPlans } from '@/features/plans/search';
 import { usePlanList } from '@/features/plans/use-plans';
+import {
+  applyProgression,
+  changesPlan,
+  proposeProgression,
+  type Suggestion,
+} from '@/features/progress/progression';
 import { SPORT_LABELS } from '@/features/sports/sport';
 import { useActiveSport } from '@/features/sports/sport-store';
 import { useTheme } from '@/hooks/use-theme';
 import { addDays, formatDate, formatDayWithWeekday, generateRecurringDates, todayKey, WEEKDAYS_SHORT } from '@/lib/date';
+import { formatKg } from '@/lib/number';
 
 const REMINDER_OPTIONS: { label: string; minutes: number | null }[] = [
   { label: 'bez przypomnienia', minutes: null },
@@ -68,6 +75,7 @@ export default function ScheduleScreen() {
     pickedPlanId !== null && matching.some((plan) => plan.id === pickedPlanId)
       ? pickedPlanId
       : (groups[0]?.items[0]?.id ?? null);
+  const picked = plans.find((plan) => plan.id === planId) ?? null;
   const [repeat, setRepeat] = useState(false);
   const [weekdays, setWeekdays] = useState<number[]>([]);
   const [weeks, setWeeks] = useState(4);
@@ -204,6 +212,10 @@ export default function ScheduleScreen() {
         </Field>
         )}
 
+        {edited === null && picked !== null && (
+          <ProgressionNote key={picked.id} planId={picked.id} isTemplate={picked.isTemplate} />
+        )}
+
         <Field label={edited === null && repeat ? 'Początek cyklu' : 'Dzień'}>
           <View style={styles.dateRow}>
             <Button label="−1 dzień" variant="secondary" onPress={() => setStartDate((d) => addDays(d, -1))} />
@@ -301,6 +313,79 @@ export default function ScheduleScreen() {
     </ThemedView>
   );
 }
+
+/**
+ * Świeżość ciężarów w planie, pokazana przed wpisaniem terminu.
+ *
+ * Trening z kalendarza startuje z liczbami z planu, a plan po treningu, z którego wynika więcej,
+ * nadal trzyma wczorajsze ciężary. Moment planowania jest ostatnim, w którym ktoś na te liczby
+ * patrzy — potem zobaczy je dopiero na sztandze.
+ */
+function ProgressionNote({ planId, isTemplate }: { planId: number; isTemplate: boolean }) {
+  const [proposal, setProposal] = useState(() => (isTemplate ? null : proposeProgression(db, planId)));
+  const [applied, setApplied] = useState(0);
+
+  // Szablon nie ma własnej historii i nie progresuje się — ma liczby katalogowe dla każdego.
+  if (isTemplate) {
+    return (
+      <Field label="Ciężary">
+        <ThemedText type="small" themeColor="textSecondary">
+          To szablon, więc jego liczby są katalogowe, nie twoje. Skopiuj go na zakładce „Plany” —
+          kopia weźmie ciężary z twoich ostatnich treningów i będzie się dalej progresować.
+        </ThemedText>
+      </Field>
+    );
+  }
+  if (proposal === null) return null;
+
+  const pending = proposal.suggestions.filter(changesPlan);
+  if (pending.length === 0) {
+    return applied === 0 ? null : (
+      <Field label="Ciężary">
+        <ThemedText type="small" themeColor="textSecondary">
+          {`Zaktualizowane w planie: ${applied}. Zaplanowany trening weźmie już nowe liczby.`}
+        </ThemedText>
+      </Field>
+    );
+  }
+
+  const confirm = () =>
+    Alert.alert('Zaktualizować ciężary w planie?', pending.map(describeChange).join('\n'), [
+      { text: 'Nie zmieniaj', style: 'cancel' },
+      {
+        text: 'Zaktualizuj',
+        onPress: () => {
+          applyProgression(db, pending);
+          setApplied(pending.length);
+          setProposal(proposeProgression(db, planId));
+        },
+      },
+    ]);
+
+  return (
+    <Field label="Ciężary">
+      <ThemedText type="small" themeColor="textSecondary">
+        {`Po treningu z ${formatDate(proposal.basedOn.slice(0, 10))} progresja proponuje nowe`
+          + ' ciężary. Bez tego zaplanowany trening pójdzie na starych.'}
+      </ThemedText>
+      {pending.map((suggestion) => (
+        <ThemedText key={suggestion.planExerciseId} type="small">
+          {describeChange(suggestion)}
+        </ThemedText>
+      ))}
+      <Button
+        label={`Zaktualizuj ciężary (${pending.length})`}
+        icon="trending_up"
+        variant="secondary"
+        onPress={confirm}
+      />
+    </Field>
+  );
+}
+
+/** „Przysiad ze sztangą: 100 kg → 105 kg”. */
+const describeChange = (suggestion: Suggestion): string =>
+  `${suggestion.exerciseName}: ${formatKg(suggestion.planWeight)} → ${formatKg(suggestion.suggestedWeight)}`;
 
 /** Co powiedzieć o kalendarzu Garmina po przesunięciu terminu. Milczymy tylko wtedy, gdy się udało. */
 function reportMove(outcome: MoveOutcome): void {

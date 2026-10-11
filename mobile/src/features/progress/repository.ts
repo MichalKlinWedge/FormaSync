@@ -4,6 +4,7 @@ import * as schema from '@/db/schema';
 import type { SyncDb } from '@/db/types';
 
 import type { CompletedSet } from './analytics';
+import { nextTarget, type NextTarget } from './targets';
 
 /**
  * Wszystkie wykonane serie z kontekstem sesji i ćwiczenia. Agregacje liczymy w JavaScripcie,
@@ -33,6 +34,47 @@ export function loadCompletedSets(db: SyncDb): CompletedSet[] {
     )
     .orderBy(asc(schema.workoutSessions.startTime), asc(schema.loggedSets.id))
     .all();
+}
+
+/**
+ * Cel na kolejny raz podpowiedziany historią: bierzemy ostatni trening, w którym to ćwiczenie
+ * się pojawiło, i przepuszczamy go przez regułę progresji. Trwający trening pomijamy — dopóki
+ * się nie skończył, nie wiadomo jeszcze, co z niego wyszło.
+ *
+ * Zwraca null dla ćwiczenia, którego nigdy nie robiono; wtedy zostają wartości domyślne, bo nie
+ * ma z czego liczyć.
+ */
+export function suggestedTarget(
+  db: SyncDb,
+  exerciseId: number,
+  tracking: schema.TrackingType,
+): NextTarget | null {
+  const sets = db
+    .select({
+      sessionId: schema.loggedSets.sessionId,
+      reps: schema.loggedSets.repsCompleted,
+      weightKg: schema.loggedSets.weightKg,
+      durationSeconds: schema.loggedSets.durationSeconds,
+      rpe: schema.loggedSets.rpe,
+    })
+    .from(schema.loggedSets)
+    .innerJoin(schema.workoutSessions, eq(schema.loggedSets.sessionId, schema.workoutSessions.id))
+    .where(
+      and(
+        eq(schema.loggedSets.exerciseId, exerciseId),
+        isNotNull(schema.loggedSets.completedAt),
+        ne(schema.workoutSessions.status, 'IN_PROGRESS'),
+      ),
+    )
+    .orderBy(desc(schema.workoutSessions.startTime), asc(schema.loggedSets.setNumber))
+    .all();
+  if (sets.length === 0) return null;
+
+  const last = sets[0].sessionId;
+  return nextTarget(
+    sets.filter((set) => set.sessionId === last),
+    tracking,
+  );
 }
 
 export type BodyMeasurement = typeof schema.bodyMeasurements.$inferSelect;
