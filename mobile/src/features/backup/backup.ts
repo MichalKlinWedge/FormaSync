@@ -33,6 +33,7 @@ const TABLES = [
   schema.bodyMeasurements,
   schema.hydrationLogs,
   schema.hydrationDays,
+  schema.mealLogs,
   schema.trainingGoals,
   schema.goalWorkouts,
   schema.garminRecords,

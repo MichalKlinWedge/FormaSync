@@ -21,6 +21,7 @@ export default function RootLayout() {
           <Stack.Screen name="exercise" />
           <Stack.Screen name="goal" />
           <Stack.Screen name="hydration" />
+          <Stack.Screen name="nutrition" />
           <Stack.Screen name="settings" />
         </Stack>
       </DatabaseProvider>

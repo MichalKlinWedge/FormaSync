@@ -5,7 +5,7 @@ import { describe, expect, it } from '@jest/globals';
 
 import * as schema from '@/db/schema';
 import { createTestDb } from '@/db/test-utils';
-import { saveMeasurement } from '@/features/progress/repository';
+import { latestWeightKg, saveMeasurement } from '@/features/progress/repository';
 
 import {
   addExtra,
@@ -13,7 +13,6 @@ import {
   dailySummaries,
   dayPortions,
   extraOn,
-  latestWeightKg,
   logDrink,
   removeDrink,
   trainingSecondsOn,

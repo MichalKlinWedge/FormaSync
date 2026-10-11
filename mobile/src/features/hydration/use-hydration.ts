@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 
 import { db } from '@/db/client';
 import { bodyMeasurements, hydrationDays, hydrationLogs, workoutSessions } from '@/db/schema';
+import { latestWeightKg } from '@/features/progress/repository';
 import { addDays } from '@/lib/date';
 
 import {
@@ -10,7 +11,6 @@ import {
   dailySummaries,
   dayPortions,
   extraOn,
-  latestWeightKg,
   trainingSecondsOn,
   type Portion,
 } from './repository';

@@ -102,6 +102,7 @@ describe('createBackup', () => {
       'hydration_logs',
       'logged_segments',
       'logged_sets',
+      'meal_logs',
       'plan_exercises',
       'plan_segments',
       'scheduled_workouts',

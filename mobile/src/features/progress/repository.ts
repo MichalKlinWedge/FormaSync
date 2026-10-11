@@ -125,6 +125,22 @@ function validatePressure(systolic: number | null, diastolic: number | null): vo
   }
 }
 
+/**
+ * Masa ciała z najnowszego pomiaru. Podstawa celu nawodnienia i budżetu kalorii, więc leży tu,
+ * przy tabeli pomiarów, a nie w jednej z tych funkcji.
+ */
+export function latestWeightKg(db: SyncDb): number | null {
+  return (
+    db
+      .select({ weightKg: schema.bodyMeasurements.weightKg })
+      .from(schema.bodyMeasurements)
+      // Pomiar bywa wpisany bez masy — wtedy liczy się poprzedni, który ją ma.
+      .where(isNotNull(schema.bodyMeasurements.weightKg))
+      .orderBy(desc(schema.bodyMeasurements.measuredOn), desc(schema.bodyMeasurements.id))
+      .get()?.weightKg ?? null
+  );
+}
+
 /** Pomiary od najnowszego. */
 export function listMeasurements(db: SyncDb): BodyMeasurement[] {
   return db

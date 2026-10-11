@@ -509,3 +509,36 @@ export const garminRecords = sqliteTable('garmin_records', {
   achievedOn: text('achieved_on'), // YYYY-MM-DD
   syncedAt: createdAt(),
 });
+
+// --- 10. Kalorie ---
+
+export const mealTypes = ['BREAKFAST', 'LUNCH', 'DINNER', 'SNACK'] as const;
+export type MealType = (typeof mealTypes)[number];
+
+/**
+ * Zjedzone posiłki — wiersz na każdy, tak jak porcje wody. Dzień trzymamy osobno od znacznika
+ * czasu, bo doba żywieniowa to doba lokalna: kolacja o 23:30 należy do dnia, w którym się ją
+ * zjadło.
+ *
+ * Kalorie i makroskładniki leżą tu **policzone**, a nie wskazane produktem. Poprawienie wartości
+ * produktu za miesiąc nie może przepisać historii — dokładnie z tego samego powodu, z jakiego
+ * `logged_sets` trzyma własną kopię identyfikatora ćwiczenia. Powiązanie z bazą produktów dojdzie
+ * razem z tą bazą; na razie wpis opisuje się sam nazwą.
+ */
+export const mealLogs = sqliteTable(
+  'meal_logs',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    loggedAt: text('logged_at').notNull(),
+    dayKey: text('day_key').notNull(), // YYYY-MM-DD
+    meal: text('meal', { enum: mealTypes }).notNull().default('SNACK'),
+    title: text('title').notNull(),
+    /** Zjedzona masa, gdy znana — przy wpisie „na oko” jej nie ma. */
+    grams: real('grams'),
+    kcal: integer('kcal').notNull(),
+    proteinG: real('protein_g'),
+    carbsG: real('carbs_g'),
+    fatG: real('fat_g'),
+  },
+  (t) => [index('meal_logs_day_idx').on(t.dayKey)],
+);

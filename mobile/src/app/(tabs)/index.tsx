@@ -10,6 +10,7 @@ import { BottomTabInset, Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
 import { useScheduledRange } from '@/features/calendar/use-calendar';
 import { HydrationCard } from '@/features/hydration/hydration-card';
+import { NutritionCard } from '@/features/nutrition/nutrition-card';
 import { usePlanList } from '@/features/plans/use-plans';
 import { SportSwitcher } from '@/features/sports/sport-switcher';
 import { useActiveSport } from '@/features/sports/sport-store';
@@ -66,6 +67,8 @@ export default function TodayScreen() {
           <SportSwitcher />
 
           <HydrationCard />
+
+          <NutritionCard />
 
           {active ? (
             <Pressable

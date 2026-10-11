@@ -2,11 +2,12 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import { db } from '@/db/client';
+import { latestWeightKg } from '@/features/progress/repository';
 import { ensureNotificationPermission } from '@/features/workout/notifications';
 import { todayKey } from '@/lib/date';
 
 import { describeReminder, expectedAt } from './day';
-import { consumedOn, extraOn, latestWeightKg, trainingSecondsOn } from './repository';
+import { consumedOn, extraOn, trainingSecondsOn } from './repository';
 import { reminderSlots, slotsToRemind } from './schedule';
 import { loadHydrationSettings } from './settings';
 import { dailyTarget } from './target';

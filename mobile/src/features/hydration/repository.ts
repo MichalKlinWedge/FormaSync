@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, isNotNull, lte, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, lte, ne } from 'drizzle-orm';
 
 import * as schema from '@/db/schema';
 import type { SyncDb } from '@/db/types';
@@ -68,19 +68,6 @@ export function dayPortions(db: SyncDb, dayKey: string): Portion[] {
 
 export function consumedOn(db: SyncDb, dayKey: string): number {
   return dayPortions(db, dayKey).reduce((sum, portion) => sum + portion.milliliters, 0);
-}
-
-/** Masa ciała z najnowszego pomiaru — podstawa celu dnia. */
-export function latestWeightKg(db: SyncDb): number | null {
-  return (
-    db
-      .select({ weightKg: schema.bodyMeasurements.weightKg })
-      .from(schema.bodyMeasurements)
-      // Pomiar bywa wpisany bez masy — wtedy liczy się poprzedni, który ją ma.
-      .where(isNotNull(schema.bodyMeasurements.weightKg))
-      .orderBy(desc(schema.bodyMeasurements.measuredOn), desc(schema.bodyMeasurements.id))
-      .get()?.weightKg ?? null
-  );
 }
 
 export function extraOn(db: SyncDb, dayKey: string): number {

@@ -158,6 +158,23 @@ export default function SettingsScreen() {
 
         <View style={styles.section}>
           <ThemedText type="smallBold" themeColor="textSecondary">
+            KALORIE
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Budżet dnia liczony z przemiany podstawowej, ruchu, dzisiejszego treningu i celu diety.
+            Bez celu — masa, utrzymanie czy redukcja — licznik kalorii nie odpowiada na żadne
+            pytanie, więc od niego się zaczyna.
+          </ThemedText>
+          <Button
+            label="Cel diety i dane"
+            icon="restaurant"
+            variant="secondary"
+            onPress={() => router.push('/nutrition/settings')}
+          />
+        </View>
+
+        <View style={styles.section}>
+          <ThemedText type="smallBold" themeColor="textSecondary">
             NAWODNIENIE
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
