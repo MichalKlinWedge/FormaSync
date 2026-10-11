@@ -2,6 +2,13 @@ import { and, asc, eq, isNotNull, isNull, max } from 'drizzle-orm';
 
 import * as schema from '@/db/schema';
 import type { SyncDb } from '@/db/types';
+import {
+  DEFAULT_DURATION_SECONDS,
+  DEFAULT_REPS,
+  DEFAULT_REST_SECONDS,
+  DEFAULT_SETS,
+} from '@/features/plans/draft';
+import { suggestedTarget } from '@/features/progress/repository';
 
 import { type ActiveSession, elapsedSeconds } from './logic';
 
@@ -326,7 +333,14 @@ export function removeSet(db: SyncDb, setId: number): void {
   db.delete(schema.loggedSets).where(eq(schema.loggedSets.id, setId)).run();
 }
 
-/** Dodaje ćwiczenie do trwającej sesji (trening „pusty” lub zmiana w trakcie). */
+/**
+ * Dodaje ćwiczenie do trwającej sesji (trening „pusty” lub zmiana w trakcie).
+ *
+ * Cel bierzemy z ostatniego ukończonego treningu tego ćwiczenia — tą samą regułą, co kreator
+ * planu. Kto w środku treningu dorzuca wyciskanie, nie chce zacząć od trzech serii po dziesięć
+ * bez ciężaru, tylko od tego, co ostatnio dźwignął. Trwający trening się nie liczy: dopóki się
+ * nie skończył, nie wiadomo, co z niego wyjdzie.
+ */
 export function addSessionExercise(db: SyncDb, sessionId: number, exerciseId: number): number {
   return db.transaction((tx) => {
     const exercise = tx.select().from(schema.exercises).where(eq(schema.exercises.id, exerciseId)).get();
@@ -340,26 +354,30 @@ export function addSessionExercise(db: SyncDb, sessionId: number, exerciseId: nu
         .get()?.value ?? -1;
 
     const timed = exercise.trackingType === 'TIME';
+    const target = suggestedTarget(tx, exerciseId, exercise.trackingType);
+    const sets = target?.targetSets ?? DEFAULT_SETS;
+    const values = {
+      reps: timed ? null : (target?.targetReps ?? DEFAULT_REPS),
+      weight: timed ? null : (target?.targetWeight ?? null),
+      duration: timed ? (target?.targetDurationSeconds ?? DEFAULT_DURATION_SECONDS) : null,
+    };
+
     const sessionExerciseId = tx
       .insert(schema.sessionExercises)
       .values({
         sessionId,
         exerciseId,
         orderIndex: lastOrder + 1,
-        targetSets: 3,
-        targetReps: timed ? null : 10,
-        targetWeight: null,
-        targetDurationSeconds: timed ? 30 : null,
-        restDurationSeconds: 90,
+        targetSets: sets,
+        targetReps: values.reps,
+        targetWeight: values.weight,
+        targetDurationSeconds: values.duration,
+        restDurationSeconds: DEFAULT_REST_SECONDS,
       })
       .returning({ id: schema.sessionExercises.id })
       .get().id;
 
-    insertPlannedSets(tx, sessionId, sessionExerciseId, exerciseId, 3, {
-      reps: timed ? null : 10,
-      weight: null,
-      duration: timed ? 30 : null,
-    });
+    insertPlannedSets(tx, sessionId, sessionExerciseId, exerciseId, sets, values);
     return sessionExerciseId;
   });
 }

@@ -105,6 +105,35 @@ describe('startSession', () => {
     expect(session.exercises[0].sets).toHaveLength(3);
   });
 
+  it('ćwiczenie dołożone w trakcie dostaje cel z ostatniego treningu', () => {
+    const { db, planId, squat } = setup();
+    // Plan zakłada 3 × 8 na 60 kg; komplet przy RPE 7 znaczy „następnym razem 62,5 kg”.
+    const first = startSession(db, { kind: 'plan', planId }, T0);
+    loadSession(db, first)!.exercises[0].sets.forEach((row, index) =>
+      completeSet(db, row.id, { repsCompleted: 8, weightKg: 60, rpe: 7 }, at(60 * index)),
+    );
+    finishSession(db, first, {}, at(3600));
+
+    const empty = startSession(db, { kind: 'empty' }, '2026-10-03T10:00:00.000Z');
+    addSessionExercise(db, empty, squat.id);
+
+    const added = loadSession(db, empty)!.exercises[0];
+    expect(added).toMatchObject({ targetSets: 3, targetReps: 8, targetWeight: 62.5 });
+    // Serie są od razu wypełnione, więc nie trzeba przepisywać ciężaru w każdej z nich.
+    expect(added.sets.map((set) => set.weightKg)).toEqual([62.5, 62.5, 62.5]);
+  });
+
+  it('ćwiczenie bez historii dostaje wartości domyślne', () => {
+    const { db, squat } = setup();
+    const id = startSession(db, { kind: 'empty' }, T0);
+    addSessionExercise(db, id, squat.id);
+    expect(loadSession(db, id)!.exercises[0]).toMatchObject({
+      targetSets: 3,
+      targetReps: 10,
+      targetWeight: null,
+    });
+  });
+
   it('sesja z harmonogramu wiąże się z terminem i planem', () => {
     const { db, planId } = setup();
     const scheduled = db
