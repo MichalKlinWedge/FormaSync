@@ -85,7 +85,9 @@ export const FASTEST_PLAUSIBLE_PACE: Record<Sport, number> = {
 
 export const RECORD_DISTANCES: Record<Sport, number[]> = {
   STRENGTH: [],
-  RUNNING: [1000, 5000, 10000, 21097],
+  // Maraton jest na liście, choć pada rzadko: Garmin prowadzi go jako rekord życiowy, więc bez
+  // niego nasza lista wyglądałaby przy jego obok na niekompletną.
+  RUNNING: [1000, 5000, 10000, 21097, 42195],
   CYCLING: [10000, 20000, 40000, 100000],
   SWIMMING: [100, 400, 1000, 1500],
   OTHER: [],
