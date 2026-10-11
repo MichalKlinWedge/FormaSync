@@ -29,6 +29,8 @@ export type SendResult = {
   known: number;
   /** Zastane u Garmina i dopięte do terminu, zamiast wpisywania ich drugi raz. */
   adopted: number;
+  /** Treningi, których kopie leżą w bibliotece Garmina pod tą samą nazwą. */
+  copies: number;
   failures: SendFailure[];
   /** Połączenie wygasło w trakcie — reszta nie została nawet spróbowana. */
   stopped: boolean;
@@ -80,6 +82,12 @@ export function describeSend(result: SendResult): string {
   if (result.known > 0) {
     parts.push(`Już tam stało: ${result.known}.`);
   }
+  if (result.copies > 0) {
+    // Starych kopii nie kasujemy sami: to treningi w bibliotece użytkownika, nie nasze wpisy.
+    parts.push(
+      `W bibliotece Garmina leżą starsze kopie ${result.copies} treningów o tych samych nazwach — kalendarz ich nie dubluje, ale warto je tam sprzątnąć.`,
+    );
+  }
   for (const failure of result.failures) {
     parts.push(`${failure.date} — ${failure.title}: ${failure.reason}`);
   }
@@ -108,6 +116,7 @@ export async function sendToGarmin(
     sent: 0,
     known: entries.filter((entry) => entry.garminScheduleId !== null).length,
     adopted: 0,
+    copies: 0,
     failures: [],
     stopped: false,
   };
@@ -134,7 +143,14 @@ export async function sendToGarmin(
       // Zanim wpiszemy, sprawdzamy, czy ten trening nie stoi już tego dnia u Garmina. Tak bywa
       // po wpisaniu go z innego urządzenia albo po przeniesieniu terminu, przy którym numer
       // wpisu zniknął z telefonu. Zastany wpis dopinamy, zamiast zakładać drugi taki sam.
-      const standing = scheduleIdIn(await monthOf(entry.scheduledDate), sent.workoutId, entry.scheduledDate);
+      if (sent.duplicates.length > 0) result.copies += 1;
+
+      const standing = scheduleIdIn(
+        await monthOf(entry.scheduledDate),
+        sent.workoutId,
+        entry.scheduledDate,
+        entry.planTitle,
+      );
       if (standing !== null) {
         setGarminSchedule(db, entry.id, { workoutId: sent.workoutId, scheduleId: standing });
         result.adopted += 1;

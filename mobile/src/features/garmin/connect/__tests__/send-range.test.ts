@@ -84,7 +84,7 @@ describe('pendingForGarmin', () => {
 });
 
 describe('describeSend', () => {
-  const nothing = { sent: 0, known: 0, adopted: 0, failures: [], stopped: false };
+  const nothing = { sent: 0, known: 0, adopted: 0, copies: 0, failures: [], stopped: false };
 
   it('mówi, ile doszło', () => {
     expect(describeSend({ ...nothing, sent: 3 })).toBe(
@@ -105,6 +105,11 @@ describe('describeSend', () => {
       failures: [{ date: '2026-10-15', title: 'Interwały 5x1 km', reason: 'Plan jest pusty.' }],
     });
     expect(text).toContain('2026-10-15 — Interwały 5x1 km: Plan jest pusty.');
+  });
+
+  it('mówi o starszych kopiach w bibliotece, zamiast kasować je sama', () => {
+    const text = describeSend({ ...nothing, sent: 2, copies: 2 });
+    expect(text).toContain('starsze kopie 2 treningów');
   });
 
   it('po wygaśnięciu połączenia mówi, co zrobić', () => {

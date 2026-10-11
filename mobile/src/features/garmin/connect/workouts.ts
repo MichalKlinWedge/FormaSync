@@ -140,7 +140,14 @@ function rememberWorkoutId(db: SyncDb, planId: number, workoutId: number): void 
     .run();
 }
 
-export type CalendarItem = { id: number; date: string; itemType: string; workoutId: number | null };
+export type CalendarItem = {
+  id: number;
+  date: string;
+  itemType: string;
+  workoutId: number | null;
+  /** Nazwa wpisu; API jej nie gwarantuje, więc bywa pusta. */
+  title?: string | null;
+};
 
 /** Kalendarz Garmina z miesiąca, w którym leży podany dzień. */
 export async function calendarMonth(dateKey: string): Promise<CalendarItem[]> {
@@ -152,15 +159,28 @@ export async function calendarMonth(dateKey: string): Promise<CalendarItem[]> {
   return calendar?.calendarItems ?? [];
 }
 
-/** Numer wpisu z tym treningiem w tym dniu; null, gdy go tam nie ma. */
+/**
+ * Numer wpisu z tym treningiem w tym dniu; null, gdy go tam nie ma.
+ *
+ * Numer treningu jest pewny, ale nie wystarcza: gdy w bibliotece Garmina leżą dwa treningi o tej
+ * samej nazwie, wpis w kalendarzu może wskazywać na tę kopię, której akurat nie nadpisaliśmy —
+ * i wtedy wpisanie „brakującego” treningu postawiłoby obok drugi, wyglądający identycznie.
+ * Dlatego po numerze sprawdzamy jeszcze nazwę.
+ */
 export function scheduleIdIn(
   items: CalendarItem[],
   workoutId: number,
   dateKey: string,
+  title?: string,
 ): number | null {
-  const ids = items
+  const sameDay = items.filter((item) => item.itemType === 'workout' && item.date === dateKey);
+  const wanted = title?.trim().toLowerCase() ?? '';
+
+  const ids = sameDay
     .filter(
-      (item) => item.itemType === 'workout' && item.date === dateKey && item.workoutId === workoutId,
+      (item) =>
+        item.workoutId === workoutId ||
+        (wanted !== '' && (item.title ?? '').trim().toLowerCase() === wanted),
     )
     .map((item) => item.id);
   // Przy kilku wpisach bierzemy najnowszy — to ten, który właśnie powstał.

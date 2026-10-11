@@ -4,7 +4,7 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 // Podmiana klienta jest wynoszona ponad importy, więc `workouts` dostaje już atrapę.
-import { scheduleOnGarmin } from '../workouts';
+import { scheduleIdIn, scheduleOnGarmin } from '../workouts';
 
 const mockConnectApi = jest.fn<(path: string, init?: { method?: string; body?: unknown }) => Promise<unknown>>();
 
@@ -16,6 +16,35 @@ jest.mock('../client', () => ({
 }));
 
 const calendarWith = (items: unknown[]) => ({ calendarItems: items });
+
+describe('scheduleIdIn', () => {
+  const items = [
+    { id: 1, date: '2026-10-06', itemType: 'workout', workoutId: 7, title: 'Spokojny 8 km' },
+    { id: 2, date: '2026-10-06', itemType: 'workout', workoutId: 9, title: 'Długi 16 km' },
+    { id: 3, date: '2026-10-07', itemType: 'workout', workoutId: 9, title: 'Spokojny 8 km' },
+    { id: 4, date: '2026-10-06', itemType: 'activity', workoutId: 9, title: 'Długi 16 km' },
+  ];
+
+  it('poznaje wpis po numerze treningu', () => {
+    expect(scheduleIdIn(items, 7, '2026-10-06')).toBe(1);
+  });
+
+  it('poznaje wpis po nazwie, gdy numer jest inny', () => {
+    // Dwie kopie w bibliotece pod jedną nazwą: kalendarz wskazuje na tę, której nie
+    // nadpisaliśmy. Bez nazwy postawilibyśmy obok drugi, wyglądający identycznie.
+    expect(scheduleIdIn(items, 123, '2026-10-06', 'Długi 16 km')).toBe(2);
+  });
+
+  it('nazwa nie przenosi się na inny dzień ani na wpis innego rodzaju', () => {
+    expect(scheduleIdIn(items, 123, '2026-10-08', 'Spokojny 8 km')).toBeNull();
+    expect(scheduleIdIn([items[3]], 123, '2026-10-06', 'Długi 16 km')).toBeNull();
+  });
+
+  it('bez dopasowania nie zwraca nic', () => {
+    expect(scheduleIdIn(items, 55, '2026-10-06', 'Interwały 5x1 km')).toBeNull();
+    expect(scheduleIdIn([], 7, '2026-10-06')).toBeNull();
+  });
+});
 
 describe('scheduleOnGarmin', () => {
   beforeEach(() => {

@@ -15,7 +15,8 @@ import { sendToGarmin, type SendProgress } from '../send-range';
  * liczba treningów.
  */
 
-const mockSendPlan = jest.fn<(db: unknown, planId: number) => Promise<{ workoutId: number }>>();
+type Sent = { workoutId: number; overwritten: boolean; duplicates: number[] };
+const mockSendPlan = jest.fn<(db: unknown, planId: number) => Promise<Sent>>();
 const mockSchedule = jest.fn<(workoutId: number, date: string) => Promise<number>>();
 const mockSetGarminSchedule = jest.fn();
 const mockCalendarMonth = jest.fn<() => Promise<unknown[]>>();
@@ -57,7 +58,9 @@ const WEEK = [entry(1, '2026-10-12'), entry(2, '2026-10-14'), entry(3, '2026-10-
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockSendPlan.mockImplementation((_db, planId) => Promise.resolve({ workoutId: planId + 1 }));
+  mockSendPlan.mockImplementation((_db, planId) =>
+    Promise.resolve({ workoutId: planId + 1, overwritten: false, duplicates: [] }),
+  );
   mockSchedule.mockImplementation(() => Promise.resolve(99));
   mockCalendarMonth.mockImplementation(() => Promise.resolve([]));
   mockScheduleIdIn.mockImplementation(() => null);
@@ -97,7 +100,9 @@ describe('sendToGarmin', () => {
   });
 
   it('wygasłe połączenie przerywa, zamiast powtarzać ten sam błąd', async () => {
-    mockSendPlan.mockImplementationOnce(() => Promise.resolve({ workoutId: 11 }));
+    mockSendPlan.mockImplementationOnce(() =>
+      Promise.resolve({ workoutId: 11, overwritten: false, duplicates: [] }),
+    );
     mockSchedule
       .mockImplementationOnce(() => Promise.resolve(99))
       .mockImplementationOnce(() => Promise.reject(new GarminAuthExpired()));
@@ -128,6 +133,28 @@ describe('sendToGarmin', () => {
   it('kalendarz Garmina czyta raz na miesiąc, a nie raz na trening', async () => {
     await sendToGarmin({} as never, WEEK, undefined, '2026-10-12');
     expect(mockCalendarMonth).toHaveBeenCalledTimes(1);
+  });
+
+  it('mówi o kopiach treningu leżących w bibliotece Garmina', async () => {
+    mockSendPlan.mockImplementationOnce((_db, planId) =>
+      Promise.resolve({ workoutId: planId + 1, overwritten: true, duplicates: [777] }),
+    );
+
+    const result = await sendToGarmin({} as never, WEEK, undefined, '2026-10-12');
+
+    expect(result.copies).toBe(1);
+  });
+
+  it('nazwa treningu też chroni przed dublem, nie tylko numer', async () => {
+    // Dwie kopie w bibliotece pod jedną nazwą: wpis w kalendarzu wskazuje na tę, której
+    // akurat nie nadpisaliśmy, więc po samym numerze wyglądałby na nieistniejący.
+    mockScheduleIdIn.mockImplementation((_items, _workoutId, _date, title) =>
+      title === 'Trening 1' ? 555 : null,
+    );
+
+    const result = await sendToGarmin({} as never, WEEK, undefined, '2026-10-12');
+
+    expect(result).toMatchObject({ sent: 2, adopted: 1 });
   });
 
   it('melduje postęp po każdym treningu', async () => {
