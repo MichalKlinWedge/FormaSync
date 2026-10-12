@@ -19,6 +19,14 @@
       },
       "channel": "preview"
     },
+    "friends": {
+      "autoIncrement": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "channel": "friends"
+    },
     "production": {
       "autoIncrement": true,
       "channel": "production"

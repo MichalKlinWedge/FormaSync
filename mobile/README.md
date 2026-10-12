@@ -28,6 +28,33 @@ Samodzielny plik APK do instalacji:
 npx eas-cli@latest build -p android --profile preview
 ```
 
+### Dwa kanały: mój i dla znajomych
+
+APK słucha **kanału wpisanego w profil, z którego powstał** — i tylko jego. Paczka wypchnięta na
+inną gałąź nigdy do niego nie dotrze, choć EAS zgłosi sukces. Na tym stoi cały podział:
+
+| Profil | Kanał | Dla kogo | Czym dostaje aktualizacje |
+| --- | --- | --- | --- |
+| `preview` | `preview` | ja | `npm run ota` |
+| `friends` | `friends` | znajomi | `npm run ota:friends` |
+
+APK dla znajomych buduje się raz i rozdaje linkiem:
+
+```bash
+npx eas-cli@latest build -p android --profile friends
+```
+
+Dzięki temu `npm run ota` wysyła paczkę **wyłącznie na mój telefon**. Robota w toku, w której
+jeszcze coś nie działa, nie ma jak trafić do kogoś, kto akurat jest w połowie treningu. Do
+znajomych idzie tylko to, co sam tam wypchnę osobnym poleceniem — i wtedy świadomie.
+
+Gałąź jest w obu skryptach wpisana na stałe, a nie podawana z palca: pomyłka w tym jednym słowie
+to cicha wysyłka do złej grupy, o której EAS powie „sukces”. Lista kanałów i ich gałęzi:
+
+```bash
+npx eas-cli@latest channel:list
+```
+
 ### Aktualizacje OTA
 
 Zmiany wyłącznie w JavaScripcie (ekrany, logika, dane startowe) idą na telefon bez nowego APK:
@@ -36,17 +63,15 @@ Zmiany wyłącznie w JavaScripcie (ekrany, logika, dane startowe) idą na telefo
 npm run ota -- --message "Co się zmieniło"
 ```
 
-Zainstalowany APK z profilu `preview` słucha **kanału `preview`** i tylko tego kanału —
-paczka wypchnięta na inną gałąź nigdy do niego nie dotrze, choć EAS zgłosi sukces. Dlatego gałąź
-jest wpisana na stałe w `npm run ota`, a nie podawana z palca. Lista kanałów i ich gałęzi:
-
-```bash
-npx eas-cli@latest channel:list
-```
-
 Aplikacja sprawdza serwer przy starcie i instaluje paczkę przy następnym uruchomieniu, więc nowa
 wersja pojawia się za drugim razem. **Ustawienia → Sprawdź aktualizację** robi to od razu, a linijka
 nad przyciskiem mówi, która paczka właśnie działa.
+
+Paczka dociera tylko do APK o **tej samej wersji aplikacji** — `runtimeVersion` ma politykę
+`appVersion`. Podbicie `version` w `app.json` odcina więc od aktualizacji wszystkie wcześniejsze
+instalacje, a przy dwóch grupach odbiorców boli to podwójnie: swój telefon zaktualizujesz od
+razu, a znajomym trzeba rozdać nowy APK, bo do starego nic już nie dojdzie. Dlatego wersję podbija
+się wtedy, gdy i tak idzie nowy plik — nie po drodze.
 
 ## Baza danych
 

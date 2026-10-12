@@ -68,7 +68,8 @@
     "test": "jest",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "ota": "npx eas-cli@latest update --branch preview --environment preview --platform android"
+    "ota": "npx eas-cli@latest update --branch preview --environment preview --platform android",
+    "ota:friends": "npx eas-cli@latest update --branch friends --environment preview --platform android"
   },
   "private": true
 }
