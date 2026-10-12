@@ -45,6 +45,18 @@ function misconfigured(string $detail)
     respond(500, ['error' => 'Skrytka jest nieskonfigurowana — szczegół w logu serwera.']);
 }
 
+/**
+ * Siatka pod każdym zapytaniem do bazy. Bez niej błąd SQL-a (choćby brak kolumny po
+ * niewykonanej migracji) wychodził gołym pięćsetnym z serwera WWW: aplikacja pokazywała
+ * „kod 500” i nic więcej, a treść wyjątku trafiała tam, gdzie akurat celuje `display_errors`.
+ * Teraz szczegół idzie wyłącznie do logu, a telefon dostaje zdanie, od którego da się zacząć
+ * szukanie.
+ */
+set_exception_handler(static function ($error) {
+    error_log('FormaSync backup: ' . $error->getMessage());
+    respond(500, ['error' => 'Serwer nie obsłużył żądania — szczegół w logu serwera.']);
+});
+
 // HTTPS jest warunkiem, a nie zaleceniem: po HTTP token leci otwartym tekstem.
 $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
     || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
