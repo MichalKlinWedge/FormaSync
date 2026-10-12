@@ -42,7 +42,14 @@ export default function PrivacyScreen() {
             Gemini przy kaloriach — jeśli opiszesz posiłek słowami i dotkniesz „Oszacuj”, do Google
             leci sam ten opis i prośba o wartości odżywcze. Nie idą z nim ani pozostałe posiłki, ani
             masa ciała, ani cel diety. Całe liczenie kalorii działa bez tego — opis słowami jest
-            jedną z trzech dróg, obok bazy produktów i wpisu z ręki.
+            jedną z czterech dróg, obok bazy produktów, kodu kreskowego i wpisu z ręki.
+          </Bullet>
+          <Bullet>
+            Zdjęcie posiłku — jeśli dołączysz je do opisu, pojedzie do Google razem z nim, jako
+            jedno zdjęcie wybrane przez Ciebie i dopiero po dotknięciu „Oszacuj”. Przed wysłaniem
+            kadrujesz je sam, więc w kadrze może zostać sam talerz. Zdjęcie nie jest nigdzie
+            zapisywane: nie trafia do bazy produktów, do historii dnia ani do kopii zapasowej —
+            znika razem z ekranem, a zostają same liczby.
           </Bullet>
           <Bullet>
             Open Food Facts — przy skanowaniu kodu kreskowego do tej otwartej bazy produktów leci sam

@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native';
@@ -18,6 +19,7 @@ import { AMOUNT_UNITS, type FoodDraft, nutrientsFor, referenceAmount } from '@/f
 import { saveFood } from '@/features/nutrition/food-repository';
 import { formatGrams, formatKcal } from '@/features/nutrition/format';
 import { MEAL_LABELS, mealByHour } from '@/features/nutrition/meal';
+import { type MealPhoto, PhotoError, pickMealPhoto, takeMealPhoto } from '@/features/nutrition/photo';
 import { logFoodMeal, MealError } from '@/features/nutrition/repository';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -36,6 +38,8 @@ export default function DescribeMealScreen() {
   const [description, setDescription] = useState('');
   const [busy, setBusy] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
+  // Zdjęcie żyje tylko tutaj: nigdzie go nie zapisujemy i znika razem z tym ekranem.
+  const [photo, setPhoto] = useState<MealPhoto | null>(null);
   const [draft, setDraft] = useState<FoodDraft | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
@@ -44,14 +48,26 @@ export default function DescribeMealScreen() {
   const patch = (change: Partial<FoodDraft>) =>
     setDraft((current) => (current === null ? current : { ...current, ...change }));
 
+  const attach = async (take: boolean) => {
+    try {
+      const picked = take ? await takeMealPhoto() : await pickMealPhoto();
+      if (picked !== null) setPhoto(picked);
+    } catch (e) {
+      Alert.alert('Nie udało się dodać zdjęcia', e instanceof PhotoError ? e.message : 'Nieznany błąd.');
+    }
+  };
+
   const estimate = async () => {
-    if (description.trim() === '') {
-      Alert.alert('Napisz, co zjadłeś', 'Na przykład: dwa jajka, kromka chleba z masłem, kawa z mlekiem.');
+    if (description.trim() === '' && photo === null) {
+      Alert.alert(
+        'Napisz albo pokaż, co zjadłeś',
+        'Na przykład: dwa jajka, kromka chleba z masłem, kawa z mlekiem. Samo zdjęcie też wystarczy.',
+      );
       return;
     }
     setBusy(true);
     try {
-      const reply = await askGemini(buildFoodPrompt(description));
+      const reply = await askGemini(buildFoodPrompt(description, { photo: photo !== null }), photo);
       const result = parseFoodReply(reply, description);
       setDraft(result.draft);
       setNote(result.note);
@@ -132,9 +148,46 @@ export default function DescribeMealScreen() {
             ile łyżek. Model nie waży jedzenia, tylko zgaduje typowe wielkości — jego liczby są
             punktem wyjścia do poprawienia, nie pomiarem.
           </ThemedText>
+          {photo === null ? (
+            <View style={styles.row}>
+              <View style={styles.cell}>
+                <Button
+                  label="Zrób zdjęcie"
+                  icon="photo_camera"
+                  variant="secondary"
+                  onPress={() => void attach(true)}
+                />
+              </View>
+              <View style={styles.cell}>
+                <Button
+                  label="Z galerii"
+                  icon="image"
+                  variant="secondary"
+                  onPress={() => void attach(false)}
+                />
+              </View>
+            </View>
+          ) : (
+            <View style={styles.photoRow}>
+              <Image source={{ uri: photo.uri }} style={styles.photo} contentFit="cover" />
+              <View style={styles.photoText}>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Zdjęcie pojedzie razem z opisem. Po zapisaniu posiłku znika — do bazy trafiają
+                  same liczby.
+                </ThemedText>
+                <Button
+                  label="Usuń zdjęcie"
+                  icon="delete"
+                  variant="secondary"
+                  onPress={() => setPhoto(null)}
+                />
+              </View>
+            </View>
+          )}
           <ThemedText type="small" themeColor="textSecondary">
-            Do Google pojedzie sam ten opis i prośba o wartości. Nic więcej z aplikacji — ani masa
-            ciała, ani treningi, ani pozostałe posiłki.
+            {photo === null
+              ? 'Do Google pojedzie sam ten opis i prośba o wartości. Nic więcej z aplikacji — ani masa ciała, ani treningi, ani pozostałe posiłki.'
+              : 'Do Google pojedzie ten opis i to jedno zdjęcie. Nic więcej z aplikacji — ani masa ciała, ani treningi, ani pozostałe posiłki. Kadrowanie przed wysłaniem pozwala zostawić w kadrze sam talerz.'}
           </ThemedText>
           <Button
             label={showPrompt ? 'Ukryj polecenie' : 'Pokaż, co pojedzie do Google'}
@@ -144,7 +197,7 @@ export default function DescribeMealScreen() {
           />
           {showPrompt && (
             <ThemedText type="small" selectable style={styles.prompt}>
-              {buildFoodPrompt(description)}
+              {buildFoodPrompt(description, { photo: photo !== null })}
             </ThemedText>
           )}
           <Button
@@ -295,6 +348,9 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: Spacing.two, alignItems: 'flex-end' },
   cell: { flex: 1, gap: Spacing.half },
   busy: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  photoRow: { flexDirection: 'row', gap: Spacing.three, alignItems: 'flex-start' },
+  photo: { width: 96, height: 96, borderRadius: 12 },
+  photoText: { flex: 1, gap: Spacing.two },
   prompt: { fontFamily: 'monospace', lineHeight: 18 },
   input: {
     borderRadius: 12,

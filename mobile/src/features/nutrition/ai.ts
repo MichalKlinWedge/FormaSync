@@ -25,7 +25,23 @@ const MAX_MACRO_PER_100G = 100;
 const NAME_LIMIT = 80;
 const NOTE_LIMIT = 240;
 
-export function buildFoodPrompt(description: string): string {
+export type PromptOptions = {
+  /** Czy do zapytania idzie zdjęcie — wtedy model dostaje osobne zasady, jak je czytać. */
+  photo?: boolean;
+};
+
+export function buildFoodPrompt(description: string, options: PromptOptions = {}): string {
+  const photoRules = options.photo
+    ? [
+        '- Na zdjęciu jest to samo jedzenie. Po nim rozpoznaj składniki; opis mówi o ilości.',
+        '- Wielkość porcji oceniaj po tym, co widać obok jedzenia: sztućcu, talerzu, dłoni,'
+          + ' opakowaniu. Gdy nie ma się do czego przyłożyć, napisz w "note", jaką porcję przyjąłeś.',
+        '- Nie zgaduj tego, czego na zdjęciu nie widać — oleju ze smażenia, cukru w sosie, masła'
+          + ' pod spodem — chyba że mówi o tym opis.',
+        '- Gdy zdjęcie kłóci się z opisem, trzymaj się opisu i napisz o tym w "note".',
+      ]
+    : [];
+
   return [
     'Jesteś tablicą wartości odżywczych. Oszacuj kalorie i makroskładniki opisanego jedzenia.',
     '',
@@ -51,6 +67,7 @@ export function buildFoodPrompt(description: string): string {
     '- Nie dokładaj składników, których w opisie nie ma. Przy wątpliwości bierz wielkości typowe'
       + ' dla polskiej kuchni.',
     '- Makroskładniki mają trzymać się kalorii: białko i węglowodany po 4 kcal na gram, tłuszcz 9.',
+    ...photoRules,
   ].join('\n');
 }
 

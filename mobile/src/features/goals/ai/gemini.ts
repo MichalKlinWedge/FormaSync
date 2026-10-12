@@ -4,6 +4,7 @@ import type { GoalBrief, PlannedWeek } from '../planner';
 import { EMPTY_CONTEXT, type PromptContext } from './context';
 import { isModelName, parseModelList, type GeminiModel, type ModelListReply } from './models';
 import { buildPrompt, parsePlanReply, PlanReplyError } from './prompt';
+import { contentParts, type GeminiImage } from './request';
 import { loadApiKey, modelName } from './tokens';
 
 /**
@@ -48,8 +49,15 @@ function describeStatus(status: number, message: string | undefined): string {
   return message ?? `Gemini odrzucił zapytanie (kod ${status}).`;
 }
 
-/** Sam tekst odpowiedzi modelu. Rozbite na osobny krok, żeby dało się je przetestować bez sieci. */
-export async function askGemini(prompt: string): Promise<string> {
+export type { GeminiImage } from './request';
+
+/**
+ * Sam tekst odpowiedzi modelu. Rozbite na osobny krok, żeby dało się je przetestować bez sieci.
+ *
+ * Zdjęcie jest opcjonalne i doklejane do tej samej wiadomości — korzystają z tego kalorie, gdzie
+ * obraz mówi, *co* to jest, a tekst *ile* tego było.
+ */
+export async function askGemini(prompt: string, image?: GeminiImage | null): Promise<string> {
   const key = await loadApiKey();
   if (key === null) throw new NoApiKeyError();
 
@@ -68,7 +76,7 @@ export async function askGemini(prompt: string): Promise<string> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
+        contents: [{ parts: contentParts(prompt, image) }],
         // Prosimy o JSON wprost; sam kształt opisuje polecenie, bo schemat przyjmowany przez
         // Gemini to osobna składnia, a jeden błąd w niej wywraca całe zapytanie.
         generationConfig: { responseMimeType: 'application/json', temperature: 0.4 },

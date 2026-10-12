@@ -27,6 +27,23 @@ describe('buildFoodPrompt', () => {
   });
 });
 
+describe('buildFoodPrompt ze zdjęciem', () => {
+  it('bez zdjęcia nie mówi o zdjęciu ani słowem', () => {
+    const prompt = buildFoodPrompt('owsianka z bananem');
+    expect(prompt).not.toMatch(/zdjęci/i);
+  });
+
+  it('ze zdjęciem rozdziela role: obraz mówi co, opis ile', () => {
+    const prompt = buildFoodPrompt('duża miska', { photo: true });
+    expect(prompt).toContain('duża miska');
+    expect(prompt).toContain('Po nim rozpoznaj składniki; opis mówi o ilości.');
+    expect(prompt).toContain('Wielkość porcji oceniaj po tym, co widać obok jedzenia');
+    // Oleju i cukru nie widać na zdjęciu — model ma ich nie dokładać z wyobraźni.
+    expect(prompt).toContain('Nie zgaduj tego, czego na zdjęciu nie widać');
+    expect(prompt).toContain('trzymaj się opisu');
+  });
+});
+
 describe('parseFoodReply', () => {
   it('czyta wersję roboczą produktu', () => {
     const estimate = parseFoodReply(reply());
