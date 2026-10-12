@@ -21,4 +21,5 @@ System wspomagania treningu siłowego z integracją Garmin.
 - [x] Etap 10 — analityka (tonaż, progresja, 1RM, rekordy, pomiary ciała)
 - [x] Etap 11 — RPE i auto-progresja (ocena serii, kalkulator 1RM, sugestie ciężaru)
 - [x] Wielosportowość — siła, bieganie, rower i pływanie: osobny model treningu wytrzymałościowego (odcinki, interwały, cel tempa i tętna), wspólny kalendarz z zawężaniem, wysyłka na zegarek (plan: PLAN_WIELOSPORT.md)
+- [x] Skrytka na kopie dla wielu osób — jedna instalacja `server/`, osobna półka na właściciela: token na osobę, limity liczone każdemu z osobna, cudzych kopii nie widać i nie da się ich nadpisać. Do tego rejestracja adresem e-mail (opcjonalna): token przychodzi sam, a ponowna rejestracja odzyskuje go po zmianie telefonu — nigdy hasło do kopii. Szczegóły w [server/README.md](server/README.md)
 - [ ] Etap 12 — stabilizacja i wydanie (kopia zapasowa i polityka prywatności gotowe; zostają testy na urządzeniu i wydanie)
