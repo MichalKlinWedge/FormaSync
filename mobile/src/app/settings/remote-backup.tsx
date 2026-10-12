@@ -22,12 +22,15 @@ import { checkAddress, listRemoteBackups, type RemoteBackup } from '@/features/b
 import {
   forgetRemote,
   getAddress,
+  getEmail,
   getLastBackupAt,
   getPassword,
+  getPending,
   setAddress,
   setPassword,
   setToken,
 } from '@/features/backup/remote-config';
+import { finishRegistration, startRegistration } from '@/features/backup/registration';
 import { syncWorkoutReminders } from '@/features/calendar/reminders';
 import { findActiveSessionId } from '@/features/workout/repository';
 import { useTheme } from '@/hooks/use-theme';
@@ -38,6 +41,10 @@ import { formatNumber } from '@/lib/number';
  * Skrytka na kopie zapasowe: adres własnego serwera, token i hasło, którym zamykamy kopię.
  * Hasło prosi o osobny ekran z tego samego powodu co logowanie do Garmina — pole na hasło nie
  * ma czego szukać pośrodku listy ustawień.
+ *
+ * Dwie drogi do półki na serwerze. Albo administrator dał Ci gotowy token, albo rejestrujesz się
+ * adresem e-mail i token przychodzi sam. Pierwsza jest krótsza, druga nie wymaga, żeby ktoś
+ * przepisywał sekrety ręcznie — i tylko ona pozwala odzyskać dostęp po zmianie telefonu.
  */
 export default function RemoteBackupScreen() {
   const theme = useTheme();
@@ -50,6 +57,11 @@ export default function RemoteBackupScreen() {
   const [busy, setBusy] = useState<null | string>(null);
   const [copies, setCopies] = useState<RemoteBackup[] | null>(null);
   const [restorePassword, setRestorePassword] = useState('');
+  const [mode, setMode] = useState<'token' | 'email'>('token');
+  const [email, setEmailText] = useState('');
+  const [invite, setInviteText] = useState('');
+  const [pending, setPendingState] = useState(() => getPending());
+  const [owner, setOwner] = useState(() => getEmail());
 
   const field = [
     styles.input,
@@ -59,15 +71,21 @@ export default function RemoteBackupScreen() {
   const fail = (title: string, error: unknown) =>
     Alert.alert(title, error instanceof Error ? error.message : 'Nieznany błąd.');
 
-  const connect = async () => {
+  /** Hasło sprawdzamy w jednym miejscu, bo obie drogi do skrytki zaczynają się od niego. */
+  const passwordAccepted = (): boolean => {
     if (password !== repeated) {
       Alert.alert('Hasła się różnią', 'Wpisz to samo hasło dwa razy — przy literówce kopie byłyby nie do odczytania.');
-      return;
+      return false;
     }
     if (password.length < 8) {
       Alert.alert('Za krótkie hasło', 'Hasło chroni wszystkie kopie na serwerze. Daj mu przynajmniej 8 znaków.');
-      return;
+      return false;
     }
+    return true;
+  };
+
+  const connect = async () => {
+    if (!passwordAccepted()) return;
     setBusy('Sprawdzam połączenie…');
     try {
       const checked = checkAddress(address);
@@ -91,6 +109,74 @@ export default function RemoteBackupScreen() {
       setBusy(null);
     }
   };
+
+  /**
+   * Hasło zapisujemy już tutaj, przed potwierdzeniem adresu. Rejestracja przerywa się na czas
+   * nieokreślony — list bywa czytany nazajutrz, często na innym urządzeniu — a druga wizyta na
+   * tym ekranie nie ma prawa pytać o hasło ponownie: wpisane drugi raz z pamięci bywa inne,
+   * a wtedy kopie zamknęłyby się czymś, czego nikt już nie odtworzy.
+   */
+  const register = async () => {
+    if (!passwordAccepted()) return;
+    setBusy('Zgłaszam adres…');
+    try {
+      await setPassword(password);
+      const hours = await startRegistration({ address, inviteToken: invite, email });
+      setPendingState(getPending());
+      setPasswordText('');
+      setRepeated('');
+      setInviteText('');
+      Alert.alert(
+        'List w drodze',
+        `Otwórz link z wiadomości na ${email.trim().toLowerCase()} — jest ważny ${hours} h — a potem wróć tutaj i naciśnij „Dokończ rejestrację”.`,
+      );
+    } catch (error) {
+      fail('Nie udało się zgłosić adresu', error);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const finish = async () => {
+    setBusy('Sprawdzam potwierdzenie…');
+    try {
+      if ((await finishRegistration()) === 'pending') {
+        Alert.alert(
+          'Adres jeszcze niepotwierdzony',
+          'Otwórz link z wiadomości, a potem naciśnij ten przycisk jeszcze raz. Zajrzyj też do spamu — to pierwszy list z tego serwera, więc najłatwiej tam trafia.',
+        );
+        return;
+      }
+      setPendingState(null);
+      setOwner(getEmail());
+      setAddressText(getAddress() ?? '');
+      setConfigured(true);
+      Alert.alert(
+        'Skrytka podłączona',
+        'Kopia poleci teraz i potem raz na dobę przy uruchomieniu aplikacji. Zapisz hasło poza telefonem — adres e-mail odzyska token, ale hasła nie odzyska nic.',
+      );
+    } catch (error) {
+      fail('Nie udało się dokończyć rejestracji', error);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const abandon = () =>
+    Alert.alert(
+      'Przerwać rejestrację?',
+      'Zgłoszenie na serwerze zostanie bez odbioru i wygaśnie samo. Możesz zacząć od nowa, kiedy chcesz.',
+      [
+        { text: 'Anuluj', style: 'cancel' },
+        {
+          text: 'Przerwij',
+          style: 'destructive',
+          onPress: () => {
+            void forgetRemote().then(() => setPendingState(null));
+          },
+        },
+      ],
+    );
 
   const sendNow = async () => {
     setBusy('Szyfruję i wysyłam… to potrwa kilkanaście sekund.');
@@ -182,6 +268,8 @@ export default function RemoteBackupScreen() {
               setAddressText('');
               setLastAt(null);
               setCopies(null);
+              setOwner(null);
+              setPendingState(null);
             });
           },
         },
@@ -192,12 +280,54 @@ export default function RemoteBackupScreen() {
     <KeyboardAvoidingView behavior="padding" style={styles.flex}>
       <ThemedView style={styles.flex}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          {!configured ? (
+          {!configured && pending !== null ? (
+            <>
+              <ThemedView type="backgroundElement" style={styles.card}>
+                <ThemedText type="smallBold">Potwierdź adres {pending.email}</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Poszedł tam list z linkiem. Otwórz go — choćby na komputerze — i wróć tutaj.
+                </ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Tokena w tym liście nie ma i być nie może: poczta zostaje w skrzynce na lata.
+                  Token odbierze wyłącznie ten telefon, bo tylko on zna sekret rejestracji.
+                </ThemedText>
+              </ThemedView>
+
+              <Button
+                label="Dokończ rejestrację"
+                icon="check"
+                onPress={() => void finish()}
+                disabled={busy !== null}
+              />
+              <Button
+                label="Przerwij rejestrację"
+                icon="close"
+                variant="secondary"
+                onPress={abandon}
+                disabled={busy !== null}
+              />
+            </>
+          ) : !configured ? (
             <>
               <ThemedText type="small" themeColor="textSecondary">
                 Kopia całej bazy leci raz na dobę na Twój serwer — zaszyfrowana hasłem, którego
                 serwer nie zna. Na serwerze musi stać plik backup.php z katalogu server
-                w repozytorium; adres i token znajdziesz w jego konfiguracji.
+                w repozytorium.
+              </ThemedText>
+
+              <View style={styles.chips}>
+                <Chip label="Mam token" selected={mode === 'token'} onPress={() => setMode('token')} />
+                <Chip
+                  label="Zarejestruj e-mailem"
+                  selected={mode === 'email'}
+                  onPress={() => setMode('email')}
+                />
+              </View>
+
+              <ThemedText type="small" themeColor="textSecondary">
+                {mode === 'token'
+                  ? 'Token właściciela wpisany w config.php na serwerze. Najkrótsza droga, jeśli serwer jest Twój.'
+                  : 'Na podany adres przyjdzie list z linkiem; token przyjdzie sam i to jedyny sposób odzyskania dostępu po zmianie telefonu. Token zaproszenia dostajesz od administratora skrytki.'}
               </ThemedText>
 
               <Field label="ADRES SKRYTKI">
@@ -213,17 +343,46 @@ export default function RemoteBackupScreen() {
                 />
               </Field>
 
-              <Field label="TOKEN Z CONFIG.PHP">
-                <TextInput
-                  value={token}
-                  onChangeText={setTokenText}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  secureTextEntry
-                  placeholderTextColor={theme.textSecondary}
-                  style={field}
-                />
-              </Field>
+              {mode === 'token' ? (
+                <Field label="TOKEN Z CONFIG.PHP">
+                  <TextInput
+                    value={token}
+                    onChangeText={setTokenText}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    secureTextEntry
+                    placeholderTextColor={theme.textSecondary}
+                    style={field}
+                  />
+                </Field>
+              ) : (
+                <>
+                  <Field label="ADRES E-MAIL">
+                    <TextInput
+                      value={email}
+                      onChangeText={setEmailText}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      keyboardType="email-address"
+                      placeholder="ty@przyklad.pl"
+                      placeholderTextColor={theme.textSecondary}
+                      style={field}
+                    />
+                  </Field>
+
+                  <Field label="TOKEN ZAPROSZENIA">
+                    <TextInput
+                      value={invite}
+                      onChangeText={setInviteText}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      secureTextEntry
+                      placeholderTextColor={theme.textSecondary}
+                      style={field}
+                    />
+                  </Field>
+                </>
+              )}
 
               <Field label="HASŁO DO SZYFROWANIA KOPII">
                 <TextInput
@@ -255,14 +414,38 @@ export default function RemoteBackupScreen() {
                   Tylko ono otwiera kopie. Nie mam żadnej furtki — każda działałaby też dla kogoś
                   obcego. Zgubione hasło to utracone kopie.
                 </ThemedText>
+                {mode === 'email' && (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Rejestracja adresem nic tu nie zmienia: e-mail odzyskuje token, czyli dostęp
+                    do półki na serwerze. Hasła nie odzyskuje — leżące tam koperty otwiera
+                    wyłącznie ono.
+                  </ThemedText>
+                )}
               </ThemedView>
 
-              <Button
-                label="Podłącz skrytkę"
-                icon="cloud_upload"
-                onPress={() => void connect()}
-                disabled={busy !== null || address.trim() === '' || token.trim() === '' || password === ''}
-              />
+              {mode === 'token' ? (
+                <Button
+                  label="Podłącz skrytkę"
+                  icon="cloud_upload"
+                  onPress={() => void connect()}
+                  disabled={
+                    busy !== null || address.trim() === '' || token.trim() === '' || password === ''
+                  }
+                />
+              ) : (
+                <Button
+                  label="Zgłoś adres i wyślij list"
+                  icon="mail"
+                  onPress={() => void register()}
+                  disabled={
+                    busy !== null ||
+                    address.trim() === '' ||
+                    email.trim() === '' ||
+                    invite.trim() === '' ||
+                    password === ''
+                  }
+                />
+              )}
             </>
           ) : (
             <>
@@ -271,6 +454,13 @@ export default function RemoteBackupScreen() {
                 <ThemedText type="small" themeColor="textSecondary">
                   {address}
                 </ThemedText>
+                {owner !== null && (
+                  // Adres mówi, czyja to półka, i którym adresem odzyskać token po zmianie
+                  // telefonu. Bez tej linijki trzeba by go zgadywać.
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Zarejestrowana na {owner}.
+                  </ThemedText>
+                )}
                 <ThemedText type="small" themeColor="textSecondary">
                   {lastAt === null
                     ? 'Jeszcze nie wysłano żadnej kopii.'

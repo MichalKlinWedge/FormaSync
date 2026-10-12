@@ -108,6 +108,12 @@ export default function PrivacyScreen() {
             Kopia wysyłana na Twój serwer jest zaszyfrowana hasłem znanym tylko Tobie i temu telefonowi.
             Hasła nie da się odzyskać — bez niego kopie są bezużyteczne także dla Ciebie.
           </Paragraph>
+          <Paragraph>
+            Jeśli rejestrujesz skrytkę adresem e-mail, ten adres zostaje na serwerze — jako etykieta
+            Twojej półki i jedyny sposób odzyskania dostępu po zmianie telefonu. Serwer nie wysyła go
+            nikomu dalej i nie używa do niczego innego niż ten jeden list z potwierdzeniem. Rejestracja
+            jest dobrowolna: z gotowym tokenem od administratora skrytka działa bez podawania adresu.
+          </Paragraph>
         </Section>
 
         <Section title="Usunięcie danych">

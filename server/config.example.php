@@ -22,6 +22,30 @@ return [
         // 'anna' => 'TOKEN_ANNY',
     ],
 
+    /**
+     * Rejestracja adresem e-mail. Pusty łańcuch ją **wyłącza** — wtedy skrytka nie zna żadnego
+     * adresu e-mail i nie wysyła poczty, a właścicieli dopisujesz wyłącznie wyżej, ręcznie.
+     *
+     * Token zaproszenia jest wspólny i służy do jednego: żeby rejestracji nie mógł rozpocząć
+     * każdy, kto zna adres skrytki. Rozdajesz go osobom, które zapraszasz, a gdy przestajesz
+     * zapraszać — zmieniasz. Wymiana nie rusza nikogo, kto już się zarejestrował.
+     */
+    'invite_token' => '',
+
+    // Pełny adres https do tego pliku. Z niego powstaje link w liście z potwierdzeniem, więc
+    // nie da się go wziąć z samego żądania: za proxy adres bywa inny, niż widzi PHP.
+    'confirm_url' => 'https://twojserwer.pl/formasync/backup.php',
+
+    // Nadawca potwierdzeń. Najlepiej adres w domenie serwera — list z obcej domeny trafia
+    // do spamu albo nie wychodzi wcale.
+    'mail_from' => 'formasync@twojserwer.pl',
+
+    // Ile godzin ważny jest link z potwierdzeniem.
+    'registration_hours' => 24,
+
+    // Bezpiecznik na wypadek wycieku tokena zaproszenia: skrytka nie ma być armatą do spamu.
+    'max_registrations_per_hour' => 20,
+
     'db_host' => 'localhost',
     'db_name' => 'formasync',
     'db_user' => 'formasync',

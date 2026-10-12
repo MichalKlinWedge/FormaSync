@@ -45,20 +45,24 @@ async function call(
   } catch {
     throw new RemoteBackupError('Nie udało się połączyć z serwerem. Sprawdź adres i internet.');
   }
-  if (response.status === 401) throw new RemoteBackupError('Serwer odrzucił token.');
+  // Przy 401 pytamy serwer o powód, bo odrzucony token właściciela i odrzucony token
+  // zaproszenia to dwie różne pomyłki z dwiema różnymi radami.
+  if (response.status === 401) {
+    throw new RemoteBackupError(await describeFailure(response, 'Serwer odrzucił token.'));
+  }
   if (!response.ok) throw new RemoteBackupError(await describeFailure(response));
   return response;
 }
 
 /** Serwer tłumaczy swoje odmowy po polsku; gdy odpowie czymś innym, zostaje sam kod. */
-async function describeFailure(response: Response): Promise<string> {
+async function describeFailure(response: Response, fallback?: string): Promise<string> {
   try {
     const body = (await response.json()) as { error?: unknown };
     if (typeof body.error === 'string' && body.error !== '') return body.error;
   } catch {
     // Odpowiedź bez JSON-a to zwykle strona błędu serwera WWW — nie ma z niej czego czytać.
   }
-  return `Serwer odpowiedział błędem (kod ${response.status}).`;
+  return fallback ?? `Serwer odpowiedział błędem (kod ${response.status}).`;
 }
 
 export async function uploadBackup(
@@ -74,6 +78,44 @@ export async function listRemoteBackups(connection: RemoteConnection): Promise<R
   const body = (await response.json()) as { backups?: unknown };
   if (!Array.isArray(body.backups)) throw new RemoteBackupError('Serwer odpowiedział nie tym, czym trzeba.');
   return body.backups as RemoteBackup[];
+}
+
+/**
+ * Zgłasza adres e-mail do rejestracji. Jedzie tu **hasz** sekretu telefonu, nie sam sekret:
+ * dzięki temu wyciek tabeli zgłoszeń na serwerze nie pozwala dokończyć cudzej rejestracji.
+ *
+ * Token zaproszenia podaje się jako `connection.token` — to jedyne żądanie, które go używa.
+ */
+export async function registerOwner(
+  connection: RemoteConnection,
+  email: string,
+  claimHash: string,
+): Promise<{ hours: number }> {
+  const response = await call(connection, '?register=1', {
+    method: 'POST',
+    body: JSON.stringify({ email, claimHash }),
+  });
+  const body = (await response.json()) as { hours?: unknown };
+  return { hours: typeof body.hours === 'number' && body.hours > 0 ? body.hours : 24 };
+}
+
+export type ClaimResult = { status: 'pending' } | { status: 'ready'; token: string };
+
+/**
+ * Odbiera token po potwierdzeniu adresu. Sekret telefonu jest tu jedynym poświadczeniem i to
+ * wystarcza: serwer wydaje token wyłącznie temu, kto zaczął rejestrację, i wydaje go raz.
+ */
+export async function claimOwnerToken(address: string, claim: string): Promise<ClaimResult> {
+  const response = await call({ address, token: '' }, '?claim=1', {
+    method: 'POST',
+    body: JSON.stringify({ claim }),
+  });
+  if (response.status === 202) return { status: 'pending' };
+  const body = (await response.json()) as { token?: unknown };
+  if (typeof body.token !== 'string' || body.token === '') {
+    throw new RemoteBackupError('Serwer nie oddał tokena. Zarejestruj adres jeszcze raz.');
+  }
+  return { status: 'ready', token: body.token };
 }
 
 /** Pobiera kopertę. Rozpakowanie hasłem jest osobnym krokiem — tu jest tylko transport. */
