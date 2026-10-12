@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, isNotNull, lte, ne } from 'drizzle-orm';
 
 import * as schema from '@/db/schema';
 import type { SyncDb } from '@/db/types';
@@ -234,11 +234,60 @@ export function logMealAsFood(
 }
 
 /**
- * Kalorie dzisiejszych zakończonych treningów. Dzień bierzemy z początku treningu i w strefie
+ * Dzienne sumy jedzenia w zakresie dni. Jeden przebieg po wpisach zamiast pytania o każdy dzień
+ * z osobna — statystyki patrzą na dwa tygodnie naraz.
+ *
+ * W wyniku są tylko dni, które mają choć jeden wpis. Dzień bez wpisu nie jest dniem o zerowym
+ * spożyciu, tylko dniem, o którym nic nie wiadomo, i to rozróżnienie musi przeżyć aż do wykresu.
+ */
+export type DayTotalsRow = { dayKey: string; kcal: number; proteinG: number; meals: number };
+
+export function dayTotalsRange(db: SyncDb, fromKey: string, toKey: string): DayTotalsRow[] {
+  const rows = db
+    .select({
+      dayKey: schema.mealLogs.dayKey,
+      kcal: schema.mealLogs.kcal,
+      proteinG: schema.mealLogs.proteinG,
+    })
+    .from(schema.mealLogs)
+    .where(and(gte(schema.mealLogs.dayKey, fromKey), lte(schema.mealLogs.dayKey, toKey)))
+    .all();
+
+  const byDay = new Map<string, DayTotalsRow>();
+  for (const row of rows) {
+    const day = byDay.get(row.dayKey) ?? { dayKey: row.dayKey, kcal: 0, proteinG: 0, meals: 0 };
+    day.kcal += row.kcal;
+    day.proteinG += row.proteinG ?? 0;
+    day.meals += 1;
+    byDay.set(row.dayKey, day);
+  }
+  return [...byDay.values()].sort((a, b) => a.dayKey.localeCompare(b.dayKey));
+}
+
+/** Pomiary masy ciała od danego dnia, od najstarszego — po nich liczy się trend. */
+export function weightPointsSince(db: SyncDb, fromKey: string): { dayKey: string; weightKg: number }[] {
+  return db
+    .select({ dayKey: schema.bodyMeasurements.measuredOn, weightKg: schema.bodyMeasurements.weightKg })
+    .from(schema.bodyMeasurements)
+    .where(
+      and(isNotNull(schema.bodyMeasurements.weightKg), gte(schema.bodyMeasurements.measuredOn, fromKey)),
+    )
+    .orderBy(asc(schema.bodyMeasurements.measuredOn))
+    .all()
+    .map((row) => ({ dayKey: row.dayKey, weightKg: row.weightKg as number }));
+}
+
+/**
+ * Kalorie zakończonych treningów dzień po dniu. Dzień bierzemy z początku treningu i w strefie
  * telefonu — bieg o 22:30 należy do dnia, w którym się odbył.
  */
-export function trainingKcalOn(db: SyncDb, dayKey: string, weightKg: number | null): number {
-  if (weightKg === null || weightKg <= 0) return 0;
+export function trainingKcalRange(
+  db: SyncDb,
+  fromKey: string,
+  toKey: string,
+  weightKg: number | null,
+): Record<string, number> {
+  if (weightKg === null || weightKg <= 0) return {};
 
   const sessions = db
     .select({
@@ -252,20 +301,26 @@ export function trainingKcalOn(db: SyncDb, dayKey: string, weightKg: number | nu
       and(
         ne(schema.workoutSessions.status, 'IN_PROGRESS'),
         // Dzień wcześniej w zapasie: klucz dnia liczymy lokalnie, a `start_time` jest w UTC.
-        gte(schema.workoutSessions.startTime, addDays(dayKey, -1)),
+        gte(schema.workoutSessions.startTime, addDays(fromKey, -1)),
       ),
     )
     .all();
 
-  let kcal = 0;
+  const byDay: Record<string, number> = {};
   for (const session of sessions) {
-    if (toDateKey(new Date(session.startTime)) !== dayKey) continue;
+    const key = toDateKey(new Date(session.startTime));
+    if (key < fromKey || key > toKey) continue;
     const seconds =
       session.totalDurationSeconds ??
       (session.endTime === null
         ? 0
         : Math.max(0, Math.round((Date.parse(session.endTime) - Date.parse(session.startTime)) / 1000)));
-    kcal += trainingBurn(session.sport, seconds, weightKg);
+    byDay[key] = (byDay[key] ?? 0) + trainingBurn(session.sport, seconds, weightKg);
   }
-  return kcal;
+  return byDay;
+}
+
+/** Kalorie dzisiejszych treningów — jeden dzień z tego samego rachunku. */
+export function trainingKcalOn(db: SyncDb, dayKey: string, weightKg: number | null): number {
+  return trainingKcalRange(db, dayKey, dayKey, weightKg)[dayKey] ?? 0;
 }

@@ -3,6 +3,7 @@
  */
 import { describe, expect, it } from '@jest/globals';
 
+import { bodyMeasurements as measurements } from '@/db/schema';
 import { createTestDb } from '@/db/test-utils';
 import { finishSession, startSession } from '@/features/workout/repository';
 
@@ -10,11 +11,14 @@ import { mealByHour } from '../meal';
 import {
   dayMeals,
   dayTotals,
+  dayTotalsRange,
   logMeal,
   MealError,
   recentMeals,
   removeMeal,
   trainingKcalOn,
+  trainingKcalRange,
+  weightPointsSince,
 } from '../repository';
 
 /** Lokalna pora dnia — klucz dnia liczymy w strefie telefonu, więc testy też. */
@@ -97,6 +101,67 @@ describe('recentMeals', () => {
     logMeal(db, { meal: 'LUNCH', title: 'Jajecznica', kcal: 300 }, at(9));
     logMeal(db, { meal: 'LUNCH', title: 'JAJECZNICA', kcal: 320 }, at(10));
     expect(recentMeals(db)).toHaveLength(1);
+  });
+});
+
+describe('dayTotalsRange', () => {
+  it('sumuje dni zakresu i pomija te bez wpisów', () => {
+    const db = createTestDb();
+    logMeal(db, breakfast, new Date(2026, 9, 9, 8));
+    logMeal(db, { ...breakfast, title: 'Kanapka', kcal: 300 }, new Date(2026, 9, 9, 13));
+    logMeal(db, breakfast, new Date(2026, 9, 11, 8));
+
+    const rows = dayTotalsRange(db, '2026-10-08', '2026-10-12');
+    expect(rows).toEqual([
+      { dayKey: '2026-10-09', kcal: 720, proteinG: 36, meals: 2 },
+      { dayKey: '2026-10-11', kcal: 420, proteinG: 18, meals: 1 },
+    ]);
+  });
+
+  it('nie wychodzi poza zakres', () => {
+    const db = createTestDb();
+    logMeal(db, breakfast, new Date(2026, 9, 1, 8));
+    logMeal(db, breakfast, new Date(2026, 9, 11, 8));
+    expect(dayTotalsRange(db, '2026-10-10', '2026-10-12').map((row) => row.dayKey)).toEqual([
+      '2026-10-11',
+    ]);
+  });
+});
+
+describe('trainingKcalRange', () => {
+  it('rozkłada kalorie treningów na dni', () => {
+    const db = createTestDb({ seed: true });
+    const older = startSession(
+      db,
+      { kind: 'empty', sport: 'RUNNING' },
+      new Date(2026, 9, 9, 17).toISOString(),
+    );
+    finishSession(db, older, {}, new Date(2026, 9, 9, 18).toISOString());
+    const today = startSession(db, { kind: 'empty', sport: 'RUNNING' }, at(17).toISOString());
+    finishSession(db, today, {}, at(18).toISOString());
+
+    expect(trainingKcalRange(db, '2026-10-09', '2026-10-11', 85)).toEqual({
+      '2026-10-09': 875,
+      '2026-10-11': 875,
+    });
+    // Jeden dzień z tego samego rachunku — ekran dnia pyta właśnie tak.
+    expect(trainingKcalOn(db, '2026-10-09', 85)).toBe(875);
+  });
+});
+
+describe('weightPointsSince', () => {
+  it('bierze pomiary z masą, od najstarszego', () => {
+    const db = createTestDb();
+    db.insert(measurements).values({ measuredOn: '2026-10-01', weightKg: 85.4 }).run();
+    db.insert(measurements).values({ measuredOn: '2026-10-08', weightKg: 84.9 }).run();
+    // Pomiar bez masy (sam obwód) nie jest punktem trendu.
+    db.insert(measurements).values({ measuredOn: '2026-10-10', waistCm: 92 }).run();
+    db.insert(measurements).values({ measuredOn: '2026-09-01', weightKg: 90 }).run();
+
+    expect(weightPointsSince(db, '2026-10-01')).toEqual([
+      { dayKey: '2026-10-01', weightKg: 85.4 },
+      { dayKey: '2026-10-08', weightKg: 84.9 },
+    ]);
   });
 });
 
