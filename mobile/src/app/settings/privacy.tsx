@@ -45,6 +45,13 @@ export default function PrivacyScreen() {
             jedną z czterech dróg, obok bazy produktów, kodu kreskowego i wpisu z ręki.
           </Bullet>
           <Bullet>
+            Gemini przy propozycji posiłków — jeśli poprosisz o ułożenie dnia, do Google lecą liczby:
+            ile kalorii i białka zostało do rozdysponowania, ile wychodzi Twój typowy obiad i czy masz
+            dziś trening, a do tego Twoje wytyczne żywieniowe i opis obiadu, jeśli go wpiszesz. Nie
+            idzie dziennik posiłków, masa ciała ani historia treningów. Gotowa propozycja zostaje
+            w telefonie.
+          </Bullet>
+          <Bullet>
             Zdjęcie posiłku — jeśli dołączysz je do opisu, pojedzie do Google razem z nim, jako
             jedno zdjęcie wybrane przez Ciebie i dopiero po dotknięciu „Oszacuj”. Przed wysłaniem
             kadrujesz je sam, więc w kadrze może zostać sam talerz. Zdjęcie nie jest nigdzie

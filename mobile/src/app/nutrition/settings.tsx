@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { Chip } from '@/components/chip';
 import { NumberField } from '@/components/number-field';
@@ -24,12 +24,16 @@ import {
   RATE_OPTIONS,
 } from '@/features/nutrition/goal';
 import {
+  GUIDANCE_LIMIT,
   loadNutritionSettings,
+  nutritionGuidance,
   resolvedRate,
+  saveNutritionGuidance,
   saveNutritionSettings,
 } from '@/features/nutrition/settings';
 import { useNutritionDay } from '@/features/nutrition/use-nutrition';
 import { ProfileSection } from '@/features/profile/profile-section';
+import { useTheme } from '@/hooks/use-theme';
 import { todayKey } from '@/lib/date';
 import { formatNumber } from '@/lib/number';
 
@@ -40,7 +44,9 @@ import { formatNumber } from '@/lib/number';
  * składniki, żeby po każdej zmianie było widać, co z niej wyszło.
  */
 export default function NutritionSettingsScreen() {
+  const theme = useTheme();
   const [settings, setSettings] = useState(() => loadNutritionSettings(db));
+  const [guidance, setGuidance] = useState(() => nutritionGuidance(db));
   const { energy, protein, weightKg } = useNutritionDay(todayKey());
 
   const update = (patch: Parameters<typeof saveNutritionSettings>[1]) => {
@@ -163,6 +169,31 @@ export default function NutritionSettingsScreen() {
           </View>
         </View>
 
+        <View style={styles.section}>
+          <ThemedText type="smallBold" themeColor="textSecondary">
+            WYTYCZNE ŻYWIENIOWE
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Czego nie jadasz, na co masz uczulenie, ile masz rano czasu na śniadanie. Idą do Gemini
+            przy propozycji posiłków — sam budżet nigdy się nie dowie, że nie jesz ryb.
+          </ThemedText>
+          <TextInput
+            value={guidance}
+            onChangeText={(text) => {
+              setGuidance(text);
+              saveNutritionGuidance(db, text);
+            }}
+            placeholder="np. nie jem ryb, rano mam 10 minut, wieczorem bez laktozy"
+            placeholderTextColor={theme.textSecondary}
+            multiline
+            maxLength={GUIDANCE_LIMIT}
+            style={[
+              styles.guidance,
+              { color: theme.text, backgroundColor: theme.background, borderColor: theme.border },
+            ]}
+          />
+        </View>
+
         <ProfileSection />
 
         <View style={styles.section}>
@@ -195,4 +226,13 @@ const styles = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   row: { flexDirection: 'row', gap: Spacing.two, alignItems: 'flex-end' },
   cell: { flex: 1, gap: Spacing.half },
+  guidance: {
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.two,
+    fontSize: 16,
+    minHeight: 88,
+    textAlignVertical: 'top',
+  },
 });

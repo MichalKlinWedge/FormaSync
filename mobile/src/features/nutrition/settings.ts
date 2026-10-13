@@ -88,3 +88,18 @@ export function saveNutritionSettings(db: SyncDb, patch: Partial<NutritionSettin
     setSetting(db, TARGET_KEY, patch.manualKcal === null ? null : String(patch.manualKcal));
   }
 }
+
+export const GUIDANCE_KEY = 'nutrition_guidance';
+
+/** Najdłuższe wytyczne, jakie wysyłamy. Dalej to już nie wskazówka, tylko druga dieta. */
+export const GUIDANCE_LIMIT = 1000;
+
+/**
+ * Wytyczne żywieniowe: czego nie jadasz, na co masz alergię, ile masz rano czasu. Bez nich
+ * propozycja jest poprawna kalorycznie i ślepa na to, czego i tak nie zjesz — a sam budżet
+ * tego nie wie i nigdy się nie dowie.
+ */
+export const nutritionGuidance = (db: SyncDb): string => (getSetting(db, GUIDANCE_KEY) ?? '').trim();
+
+export const saveNutritionGuidance = (db: SyncDb, value: string | null): void =>
+  setSetting(db, GUIDANCE_KEY, value?.trim().slice(0, GUIDANCE_LIMIT) || null);

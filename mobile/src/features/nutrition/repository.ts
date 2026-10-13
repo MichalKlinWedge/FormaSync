@@ -324,3 +324,119 @@ export function trainingKcalRange(
 export function trainingKcalOn(db: SyncDb, dayKey: string, weightKg: number | null): number {
   return trainingKcalRange(db, dayKey, dayKey, weightKg)[dayKey] ?? 0;
 }
+
+/** Środkowa wartość z listy; null dla pustej. Mediana, bo jeden wyskok nie ma prawa rządzić. */
+function median(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[middle] : Math.round((sorted[middle - 1] + sorted[middle]) / 2);
+}
+
+export type TypicalLunch = { kcal: number; proteinG: number | null; days: number };
+
+/**
+ * Ile zwykle wychodzi obiad. Potrzebne tam, gdzie obiadu się nie planuje, tylko się go je takim,
+ * jaki jest — a reszta dnia musi się do niego dopasować.
+ *
+ * Mediana z dni, nie średnia: jeden obiad na weselu przestawiłby średnią na tydzień w przód.
+ * Liczymy po dniach, a nie po wpisach, bo obiad bywa zapisany w dwóch kawałkach.
+ */
+export function typicalLunch(db: SyncDb, fromKey: string, toKey: string): TypicalLunch | null {
+  const days = db
+    .select({
+      dayKey: schema.mealLogs.dayKey,
+      kcal: schema.mealLogs.kcal,
+      proteinG: schema.mealLogs.proteinG,
+    })
+    .from(schema.mealLogs)
+    .where(
+      and(
+        eq(schema.mealLogs.meal, 'LUNCH'),
+        gte(schema.mealLogs.dayKey, fromKey),
+        lte(schema.mealLogs.dayKey, toKey),
+      ),
+    )
+    .all();
+
+  if (days.length === 0) return null;
+
+  const kcalByDay = new Map<string, number>();
+  const proteinByDay = new Map<string, number | null>();
+  for (const row of days) {
+    kcalByDay.set(row.dayKey, (kcalByDay.get(row.dayKey) ?? 0) + row.kcal);
+    const known = proteinByDay.get(row.dayKey);
+    // Dzień, w którym choć jeden wpis nie ma białka, nie wchodzi do mediany białka — suma byłaby
+    // zaniżona i wyszłoby, że obiady mają go mniej, niż mają.
+    if (row.proteinG === null) proteinByDay.set(row.dayKey, null);
+    else if (known !== null) proteinByDay.set(row.dayKey, (known ?? 0) + row.proteinG);
+  }
+
+  const kcal = median([...kcalByDay.values()]);
+  if (kcal === null) return null;
+
+  const proteins = [...proteinByDay.values()].filter((value): value is number => value !== null);
+  return { kcal, proteinG: median(proteins), days: kcalByDay.size };
+}
+
+/** Ile zwykle trwa taki trening: mediana z ostatnich zakończonych. Null, gdy nie ma z czego liczyć. */
+export function typicalSessionSeconds(db: SyncDb, sport: schema.Sport, sample = 20): number | null {
+  const rows = db
+    .select({ seconds: schema.workoutSessions.totalDurationSeconds })
+    .from(schema.workoutSessions)
+    .where(
+      and(
+        eq(schema.workoutSessions.sport, sport),
+        eq(schema.workoutSessions.status, 'COMPLETED'),
+        isNotNull(schema.workoutSessions.totalDurationSeconds),
+      ),
+    )
+    .orderBy(desc(schema.workoutSessions.startTime))
+    .limit(sample)
+    .all();
+
+  return median(rows.map((row) => row.seconds ?? 0).filter((seconds) => seconds > 0));
+}
+
+export type PlannedTraining = { kcal: number; minutes: number; sport: schema.Sport };
+
+/**
+ * Trening, który na dziś jest w kalendarzu, ale jeszcze się nie odbył.
+ *
+ * Rano budżet liczony z treningów *zakończonych* jest zawsze za niski — a propozycja jedzenia
+ * powstaje właśnie rano. Czas bierzemy z Twojej historii: ile zwykle trwa u Ciebie taki trening,
+ * bo termin w kalendarzu nie niesie długości. Bez historii nie zgadujemy i zwracamy null.
+ */
+export function plannedTrainingOn(
+  db: SyncDb,
+  dayKey: string,
+  weightKg: number | null,
+): PlannedTraining | null {
+  if (weightKg === null || weightKg <= 0) return null;
+
+  const entries = db
+    .select({ sport: schema.workoutPlans.sport })
+    .from(schema.scheduledWorkouts)
+    .innerJoin(schema.workoutPlans, eq(schema.scheduledWorkouts.planId, schema.workoutPlans.id))
+    .where(
+      and(
+        eq(schema.scheduledWorkouts.scheduledDate, dayKey),
+        eq(schema.scheduledWorkouts.isCompleted, false),
+      ),
+    )
+    .all();
+
+  if (entries.length === 0) return null;
+
+  let seconds = 0;
+  let kcal = 0;
+  for (const entry of entries) {
+    const typical = typicalSessionSeconds(db, entry.sport);
+    if (typical === null) continue;
+    seconds += typical;
+    kcal += trainingBurn(entry.sport, typical, weightKg);
+  }
+
+  if (kcal <= 0) return null;
+  return { kcal, minutes: Math.round(seconds / 60), sport: entries[0].sport };
+}

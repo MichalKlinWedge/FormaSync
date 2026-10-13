@@ -3,7 +3,11 @@
  */
 import { describe, expect, it } from '@jest/globals';
 
-import { bodyMeasurements as measurements } from '@/db/schema';
+import {
+  bodyMeasurements as measurements,
+  scheduledWorkouts as scheduled,
+  workoutPlans as plans,
+} from '@/db/schema';
 import { createTestDb } from '@/db/test-utils';
 import { finishSession, startSession } from '@/features/workout/repository';
 
@@ -14,10 +18,12 @@ import {
   dayTotalsRange,
   logMeal,
   MealError,
+  plannedTrainingOn,
   recentMeals,
   removeMeal,
   trainingKcalOn,
   trainingKcalRange,
+  typicalLunch,
   weightPointsSince,
 } from '../repository';
 
@@ -196,5 +202,77 @@ describe('mealByHour', () => {
     expect(mealByHour(at(13))).toBe('LUNCH');
     expect(mealByHour(at(19))).toBe('DINNER');
     expect(mealByHour(at(23))).toBe('SNACK');
+  });
+});
+
+describe('typicalLunch', () => {
+  it('bierze medianę dni, więc jeden obiad na weselu nie rządzi budżetem', () => {
+    const db = createTestDb();
+    logMeal(db, { meal: 'LUNCH', title: 'Zupa i kotlet', kcal: 700, proteinG: 30 }, new Date(2026, 9, 5, 14));
+    logMeal(db, { meal: 'LUNCH', title: 'Makaron', kcal: 800, proteinG: 35 }, new Date(2026, 9, 6, 14));
+    logMeal(db, { meal: 'LUNCH', title: 'Wesele', kcal: 2500, proteinG: 90 }, new Date(2026, 9, 7, 14));
+
+    expect(typicalLunch(db, '2026-10-01', '2026-10-11')).toEqual({ kcal: 800, proteinG: 35, days: 3 });
+  });
+
+  it('sumuje obiad zapisany w kawałkach i pomija dni spoza okna', () => {
+    const db = createTestDb();
+    logMeal(db, { meal: 'LUNCH', title: 'Zupa', kcal: 300, proteinG: 10 }, new Date(2026, 9, 6, 13));
+    logMeal(db, { meal: 'LUNCH', title: 'Drugie danie', kcal: 500, proteinG: 25 }, new Date(2026, 9, 6, 14));
+    logMeal(db, { meal: 'LUNCH', title: 'Stare', kcal: 1500 }, new Date(2026, 8, 1, 14));
+
+    expect(typicalLunch(db, '2026-10-01', '2026-10-11')).toEqual({ kcal: 800, proteinG: 35, days: 1 });
+  });
+
+  it('bez zapisanych obiadów nie zgaduje', () => {
+    const db = createTestDb();
+    logMeal(db, breakfast, at(8));
+
+    expect(typicalLunch(db, '2026-10-01', '2026-10-11')).toBeNull();
+  });
+});
+
+describe('plannedTrainingOn', () => {
+  /** Plan i termin na dziś; sesje historyczne dają czas, którego termin nie niesie. */
+  const scheduleToday = (db: ReturnType<typeof createTestDb>, sport: 'RUNNING' | 'STRENGTH') => {
+    const planId = db
+      .insert(plans)
+      .values({ sport, title: 'Plan' })
+      .returning({ id: plans.id })
+      .get().id;
+    db.insert(scheduled).values({ planId, scheduledDate: '2026-10-11', isCompleted: false }).run();
+  };
+
+  it('liczy zaplanowany trening z tego, ile zwykle trwa', () => {
+    const db = createTestDb({ seed: true });
+    scheduleToday(db, 'RUNNING');
+    const past = startSession(db, { kind: 'empty', sport: 'RUNNING' }, new Date(2026, 9, 9, 17).toISOString());
+    finishSession(db, past, {}, new Date(2026, 9, 9, 18).toISOString());
+
+    expect(plannedTrainingOn(db, '2026-10-11', 85)).toEqual({ kcal: 875, minutes: 60, sport: 'RUNNING' });
+  });
+
+  it('bez historii nie zgaduje czasu treningu', () => {
+    const db = createTestDb({ seed: true });
+    scheduleToday(db, 'RUNNING');
+
+    expect(plannedTrainingOn(db, '2026-10-11', 85)).toBeNull();
+  });
+
+  it('nie dolicza terminu, który już odhaczono — ten trening liczy się z sesji', () => {
+    const db = createTestDb({ seed: true });
+    const planId = db.insert(plans).values({ sport: 'RUNNING', title: 'Plan' }).returning({ id: plans.id }).get().id;
+    db.insert(scheduled).values({ planId, scheduledDate: '2026-10-11', isCompleted: true }).run();
+    const past = startSession(db, { kind: 'empty', sport: 'RUNNING' }, new Date(2026, 9, 9, 17).toISOString());
+    finishSession(db, past, {}, new Date(2026, 9, 9, 18).toISOString());
+
+    expect(plannedTrainingOn(db, '2026-10-11', 85)).toBeNull();
+  });
+
+  it('bez masy ciała nie ma z czego policzyć spalania', () => {
+    const db = createTestDb({ seed: true });
+    scheduleToday(db, 'RUNNING');
+
+    expect(plannedTrainingOn(db, '2026-10-11', null)).toBeNull();
   });
 });
