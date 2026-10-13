@@ -4,6 +4,7 @@ import { StyleSheet, TextInput, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { parseNumber } from '@/features/plans/draft';
+import { useSelectAllOnFocus } from '@/hooks/use-select-all-on-focus';
 import { useTheme } from '@/hooks/use-theme';
 
 type NumberFieldProps = {
@@ -19,6 +20,7 @@ type NumberFieldProps = {
 export function NumberField({ label, value, onChange, decimal, placeholder }: NumberFieldProps) {
   const theme = useTheme();
   const [text, setText] = useState(value === null ? '' : String(value).replace('.', ','));
+  const { selection, beginSelecting, stopSelecting } = useSelectAllOnFocus(text);
 
   return (
     <View style={styles.field}>
@@ -28,6 +30,7 @@ export function NumberField({ label, value, onChange, decimal, placeholder }: Nu
       <TextInput
         value={text}
         onChangeText={(t) => {
+          stopSelecting();
           const cleaned = decimal ? t.replace(/[^0-9.,]/g, '') : t.replace(/[^0-9]/g, '');
           setText(cleaned);
           const parsed = parseNumber(cleaned);
@@ -36,7 +39,9 @@ export function NumberField({ label, value, onChange, decimal, placeholder }: Nu
         keyboardType={decimal ? 'decimal-pad' : 'number-pad'}
         placeholder={placeholder}
         placeholderTextColor={theme.textSecondary}
-        selectTextOnFocus
+        selection={selection}
+        onFocus={beginSelecting}
+        onBlur={stopSelecting}
         style={[styles.input, { color: theme.text, backgroundColor: theme.background, borderColor: theme.border }]}
       />
     </View>
