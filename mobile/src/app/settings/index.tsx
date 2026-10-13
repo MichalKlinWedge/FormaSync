@@ -189,6 +189,23 @@ export default function SettingsScreen() {
           />
         </View>
 
+        <View style={styles.section}>
+          <ThemedText type="smallBold" themeColor="textSecondary">
+            GEMINI
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Jeden klucz na całą aplikację: plan pod cel, posiłek opisany słowami i propozycja
+            jedzenia na dzień pytają tym samym. Tutaj wklejasz klucz, wybierasz model i wycofujesz
+            zgodę na wysyłkę. Bez klucza wszystko poza tym działa dalej.
+          </ThemedText>
+          <Button
+            label="Klucz, model i wytyczne"
+            icon="key"
+            variant="secondary"
+            onPress={() => router.push('/goal/ai')}
+          />
+        </View>
+
         <RemoteBackupSection />
 
         <WellnessSection />

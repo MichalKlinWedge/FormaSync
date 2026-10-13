@@ -114,6 +114,11 @@ export default function GoalAiScreen() {
             ten sam cel ułożony przez Gemini. Oba plany przechodzą tę samą kontrolę, więc model
             decyduje o układzie tygodni, a nie o tym, co wyląduje w kalendarzu.
           </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Ten sam klucz obsługuje kalorie: posiłek opisany słowami albo pokazany na zdjęciu oraz
+            propozycję jedzenia na dzień. Liczenie kalorii działa bez niego — opis słowami jest
+            jedną z czterech dróg, obok bazy produktów, kodu kreskowego i wpisu z ręki.
+          </ThemedText>
         </View>
 
         <View style={styles.section}>
