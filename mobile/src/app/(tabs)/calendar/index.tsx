@@ -25,6 +25,7 @@ import {
   useScheduledRange,
 } from '@/features/calendar/use-calendar';
 import { formatDistance, formatSeconds } from '@/features/endurance/format';
+import { DayProposalCard } from '@/features/nutrition/day-proposal-card';
 import { SPORT_ICONS, SPORT_LABELS } from '@/features/sports/sport';
 import { useSportStore } from '@/features/sports/sport-store';
 import { ensureNotificationPermission } from '@/features/workout/notifications';
@@ -211,6 +212,8 @@ export default function CalendarScreen() {
               variant="secondary"
               onPress={() => router.push({ pathname: '/calendar/schedule', params: { date: selected } })}
             />
+
+            <DayProposalCard dayKey={selected} today={today} />
           </View>
         </ScrollView>
       </SafeAreaView>

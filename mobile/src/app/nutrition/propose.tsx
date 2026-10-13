@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
@@ -57,20 +57,28 @@ export default function ProposeMealsScreen() {
   const theme = useTheme();
   const today = todayKey();
 
-  const [day, setDay] = useState(today);
+  // Dzień może przyjść z kalendarza — wtedy ekran otwiera się od razu na nim, także gdy wypada
+  // dalej niż pasek tygodnia.
+  const params = useLocalSearchParams<{ day?: string }>();
+  const requested =
+    typeof params.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(params.day) && params.day >= today
+      ? params.day
+      : null;
+
+  const [day, setDay] = useState(requested ?? today);
   const [lunchText, setLunchText] = useState('');
   const [withTraining, setWithTraining] = useState(true);
-  const [plan, setPlan] = useState<MealPlan | null>(() => loadProposal(db, today));
+  const [plan, setPlan] = useState<MealPlan | null>(() => loadProposal(db, requested ?? today));
   const [eaten, setEaten] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
 
   const { totals, meals, energy, protein, weightKg } = useNutritionDay(day);
 
-  const days = useMemo(
-    () => Array.from({ length: DAYS_AHEAD }, (_, offset) => addDays(today, offset)),
-    [today],
-  );
+  const days = useMemo(() => {
+    const week = Array.from({ length: DAYS_AHEAD }, (_, offset) => addDays(today, offset));
+    return requested === null || week.includes(requested) ? week : [...week, requested].sort();
+  }, [today, requested]);
 
   // Typowy obiad liczymy z przeszłości, niezależnie od tego, który dzień układamy.
   const typical = useMemo(() => typicalLunch(db, addDays(today, -LUNCH_WINDOW_DAYS), today), [today]);
