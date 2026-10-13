@@ -6,7 +6,7 @@ export default function NutritionLayout() {
       <Stack.Screen name="index" options={{ title: 'Kalorie' }} />
       <Stack.Screen name="add" options={{ title: 'Dodaj posiłek' }} />
       <Stack.Screen name="describe" options={{ title: 'Opisz posiłek' }} />
-      <Stack.Screen name="propose" options={{ title: 'Propozycja na dziś' }} />
+      <Stack.Screen name="propose" options={{ title: 'Propozycja posiłków' }} />
       <Stack.Screen name="scan" options={{ title: 'Kod kreskowy' }} />
       <Stack.Screen name="stats" options={{ title: 'Statystyki' }} />
       <Stack.Screen name="foods" options={{ title: 'Baza produktów' }} />

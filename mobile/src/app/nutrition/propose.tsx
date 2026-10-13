@@ -24,21 +24,31 @@ import {
   type ProposedMeal,
 } from '@/features/nutrition/proposal';
 import { loadProposal, saveProposal } from '@/features/nutrition/proposal-store';
-import { logMeal, MealError, plannedTrainingOn, typicalLunch } from '@/features/nutrition/repository';
+import {
+  logMeal,
+  MealError,
+  type PlannedTraining,
+  plannedTrainingOn,
+  typicalLunch,
+} from '@/features/nutrition/repository';
 import { nutritionGuidance } from '@/features/nutrition/settings';
 import { useNutritionDay } from '@/features/nutrition/use-nutrition';
 import { SPORT_LABELS } from '@/features/sports/sport';
 import { useTheme } from '@/hooks/use-theme';
-import { addDays, todayKey } from '@/lib/date';
+import { addDays, formatDate, todayKey, WEEKDAYS_SHORT, weekdayIndex } from '@/lib/date';
 
 /** Z ilu tygodni liczymy typowy obiad. Sześć wystarcza, żeby złapać rytm, i nie pamięta diety sprzed pół roku. */
 const LUNCH_WINDOW_DAYS = 42;
 
+/** Jak daleko da się zaplanować. Tydzień to tyle, ile sięgają zakupy i kalendarz treningów. */
+const DAYS_AHEAD = 7;
+
 /**
- * Propozycja jedzenia na dziś.
+ * Propozycja jedzenia na wybrany dzień — dziś albo któryś z najbliższych.
  *
- * Układana rano i zapamiętana na cały dzień: pytanie „co miałem zjeść na kolację” pada wieczorem,
- * a drugie zapytanie do Google dałoby wtedy inny zestaw niż ten, pod który zrobiło się zakupy.
+ * Dzień wybiera się z paska u góry, a budżet za każdym razem liczy się od nowa: inny trening
+ * w kalendarzu to inny budżet, więc propozycja na czwartek z biegiem nie może być tą samą co na
+ * środę bez treningu. Każdy ułożony dzień zostaje zapamiętany, bo zakupy robi się raz.
  *
  * Obiad jest poza propozycją, bo zwykle nie jest niczyją decyzją. Wchodzi jako liczba — podana,
  * gdy wiesz, co będzie, a w przeciwnym razie wzięta z mediany Twoich obiadów.
@@ -46,8 +56,8 @@ const LUNCH_WINDOW_DAYS = 42;
 export default function ProposeMealsScreen() {
   const theme = useTheme();
   const today = todayKey();
-  const { totals, meals, energy, protein, weightKg } = useNutritionDay(today);
 
+  const [day, setDay] = useState(today);
   const [lunchText, setLunchText] = useState('');
   const [withTraining, setWithTraining] = useState(true);
   const [plan, setPlan] = useState<MealPlan | null>(() => loadProposal(db, today));
@@ -55,10 +65,33 @@ export default function ProposeMealsScreen() {
   const [busy, setBusy] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
 
-  // Liczone raz na wejście: ani typowy obiad, ani historia treningów nie zmieniają się w trakcie.
-  const typical = useMemo(() => typicalLunch(db, addDays(today, -LUNCH_WINDOW_DAYS), today), [today]);
-  const planned = useMemo(() => plannedTrainingOn(db, today, weightKg), [today, weightKg]);
+  const { totals, meals, energy, protein, weightKg } = useNutritionDay(day);
 
+  const days = useMemo(
+    () => Array.from({ length: DAYS_AHEAD }, (_, offset) => addDays(today, offset)),
+    [today],
+  );
+
+  // Typowy obiad liczymy z przeszłości, niezależnie od tego, który dzień układamy.
+  const typical = useMemo(() => typicalLunch(db, addDays(today, -LUNCH_WINDOW_DAYS), today), [today]);
+
+  // Trening dla każdego dnia paska naraz: ta sama liczba służy i znacznikowi na nim, i budżetowi.
+  const trainings = useMemo(() => {
+    const byDay: Record<string, PlannedTraining | null> = {};
+    for (const key of days) byDay[key] = plannedTrainingOn(db, key, weightKg);
+    return byDay;
+  }, [days, weightKg]);
+
+  // Zmiana dnia to inna propozycja i inny obiad — nie wolno ich przenosić między dniami.
+  const selectDay = (key: string) => {
+    setDay(key);
+    setPlan(loadProposal(db, key));
+    setLunchText('');
+    setEaten([]);
+    setShowPrompt(false);
+  };
+
+  const planned = trainings[day] ?? null;
   const training = withTraining ? planned : null;
   const dayKcal = (energy.target ?? 0) + (training?.kcal ?? 0);
 
@@ -67,7 +100,8 @@ export default function ProposeMealsScreen() {
   const lunchKcal = typical?.kcal ?? Math.round(dayKcal * DEFAULT_LUNCH_SHARE);
 
   // Obiad odejmujemy tylko wtedy, gdy nie ma go ani w dzienniku, ani w samej propozycji.
-  const subtracted = lunchLogged || lunchDescribed ? null : { kcal: lunchKcal, proteinG: typical?.proteinG ?? null };
+  const subtracted =
+    lunchLogged || lunchDescribed ? null : { kcal: lunchKcal, proteinG: typical?.proteinG ?? null };
   const free = freeBudget({
     dayKcal,
     eatenKcal: totals.kcal,
@@ -96,7 +130,7 @@ export default function ProposeMealsScreen() {
       return;
     }
     if (free.kcal <= 0) {
-      Alert.alert('Budżet na dziś wyczerpany', 'Na te posiłki nic już nie zostało.');
+      Alert.alert('Budżet wyczerpany', 'Na te posiłki nic już nie zostało.');
       return;
     }
 
@@ -105,7 +139,7 @@ export default function ProposeMealsScreen() {
       const result = parseMealPlan(await askGemini(buildPlanPrompt(request)), request);
       setPlan(result);
       setEaten([]);
-      saveProposal(db, today, result);
+      saveProposal(db, day, result, today);
     } catch (e) {
       if (e instanceof NoApiKeyError) {
         Alert.alert('Brak klucza do Gemini', 'Klucz wkleja się raz, w ustawieniach planisty AI.', [
@@ -116,7 +150,9 @@ export default function ProposeMealsScreen() {
         const retry = e instanceof GeminiError && e.retryable;
         Alert.alert(
           'Nie udało się ułożyć',
-          e instanceof GeminiError || e instanceof MealPlanError ? e.message : 'Nieznany błąd połączenia.',
+          e instanceof GeminiError || e instanceof MealPlanError
+            ? e.message
+            : 'Nieznany błąd połączenia.',
           retry
             ? [
                 { text: 'Nie teraz', style: 'cancel' },
@@ -152,6 +188,26 @@ export default function ProposeMealsScreen() {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.section}>
           <ThemedText type="smallBold" themeColor="textSecondary">
+            DZIEŃ
+          </ThemedText>
+          <View style={styles.chips}>
+            {days.map((key) => (
+              <Chip
+                key={key}
+                label={dayLabel(key, today, trainings[key] != null)}
+                selected={key === day}
+                onPress={() => selectDay(key)}
+              />
+            ))}
+          </View>
+          <ThemedText type="small" themeColor="textSecondary">
+            Kropka znaczy trening w kalendarzu na ten dzień. Układać można na tydzień w przód — każdy
+            dzień zapamiętuje swoją propozycję.
+          </ThemedText>
+        </View>
+
+        <View style={styles.section}>
+          <ThemedText type="smallBold" themeColor="textSecondary">
             DO ROZDYSPONOWANIA
           </ThemedText>
           <ThemedText type="title">{formatKcal(free.kcal)}</ThemedText>
@@ -161,17 +217,24 @@ export default function ProposeMealsScreen() {
             </ThemedText>
           )}
           <ThemedText type="small" themeColor="textSecondary">
-            {`Budżet dnia ${formatKcal(dayKcal)}${training === null ? '' : ` (w tym ${formatKcal(training.kcal)} za zaplanowany trening)`}`}
+            {`Budżet dnia ${formatKcal(dayKcal)}${
+              training === null ? '' : ` (w tym ${formatKcal(training.kcal)} za zaplanowany trening)`
+            }`}
             {totals.kcal > 0 ? `, zjedzone ${formatKcal(totals.kcal)}` : ''}.
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            {describeLunch({ logged: lunchLogged, described: lunchDescribed, kcal: lunchKcal, days: typical?.days ?? 0 })}
+            {describeLunch({
+              logged: lunchLogged,
+              described: lunchDescribed,
+              kcal: lunchKcal,
+              days: typical?.days ?? 0,
+            })}
           </ThemedText>
         </View>
 
         <View style={styles.section}>
           <ThemedText type="smallBold" themeColor="textSecondary">
-            DZIŚ NA OBIAD
+            OBIAD TEGO DNIA
           </ThemedText>
           <TextInput
             value={lunchText}
@@ -192,12 +255,12 @@ export default function ProposeMealsScreen() {
 
         <View style={styles.section}>
           <ThemedText type="smallBold" themeColor="textSecondary">
-            TRENING NA DZIŚ
+            TRENING
           </ThemedText>
           {planned === null ? (
             <ThemedText type="small" themeColor="textSecondary">
-              Nic zaplanowanego na dziś albo brak historii, z której dałoby się ocenić czas — budżet
-              idzie bez treningu. Gdy trening się odbędzie, budżet urośnie sam.
+              Nic w kalendarzu na ten dzień albo brak historii, z której dałoby się ocenić czas —
+              budżet idzie bez treningu. Gdy trening się odbędzie, budżet urośnie sam.
             </ThemedText>
           ) : (
             <>
@@ -266,7 +329,10 @@ export default function ProposeMealsScreen() {
                     {MEAL_LABELS[meal.meal].toUpperCase()}
                   </ThemedText>
                   <ThemedText type="small" themeColor="textSecondary">
-                    {[formatKcal(meal.kcal), meal.proteinG === null ? null : `białko ${formatGrams(meal.proteinG)}`]
+                    {[
+                      formatKcal(meal.kcal),
+                      meal.proteinG === null ? null : `białko ${formatGrams(meal.proteinG)}`,
+                    ]
                       .filter(Boolean)
                       .join(' · ')}
                   </ThemedText>
@@ -282,19 +348,24 @@ export default function ProposeMealsScreen() {
                     Twój obiad — tylko oszacowany, nie układany.
                   </ThemedText>
                 ) : null}
-                <Button
-                  label={eaten.includes(meal.meal) ? 'Zapisane' : 'Zjedzone'}
-                  icon={eaten.includes(meal.meal) ? 'check' : 'add'}
-                  variant="secondary"
-                  disabled={eaten.includes(meal.meal)}
-                  onPress={() => eat(meal)}
-                />
+                {day === today && (
+                  <Button
+                    label={eaten.includes(meal.meal) ? 'Zapisane' : 'Zjedzone'}
+                    icon={eaten.includes(meal.meal) ? 'check' : 'add'}
+                    variant="secondary"
+                    disabled={eaten.includes(meal.meal)}
+                    onPress={() => eat(meal)}
+                  />
+                )}
               </View>
             ))}
 
             <ThemedText type="small" themeColor="textSecondary">
-              Liczby są oszacowaniem modelu, nie etykietą z opakowania. „Zjedzone” wpisuje posiłek do
-              dziennika tak, jak go widzisz — jeśli zjesz inaczej, popraw wpis w dzienniku.
+              {day === today
+                ? 'Liczby są oszacowaniem modelu, nie etykietą z opakowania. „Zjedzone” wpisuje posiłek'
+                  + ' do dziennika tak, jak go widzisz — jeśli zjesz inaczej, popraw wpis w dzienniku.'
+                : 'Do dziennika wpisuje się z tego ekranu dopiero w dniu, którego propozycja dotyczy —'
+                  + ' dziennik liczy to, co zjedzone, a nie to, co zaplanowane. Propozycja poczeka.'}
             </ThemedText>
           </>
         )}
@@ -303,8 +374,24 @@ export default function ProposeMealsScreen() {
   );
 }
 
+/** „Dziś”, „Jutro”, a dalej „pt 17.10”. Kropka na końcu znaczy trening w kalendarzu. */
+function dayLabel(key: string, today: string, hasTraining: boolean): string {
+  const name =
+    key === today
+      ? 'Dziś'
+      : key === addDays(today, 1)
+        ? 'Jutro'
+        : `${WEEKDAYS_SHORT[weekdayIndex(key)]} ${formatDate(key).slice(0, 5)}`;
+  return hasTraining ? `${name} ·` : name;
+}
+
 /** Skąd wzięła się wartość obiadu — liczba bez tego zdania wyglądałaby na wziętą z powietrza. */
-function describeLunch(input: { logged: boolean; described: boolean; kcal: number; days: number }): string {
+function describeLunch(input: {
+  logged: boolean;
+  described: boolean;
+  kcal: number;
+  days: number;
+}): string {
   if (input.logged) return 'Obiad jest już w dzienniku, więc nie odejmujemy go drugi raz.';
   if (input.described) return 'Obiad liczymy z Twojego opisu — wejdzie do propozycji jako oszacowany.';
   if (input.days === 0) {
@@ -319,6 +406,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { padding: Spacing.four, gap: Spacing.four, paddingBottom: Spacing.six },
   section: { gap: Spacing.two },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   groupHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   input: {
     borderRadius: 10,

@@ -6,12 +6,13 @@ import { describe, expect, it } from '@jest/globals';
 import { setSetting } from '@/db/settings';
 import { createTestDb } from '@/db/test-utils';
 
-import { clearProposal, loadProposal, saveProposal } from '../proposal-store';
+import { clearProposal, loadProposal, proposedDays, saveProposal } from '../proposal-store';
 import type { MealPlan } from '../proposal';
 
 /**
- * Propozycję układa się rano, a czyta wieczorem. Zapis ma zatem przeżyć zamknięcie ekranu — ale
- * nie dzień: wczorajsza kolacja pokazana dziś jako „plan na dziś” byłaby zwykłym kłamstwem.
+ * Propozycje układa się z wyprzedzeniem, a czyta w dniu, którego dotyczą. Zapis ma zatem przeżyć
+ * zamknięcie ekranu i trzymać każdy dzień osobno — ale nie ma prawa podać wczorajszej kolacji jako
+ * dzisiejszej.
  */
 
 const plan: MealPlan = {
@@ -37,11 +38,38 @@ describe('proposal-store', () => {
     expect(loadProposal(db, '2026-10-13')).toEqual(plan);
   });
 
-  it('nie podaje wczorajszej propozycji jako dzisiejszej', () => {
+  it('trzyma osobną propozycję na każdy zaplanowany dzień', () => {
     const db = createTestDb();
-    saveProposal(db, '2026-10-12', plan);
+    const thursday: MealPlan = { ...plan, note: 'Dzień z bieganiem.' };
+    saveProposal(db, '2026-10-13', plan, '2026-10-13');
+    saveProposal(db, '2026-10-16', thursday, '2026-10-13');
 
-    expect(loadProposal(db, '2026-10-13')).toBeNull();
+    expect(loadProposal(db, '2026-10-13')).toEqual(plan);
+    expect(loadProposal(db, '2026-10-16')).toEqual(thursday);
+    expect(proposedDays(db)).toEqual(['2026-10-13', '2026-10-16']);
+  });
+
+  it('nie podaje propozycji na dzień, dla którego nic nie stoi', () => {
+    const db = createTestDb();
+    saveProposal(db, '2026-10-13', plan);
+
+    expect(loadProposal(db, '2026-10-14')).toBeNull();
+  });
+
+  it('przy zapisie sprząta dni, które już minęły', () => {
+    const db = createTestDb();
+    saveProposal(db, '2026-10-12', plan, '2026-10-12');
+    saveProposal(db, '2026-10-14', plan, '2026-10-13');
+
+    expect(loadProposal(db, '2026-10-12')).toBeNull();
+    expect(proposedDays(db)).toEqual(['2026-10-14']);
+  });
+
+  it('czyta zapis z pierwszej wersji, w której dzień był tylko jeden', () => {
+    const db = createTestDb();
+    setSetting(db, 'nutrition_proposal', JSON.stringify({ dayKey: '2026-10-13', plan }));
+
+    expect(loadProposal(db, '2026-10-13')).toEqual(plan);
   });
 
   it('zapis z innej wersji aplikacji traktuje jak brak', () => {
