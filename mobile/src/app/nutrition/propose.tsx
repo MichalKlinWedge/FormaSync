@@ -8,8 +8,11 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
-// Klient Gemini jest jeden dla całej aplikacji — ten sam, co przy planiście i przy opisie posiłku.
-import { askGemini, GeminiError, NoApiKeyError } from '@/features/goals/ai/gemini';
+// Klient modeli jest jeden dla całej aplikacji — ten sam, co przy planiście i przy opisie posiłku.
+import { AiError, askAi, NoApiKeyError } from '@/features/ai/client';
+import { ProviderPicker } from '@/features/ai/provider-picker';
+import { PROVIDER_COMPANIES } from '@/features/ai/providers';
+import { useAiProvider } from '@/features/ai/use-providers';
 import { formatGrams, formatKcal } from '@/features/nutrition/format';
 import { MEAL_LABELS } from '@/features/nutrition/meal';
 import {
@@ -72,6 +75,7 @@ export default function ProposeMealsScreen() {
   const [eaten, setEaten] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
+  const { provider, setProvider, configured } = useAiProvider();
 
   const { totals, meals, energy, protein, weightKg } = useNutritionDay(day);
 
@@ -144,21 +148,21 @@ export default function ProposeMealsScreen() {
 
     setBusy(true);
     try {
-      const result = parseMealPlan(await askGemini(buildPlanPrompt(request)), request);
+      const result = parseMealPlan(await askAi(buildPlanPrompt(request), { provider }), request);
       setPlan(result);
       setEaten([]);
       saveProposal(db, day, result, today);
     } catch (e) {
       if (e instanceof NoApiKeyError) {
-        Alert.alert('Brak klucza do Gemini', 'Klucz wkleja się raz, w ustawieniach planisty AI.', [
+        Alert.alert('Brak klucza', `${e.message} Klucz wkleja się raz, w Ustawieniach.`, [
           { text: 'Nie teraz', style: 'cancel' },
           { text: 'Ustawienia', onPress: () => router.push('/goal/ai') },
         ]);
       } else {
-        const retry = e instanceof GeminiError && e.retryable;
+        const retry = e instanceof AiError && e.retryable;
         Alert.alert(
           'Nie udało się ułożyć',
-          e instanceof GeminiError || e instanceof MealPlanError
+          e instanceof AiError || e instanceof MealPlanError
             ? e.message
             : 'Nieznany błąd połączenia.',
           retry
@@ -256,7 +260,7 @@ export default function ProposeMealsScreen() {
             ]}
           />
           <ThemedText type="small" themeColor="textSecondary">
-            Gdy wpiszesz, Gemini najpierw go oszacuje, a resztę dnia ułoży wokół niego. Gdy zostawisz
+            Gdy wpiszesz, model najpierw go oszacuje, a resztę dnia ułoży wokół niego. Gdy zostawisz
             puste, odejmujemy od budżetu typowy obiad i w propozycji go nie będzie.
           </ThemedText>
         </View>
@@ -287,11 +291,10 @@ export default function ProposeMealsScreen() {
 
         <View style={styles.section}>
           <ThemedText type="small" themeColor="textSecondary">
-            Do Google pojadą: liczby budżetu i białka, wartość obiadu, Twoje wytyczne żywieniowe i to,
-            co napiszesz wyżej. Nie pojadą pomiary ciała, treningi ani dziennik posiłków.
+            {`Do ${PROVIDER_COMPANIES[provider]} pojadą: liczby budżetu i białka, wartość obiadu, Twoje wytyczne żywieniowe i to, co napiszesz wyżej. Nie pojadą pomiary ciała, treningi ani dziennik posiłków.`}
           </ThemedText>
           <Button
-            label={showPrompt ? 'Ukryj polecenie' : 'Pokaż, co pojedzie do Google'}
+            label={showPrompt ? 'Ukryj polecenie' : 'Pokaż, co pojedzie do modelu'}
             icon="visibility"
             variant="secondary"
             onPress={() => setShowPrompt((shown) => !shown)}
@@ -301,8 +304,9 @@ export default function ProposeMealsScreen() {
               {buildPlanPrompt(request)}
             </ThemedText>
           )}
+          <ProviderPicker configured={configured} value={provider} onChange={setProvider} />
           <Button
-            label={busy ? 'Pytam Gemini…' : plan === null ? 'Ułóż propozycję' : 'Ułóż od nowa'}
+            label={busy ? 'Pytam model…' : plan === null ? 'Ułóż propozycję' : 'Ułóż od nowa'}
             icon="auto_awesome"
             onPress={() => void propose()}
             disabled={busy}

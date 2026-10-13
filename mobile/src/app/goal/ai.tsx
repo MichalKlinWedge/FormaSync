@@ -7,21 +7,24 @@ import { Chip } from '@/components/chip';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import { FORM_WEEKS } from '@/features/goals/brief';
-import { listGeminiModels } from '@/features/goals/ai/gemini';
-import { isModelName, normalizeModel, type GeminiModel } from '@/features/goals/ai/models';
+import { ProviderSettings } from '@/features/ai/provider-settings';
 import {
-  DEFAULT_MODEL,
+  PROVIDER_COMPANIES,
+  PROVIDER_LABELS,
+  type Provider,
+  providers,
+} from '@/features/ai/providers';
+import {
+  configuredProviders,
+  defaultProvider,
   guidance,
   GUIDANCE_LIMIT,
-  hasApiKey,
   hasConsent,
-  modelName,
-  saveApiKey,
+  saveDefaultProvider,
   saveGuidance,
-  saveModelName,
   setConsent,
-} from '@/features/goals/ai/tokens';
+} from '@/features/ai/tokens';
+import { FORM_WEEKS } from '@/features/goals/brief';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
@@ -38,68 +41,26 @@ const GENTLE_START = [
 ].join(' ');
 
 /**
- * Ustawienia planisty AI. Klucz wklejamy, ale nigdy nie pokazujemy z powrotem — leży
- * w SecureStore, a nie w bazie, więc nie da się go odczytać ani z kopii zapasowej, ani stąd.
+ * Modele AI: klucze, wybór dostawcy i wytyczne do planu.
+ *
+ * Dostawcy są trzej i każdy jest opcjonalny — aplikacja w całości działa bez nich. Klucz wklejasz
+ * tam, gdzie masz konto; mając kilka, wybierasz domyślnego, a przy pojedynczym zapytaniu możesz
+ * wskazać innego.
  */
-export default function GoalAiScreen() {
+export default function AiSettingsScreen() {
   const theme = useTheme();
-  const [saved, setSaved] = useState<boolean | null>(null);
-  const [key, setKey] = useState('');
-  const [model, setModel] = useState(() => modelName());
-  const [models, setModels] = useState<GeminiModel[] | null>(null);
-  const [listing, setListing] = useState(false);
+  const [chosen, setChosen] = useState<Provider>(() => defaultProvider());
+  const [configured, setConfigured] = useState<Provider[] | null>(null);
   const [hints, setHints] = useState(() => guidance());
   const [consent, setConsentState] = useState(() => hasConsent());
 
   useEffect(() => {
-    void hasApiKey().then(setSaved);
+    void configuredProviders().then(setConfigured);
   }, []);
 
-  const wanted = normalizeModel(model);
-
-  const keep = (name: string) => {
-    saveModelName(name);
-    setModel(modelName());
-  };
-
-  const storeModel = () => {
-    if (wanted === '') {
-      Alert.alert('Pusto', 'Wpisz nazwę modelu albo wybierz ją z listy poniżej.');
-      return;
-    }
-    if (!isModelName(wanted)) {
-      Alert.alert(
-        'To nie jest nazwa modelu',
-        'API przyjmuje identyfikator — same małe litery, cyfry, kropki i myślniki, na przykład gemini-3.5-flash-lite. Najpewniej wybrać go z listy poniżej.',
-      );
-      return;
-    }
-    keep(wanted);
-    Alert.alert('Zapisane', `Plany pójdą do modelu ${wanted}.`);
-  };
-
-  const fetchModels = async () => {
-    setListing(true);
-    try {
-      setModels(await listGeminiModels());
-    } catch (error) {
-      Alert.alert('Nie udało się', error instanceof Error ? error.message : 'Nieznany błąd.');
-    } finally {
-      setListing(false);
-    }
-  };
-
-  const store = async () => {
-    await saveApiKey(key);
-    setKey('');
-    setSaved(await hasApiKey());
-    Alert.alert('Zapisane', 'Klucz leży w bezpiecznym magazynie telefonu.');
-  };
-
-  const forget = async () => {
-    await saveApiKey(null);
-    setSaved(false);
-    Alert.alert('Usunięte', 'Klucz zniknął z telefonu. Plan z reguł działa dalej bez niego.');
+  const pick = (provider: Provider) => {
+    saveDefaultProvider(provider);
+    setChosen(provider);
   };
 
   return (
@@ -111,7 +72,7 @@ export default function GoalAiScreen() {
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             Plan z reguł działa bez tego i zostaje domyślny. Z kluczem dochodzi druga możliwość:
-            ten sam cel ułożony przez Gemini. Oba plany przechodzą tę samą kontrolę, więc model
+            ten sam cel ułożony przez model. Oba plany przechodzą tę samą kontrolę, więc model
             decyduje o układzie tygodni, a nie o tym, co wyląduje w kalendarzu.
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
@@ -126,14 +87,14 @@ export default function GoalAiScreen() {
             CO WYCHODZI Z TELEFONU
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            Przy każdym generowaniu do Google lecą: dyscyplina, nazwa i data zawodów, dystans, czas
-            docelowy, dni treningowe, tygodniowa objętość, najlepsze tempo oraz lista treningów
-            z ostatnich {FORM_WEEKS} tygodni — data, dystans, czas i tempo każdego.
+            Przy układaniu planu do wybranego dostawcy lecą: dyscyplina, nazwa i data zawodów,
+            dystans, czas docelowy, dni treningowe, tygodniowa objętość, najlepsze tempo oraz lista
+            treningów z ostatnich {FORM_WEEKS} tygodni — data, dystans, czas i tempo każdego.
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             Nie wychodzi nic więcej: ani pomiary ciała, ani tętno, ani sen, ani ciśnienie, ani nazwa
-            konta Garmina. Zapytanie idzie wprost z telefonu do Google — bez żadnego serwera
-            pośrodku, także mojego.
+            konta Garmina. Zapytanie idzie wprost z telefonu do tego dostawcy, którego wybierzesz —
+            bez żadnego serwera pośrodku, także mojego.
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             {consent
@@ -161,30 +122,30 @@ export default function GoalAiScreen() {
 
         <View style={styles.section}>
           <ThemedText type="smallBold" themeColor="textSecondary">
-            KLUCZ DO GEMINI
+            DOMYŚLNY DOSTAWCA
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            {saved === null ? 'Sprawdzam…' : saved ? 'Klucz jest zapisany.' : 'Klucza nie ma.'}
+            Ten odpowiada wtedy, gdy ekran nie pyta. Mając klucze do kilku, wskażesz innego przy
+            pojedynczym zapytaniu — na ekranie planu, opisu posiłku i propozycji jedzenia.
           </ThemedText>
+          <View style={styles.chips}>
+            {providers.map((provider) => (
+              <Chip
+                key={provider}
+                label={PROVIDER_LABELS[provider]}
+                selected={provider === chosen}
+                onPress={() => pick(provider)}
+              />
+            ))}
+          </View>
           <ThemedText type="small" themeColor="textSecondary">
-            Klucz zakładasz w Google AI Studio. Rozliczany jest na Twoim koncie — jeden plan to
-            jedno zapytanie, więc przy darmowym limicie zwykle nic nie kosztuje.
+            {describeConfigured(configured, chosen)}
           </ThemedText>
-          <TextInput
-            value={key}
-            onChangeText={setKey}
-            placeholder="Wklej klucz"
-            placeholderTextColor={theme.textSecondary}
-            autoCapitalize="none"
-            autoCorrect={false}
-            secureTextEntry
-            style={[styles.input, { color: theme.text, backgroundColor: theme.background, borderColor: theme.border }]}
-          />
-          <Button label="Zapisz klucz" icon="key" onPress={() => void store()} disabled={key.trim() === ''} />
-          {saved === true && (
-            <Button label="Usuń klucz" icon="delete" variant="danger" onPress={() => void forget()} />
-          )}
         </View>
+
+        {providers.map((provider) => (
+          <ProviderSettings key={provider} provider={provider} />
+        ))}
 
         <View style={styles.section}>
           <ThemedText type="smallBold" themeColor="textSecondary">
@@ -230,7 +191,7 @@ export default function GoalAiScreen() {
                 'Zapisane',
                 hints.trim() === ''
                   ? 'Wytyczne usunięte. Model dostanie same reguły z aplikacji.'
-                  : 'Pójdą z każdym kolejnym planem od Gemini.',
+                  : 'Pójdą z każdym kolejnym planem od modelu.',
               );
             }}
           />
@@ -241,58 +202,28 @@ export default function GoalAiScreen() {
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             Całe polecenie, razem z wytycznymi, podejrzysz na ekranie celu — przycisk „Podejrzyj
-            polecenie dla Gemini”.
+            polecenie dla modelu”.
           </ThemedText>
-        </View>
-
-        <View style={styles.section}>
-          <ThemedText type="smallBold" themeColor="textSecondary">
-            MODEL
-          </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            Domyślnie {DEFAULT_MODEL}. Google wycofuje i dokłada warianty, więc nazwę da się
-            zmienić bez nowej wersji aplikacji. Wpisuje się identyfikator, a nie nazwę ze strony:
-            „Gemini 3.5 Flash-Lite” API odrzuca, „gemini-3.5-flash-lite” przyjmuje. Zamienię jedno
-            w drugie sam, ale pewną listę ma tylko Google — najlepiej ją pobrać i wybrać z niej.
-          </ThemedText>
-          <TextInput
-            value={model}
-            onChangeText={setModel}
-            autoCapitalize="none"
-            autoCorrect={false}
-            placeholder={DEFAULT_MODEL}
-            placeholderTextColor={theme.textSecondary}
-            style={[styles.input, { color: theme.text, backgroundColor: theme.background, borderColor: theme.border }]}
-          />
-          {wanted !== model.trim() && wanted !== '' && (
-            <ThemedText type="small" themeColor="textSecondary">
-              Zapiszę jako: {wanted}
-            </ThemedText>
-          )}
-          <Button label="Zapisz nazwę modelu" icon="save" variant="secondary" onPress={storeModel} />
-          <Button
-            label={listing ? 'Pobieram…' : 'Pobierz listę modeli'}
-            icon="sync"
-            variant="secondary"
-            disabled={listing}
-            onPress={() => void fetchModels()}
-          />
-          {models !== null && (
-            <View style={styles.chips}>
-              {models.map((entry) => (
-                <Chip
-                  key={entry.id}
-                  label={entry.id}
-                  selected={entry.id === wanted}
-                  onPress={() => keep(entry.id)}
-                />
-              ))}
-            </View>
-          )}
         </View>
       </ScrollView>
     </ThemedView>
   );
+}
+
+/** Które klucze już są — i ostrzeżenie, gdy domyślny dostawca nie ma czym zapytać. */
+function describeConfigured(configured: Provider[] | null, chosen: Provider): string {
+  if (configured === null) return 'Sprawdzam klucze…';
+  if (configured.length === 0) {
+    return 'Żaden dostawca nie ma jeszcze klucza. Wklej go niżej przy tym, z którego chcesz'
+      + ' korzystać — aplikacja działa w całości bez nich.';
+  }
+
+  const names = configured.map((provider) => PROVIDER_LABELS[provider]).join(', ');
+  if (!configured.includes(chosen)) {
+    return `Klucz mają: ${names}. Domyślny (${PROVIDER_LABELS[chosen]}) go nie ma, więc zapytanie`
+      + ` pójdzie do pierwszego z kluczem — do ${PROVIDER_COMPANIES[configured[0]]}.`;
+  }
+  return `Klucz mają: ${names}.`;
 }
 
 const styles = StyleSheet.create({

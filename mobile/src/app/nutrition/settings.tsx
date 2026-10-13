@@ -174,7 +174,7 @@ export default function NutritionSettingsScreen() {
             WYTYCZNE ŻYWIENIOWE
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            Czego nie jadasz, na co masz uczulenie, ile masz rano czasu na śniadanie. Idą do Gemini
+            Czego nie jadasz, na co masz uczulenie, ile masz rano czasu na śniadanie. Idą do modelu
             przy propozycji posiłków — sam budżet nigdy się nie dowie, że nie jesz ryb.
           </ThemedText>
           <TextInput

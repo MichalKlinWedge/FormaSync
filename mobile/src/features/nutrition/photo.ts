@@ -8,16 +8,16 @@ import * as ImagePicker from 'expo-image-picker';
  * zupełnie inna kategoria danych niż „owsianka, 420 kcal”.
  *
  * Kadrowanie jest włączone na stałe i nie jest kaprysem: pozwala odciąć wszystko poza talerzem,
- * zanim cokolwiek pojedzie do Google, a przy okazji poprawia rozpoznanie, bo w kadrze zostaje
+ * zanim cokolwiek pojedzie do modelu, a przy okazji poprawia rozpoznanie, bo w kadrze zostaje
  * jedzenie zamiast kuchni.
  */
 
 /**
- * Ile bajtów zdjęcia jeszcze przyjmujemy. Całe zapytanie do Gemini ma limit 20 MB, a base64
- * puchnie o jedną trzecią — cztery megabajty zostawiają zapas i tak są grubo powyżej tego, co
- * daje aparat przy naszej jakości.
+ * Ile bajtów zdjęcia jeszcze przyjmujemy. Decyduje najciaśniejszy z dostawców — Anthropic bierze
+ * do pięciu megabajtów na obraz, a base64 puchnie o jedną trzecią. Trzy i pół megabajta mieści się
+ * u każdego z nich i tak jest grubo powyżej tego, co daje aparat przy naszej jakości.
  */
-export const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
+export const MAX_PHOTO_BYTES = Math.round(3.5 * 1024 * 1024);
 
 /** Niższa jakość to mniejsze zapytanie, a do rozpoznania jedzenia aż nadto. */
 const QUALITY = 0.45;
@@ -28,7 +28,7 @@ export type MealPhoto = {
   /** Plik na telefonie — tylko do pokazania miniatury. */
   uri: string;
   mimeType: string;
-  /** Zawartość w base64; to ona leci do Google. */
+  /** Zawartość w base64; to ona leci do modelu. */
   data: string;
 };
 

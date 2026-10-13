@@ -12,7 +12,7 @@ import { emptyFoodDraft, type FoodDraft } from './food';
  * założył.
  *
  * Moduł jest czysty: polecenie i odczyt odpowiedzi bez sieci i bez bazy, więc da się je sprawdzić
- * testem. Samo zapytanie wysyła ekran przez `askGemini`.
+ * testem. Samo zapytanie wysyła ekran przez `askAi`.
  */
 
 export class FoodReplyError extends Error {}

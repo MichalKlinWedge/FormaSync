@@ -19,7 +19,7 @@ import { loadProposal } from './proposal-store';
  * dzień z biegiem je się inaczej niż dzień bez.
  *
  * Kafelek pokazuje gotową propozycję albo prowadzi do jej ułożenia na ten sam dzień. Samej
- * propozycji tutaj nie układamy: to zapytanie do Google i kilkanaście sekund czekania, więc należy
+ * propozycji tutaj nie układamy: to zapytanie do modelu i kilkanaście sekund czekania, więc należy
  * do ekranu, który o tym mówi.
  */
 export function DayProposalCard({ dayKey, today }: { dayKey: string; today: string }) {

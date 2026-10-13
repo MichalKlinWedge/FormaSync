@@ -191,15 +191,16 @@ export default function SettingsScreen() {
 
         <View style={styles.section}>
           <ThemedText type="smallBold" themeColor="textSecondary">
-            GEMINI
+            MODELE AI
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            Jeden klucz na całą aplikację: plan pod cel, posiłek opisany słowami i propozycja
-            jedzenia na dzień pytają tym samym. Tutaj wklejasz klucz, wybierasz model i wycofujesz
-            zgodę na wysyłkę. Bez klucza wszystko poza tym działa dalej.
+            Gemini, Claude i ChatGPT — klucz wklejasz tam, gdzie masz konto, i z tego samego
+            korzystają plan pod cel, posiłek opisany słowami i propozycja jedzenia na dzień. Mając
+            kilka, wybierasz domyślny, a przy pojedynczym zapytaniu wskazujesz inny. Bez żadnego
+            klucza wszystko poza tym działa dalej.
           </ThemedText>
           <Button
-            label="Klucz, model i wytyczne"
+            label="Klucze, modele i wytyczne"
             icon="key"
             variant="secondary"
             onPress={() => router.push('/goal/ai')}

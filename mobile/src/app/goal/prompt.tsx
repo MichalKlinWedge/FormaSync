@@ -7,13 +7,13 @@ import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
 import { buildContext } from '@/features/goals/ai/context';
 import { buildPrompt } from '@/features/goals/ai/prompt';
-import { guidance } from '@/features/goals/ai/tokens';
+import { guidance } from '@/features/ai/tokens';
 import { buildBrief, currentForm } from '@/features/goals/brief';
 import { loadGoal } from '@/features/goals/repository';
 import { todayKey } from '@/lib/date';
 
 /**
- * Dokładnie to, co pójdzie do Gemini — co do znaku.
+ * Dokładnie to, co pójdzie do modelu — co do znaku.
  *
  * Ekran Prywatności obiecuje, że dane wychodzą tylko tam, gdzie sam je wyślesz. Obietnicy nie da
  * się sprawdzić opisem tego, co wysyłamy; da się ją sprawdzić pokazaniem tekstu. Przy okazji
@@ -50,7 +50,7 @@ export default function PromptPreviewScreen() {
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             Tyle i nic więcej. Nie wychodzą stąd pomiary ciała, tętno, sen, ciśnienie ani nazwa
-            konta Garmina. Zapytanie idzie wprost z telefonu do Google.
+            konta Garmina. Zapytanie idzie wprost z telefonu do wybranego dostawcy.
           </ThemedText>
         </View>
         <ThemedText type="small" selectable style={styles.prompt}>

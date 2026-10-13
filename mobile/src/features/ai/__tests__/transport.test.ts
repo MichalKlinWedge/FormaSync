@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-import { GeminiError, send } from '../transport';
+import { AiError, send } from '../transport';
 
 /**
  * Milczenie serwera i zerwane połączenie. Obie awarie wyglądają na ekranie tak samo — „nie
@@ -47,7 +47,7 @@ describe('send', () => {
       return Promise.resolve(OK);
     }) as Fetch);
 
-    const response = await send('https://example.test', {}, { label: 'test', timeoutMs: 1000 });
+    const response = await send('https://example.test', {}, { provider: 'GEMINI', label: 'test', timeoutMs: 1000 });
     expect(response).toBe(OK);
 
     // Zegar po udanej odpowiedzi musi być skasowany — inaczej przerwałby następne zapytanie.
@@ -59,7 +59,7 @@ describe('send', () => {
   it('przerywa ciszę i mówi, ile czekał', async () => {
     useFetch(silent);
 
-    const promise = send('https://example.test', {}, { label: 'test', timeoutMs: 60_000 });
+    const promise = send('https://example.test', {}, { provider: 'GEMINI', label: 'test', timeoutMs: 60_000 });
     await Promise.resolve();
     jest.advanceTimersByTime(60_000);
 
@@ -71,27 +71,27 @@ describe('send', () => {
   it('po ciszy proponuje powtórzenie, bo taka awaria mija sama', async () => {
     useFetch(silent);
 
-    const promise = send('https://example.test', {}, { label: 'test', timeoutMs: 1000 });
+    const promise = send('https://example.test', {}, { provider: 'GEMINI', label: 'test', timeoutMs: 1000 });
     await Promise.resolve();
     jest.advanceTimersByTime(1000);
 
     const error = await promise.catch((e: unknown) => e);
-    expect(error).toBeInstanceOf(GeminiError);
-    expect((error as GeminiError).retryable).toBe(true);
+    expect(error).toBeInstanceOf(AiError);
+    expect((error as AiError).retryable).toBe(true);
   });
 
   it('odróżnia brak drogi do Google od ciszy po jego stronie', async () => {
     useFetch((() => Promise.reject(new TypeError('Network request failed'))) as Fetch);
 
     await expect(
-      send('https://example.test', {}, { label: 'test', timeoutMs: 1000 }),
+      send('https://example.test', {}, { provider: 'GEMINI', label: 'test', timeoutMs: 1000 }),
     ).rejects.toThrow('Zapytanie nie dotarło do Google — sprawdź połączenie z internetem.');
   });
 
   it('zostawia powód w logu telefonu, bo komunikat na ekranie go nie niesie', async () => {
     useFetch((() => Promise.reject(new TypeError('Network request failed'))) as Fetch);
 
-    await send('https://example.test', {}, { label: 'lista modeli', timeoutMs: 1000 }).catch(
+    await send('https://example.test', {}, { provider: 'GEMINI', label: 'lista modeli', timeoutMs: 1000 }).catch(
       () => {},
     );
 

@@ -11,9 +11,12 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
 import { type FoodBasis, foodBases, type MealType, mealTypes } from '@/db/schema';
-// Klient Gemini jest jeden dla całej aplikacji — stoi przy planiście, bo tam powstał, i tam leży
-// też klucz. Kalorie używają tego samego, zamiast zakładać drugie połączenie z Google.
-import { askGemini, GeminiError, NoApiKeyError } from '@/features/goals/ai/gemini';
+// Klient modeli jest jeden dla całej aplikacji: ten sam, z którego korzysta planista, i te same
+// klucze. Który model odpowie, wybiera się niżej — albo zostaje domyślny z Ustawień.
+import { AiError, askAi, NoApiKeyError } from '@/features/ai/client';
+import { ProviderPicker } from '@/features/ai/provider-picker';
+import { PROVIDER_COMPANIES } from '@/features/ai/providers';
+import { useAiProvider } from '@/features/ai/use-providers';
 import { buildFoodPrompt, FoodReplyError, parseFoodReply } from '@/features/nutrition/ai';
 import { AMOUNT_UNITS, type FoodDraft, nutrientsFor, referenceAmount } from '@/features/nutrition/food';
 import { saveFood } from '@/features/nutrition/food-repository';
@@ -26,11 +29,11 @@ import { useTheme } from '@/hooks/use-theme';
 const BASIS_LABELS: Record<FoodBasis, string> = { G100: 'na 100 g', SERVING: 'na porcję' };
 
 /**
- * Posiłek opisany słowami, oszacowany przez Gemini.
+ * Posiłek opisany słowami, oszacowany przez model.
  *
  * Model nie waży jedzenia — zgaduje typowe wielkości, i tak to pokazujemy: jego odpowiedź wraca
  * jako wersja robocza do poprawienia, z notatką o tym, co założył. Nic nie zapisuje się samo,
- * a wpisany opis idzie do Google tylko po dotknięciu „Oszacuj”.
+ * a wpisany opis wychodzi z telefonu tylko po dotknięciu „Oszacuj”.
  */
 export default function DescribeMealScreen() {
   const theme = useTheme();
@@ -44,6 +47,7 @@ export default function DescribeMealScreen() {
   const [note, setNote] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [amount, setAmount] = useState<number | null>(null);
+  const { provider, setProvider, configured } = useAiProvider();
 
   const patch = (change: Partial<FoodDraft>) =>
     setDraft((current) => (current === null ? current : { ...current, ...change }));
@@ -67,7 +71,10 @@ export default function DescribeMealScreen() {
     }
     setBusy(true);
     try {
-      const reply = await askGemini(buildFoodPrompt(description, { photo: photo !== null }), photo);
+      const reply = await askAi(buildFoodPrompt(description, { photo: photo !== null }), {
+        provider,
+        image: photo,
+      });
       const result = parseFoodReply(reply, description);
       setDraft(result.draft);
       setNote(result.note);
@@ -75,17 +82,17 @@ export default function DescribeMealScreen() {
       setAmount(referenceAmount(result.draft.basis));
     } catch (e) {
       if (e instanceof NoApiKeyError) {
-        Alert.alert('Brak klucza do Gemini', 'Klucz wkleja się raz, w ustawieniach planisty AI.', [
+        Alert.alert('Brak klucza', `${e.message} Klucz wkleja się raz, w Ustawieniach.`, [
           { text: 'Nie teraz', style: 'cancel' },
           { text: 'Ustawienia', onPress: () => router.push('/goal/ai') },
         ]);
       } else {
-        // „Ponów” tylko tam, gdzie powtórzenie ma sens: cisza po stronie Google, zerwane
+        // „Ponów” tylko tam, gdzie powtórzenie ma sens: cisza po stronie dostawcy, zerwane
         // połączenie, pusta odpowiedź. Przy odmowie z klucza przycisk kazałby stukać w ścianę.
-        const retry = e instanceof GeminiError && e.retryable;
+        const retry = e instanceof AiError && e.retryable;
         Alert.alert(
           'Nie udało się oszacować',
-          e instanceof GeminiError || e instanceof FoodReplyError
+          e instanceof AiError || e instanceof FoodReplyError
             ? e.message
             : 'Nieznany błąd połączenia.',
           retry
@@ -195,11 +202,11 @@ export default function DescribeMealScreen() {
           )}
           <ThemedText type="small" themeColor="textSecondary">
             {photo === null
-              ? 'Do Google pojedzie sam ten opis i prośba o wartości. Nic więcej z aplikacji — ani masa ciała, ani treningi, ani pozostałe posiłki.'
-              : 'Do Google pojedzie ten opis i to jedno zdjęcie. Nic więcej z aplikacji — ani masa ciała, ani treningi, ani pozostałe posiłki. Kadrowanie przed wysłaniem pozwala zostawić w kadrze sam talerz.'}
+              ? `Do ${PROVIDER_COMPANIES[provider]} pojedzie sam ten opis i prośba o wartości. Nic więcej z aplikacji — ani masa ciała, ani treningi, ani pozostałe posiłki.`
+              : `Do ${PROVIDER_COMPANIES[provider]} pojedzie ten opis i to jedno zdjęcie. Nic więcej z aplikacji — ani masa ciała, ani treningi, ani pozostałe posiłki. Kadrowanie przed wysłaniem pozwala zostawić w kadrze sam talerz.`}
           </ThemedText>
           <Button
-            label={showPrompt ? 'Ukryj polecenie' : 'Pokaż, co pojedzie do Google'}
+            label={showPrompt ? 'Ukryj polecenie' : 'Pokaż, co pojedzie do modelu'}
             icon="visibility"
             variant="secondary"
             onPress={() => setShowPrompt((shown) => !shown)}
@@ -209,8 +216,9 @@ export default function DescribeMealScreen() {
               {buildFoodPrompt(description, { photo: photo !== null })}
             </ThemedText>
           )}
+          <ProviderPicker configured={configured} value={provider} onChange={setProvider} />
           <Button
-            label={busy ? 'Pytam Gemini…' : 'Oszacuj'}
+            label={busy ? 'Pytam model…' : 'Oszacuj'}
             icon="auto_awesome"
             onPress={() => void estimate()}
             disabled={busy}

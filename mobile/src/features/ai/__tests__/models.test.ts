@@ -3,7 +3,8 @@
  */
 import { describe, expect, it } from '@jest/globals';
 
-import { isModelName, normalizeModel, parseModelList } from '../ai/models';
+import { parseModelList } from '../gemini';
+import { isModelName, normalizeModel } from '../models';
 
 describe('normalizeModel', () => {
   it('robi identyfikator z nazwy ze strony Google', () => {

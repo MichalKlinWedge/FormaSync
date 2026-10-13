@@ -32,27 +32,29 @@ export default function PrivacyScreen() {
             i biometria przy treningach.
           </Bullet>
           <Bullet>
-            Gemini — jeśli wkleisz swój klucz i zgodzisz się na wysyłkę, przy każdym układaniu planu
-            pod zawody do Google lecą: dyscyplina, nazwa i data zawodów, dystans, czas docelowy, dni
-            treningowe, tygodniowa objętość, najlepsze tempo oraz lista treningów z ostatnich tygodni
-            — data, dystans, czas i tempo każdego. Nie idą pomiary ciała, tętno, sen, ciśnienie ani
-            nazwa konta Garmina. Zapytanie leci wprost z telefonu do Google, bez serwera pośrodku.
+            Model AI — do wyboru Gemini (Google), Claude (Anthropic) albo ChatGPT (OpenAI). Dane
+            wychodzą tylko do tego, którego klucz wkleisz i którego wskażesz przy zapytaniu. Przy
+            każdym układaniu planu pod zawody lecą: dyscyplina, nazwa i data zawodów, dystans, czas
+            docelowy, dni treningowe, tygodniowa objętość, najlepsze tempo oraz lista treningów
+            z ostatnich tygodni — data, dystans, czas i tempo każdego. Nie idą pomiary ciała, tętno,
+            sen, ciśnienie ani nazwa konta Garmina. Zapytanie leci wprost z telefonu do dostawcy,
+            bez serwera pośrodku.
           </Bullet>
           <Bullet>
-            Gemini przy kaloriach — jeśli opiszesz posiłek słowami i dotkniesz „Oszacuj”, do Google
-            leci sam ten opis i prośba o wartości odżywcze. Nie idą z nim ani pozostałe posiłki, ani
+            Model AI przy kaloriach — jeśli opiszesz posiłek słowami i dotkniesz „Oszacuj”, do
+            wybranego dostawcy leci sam ten opis i prośba o wartości odżywcze. Nie idą z nim ani pozostałe posiłki, ani
             masa ciała, ani cel diety. Całe liczenie kalorii działa bez tego — opis słowami jest
             jedną z czterech dróg, obok bazy produktów, kodu kreskowego i wpisu z ręki.
           </Bullet>
           <Bullet>
-            Gemini przy propozycji posiłków — jeśli poprosisz o ułożenie dnia, do Google lecą liczby:
+            Model AI przy propozycji posiłków — jeśli poprosisz o ułożenie dnia, lecą liczby:
             ile kalorii i białka zostało do rozdysponowania, ile wychodzi Twój typowy obiad i czy masz
             dziś trening, a do tego Twoje wytyczne żywieniowe i opis obiadu, jeśli go wpiszesz. Nie
             idzie dziennik posiłków, masa ciała ani historia treningów. Gotowa propozycja zostaje
             w telefonie.
           </Bullet>
           <Bullet>
-            Zdjęcie posiłku — jeśli dołączysz je do opisu, pojedzie do Google razem z nim, jako
+            Zdjęcie posiłku — jeśli dołączysz je do opisu, pojedzie do wybranego dostawcy razem z nim, jako
             jedno zdjęcie wybrane przez Ciebie i dopiero po dotknięciu „Oszacuj”. Przed wysłaniem
             kadrujesz je sam, więc w kadrze może zostać sam talerz. Zdjęcie nie jest nigdzie
             zapisywane: nie trafia do bazy produktów, do historii dnia ani do kopii zapasowej —
@@ -66,21 +68,24 @@ export default function PrivacyScreen() {
           </Bullet>
         </Section>
 
-        <Section title="Planista AI">
+        <Section title="Modele AI">
           <Paragraph>
-            Układanie planu modelem jest wyłączone, dopóki sam nie wkleisz klucza do Gemini i nie
-            potwierdzisz zgody. Plan z reguł działa bez tego, bez internetu i bez niczyjego konta —
-            i zostaje domyślny.
+            Wszystko, co robi model, jest wyłączone, dopóki sam nie wkleisz klucza i nie potwierdzisz
+            zgody. Klucz zakładasz u dostawcy, którego wybierzesz, i on rozlicza zapytania na Twoim
+            koncie — aplikacja nie ma własnego konta u żadnego z nich. Plan z reguł działa bez tego,
+            bez internetu i bez niczyjego konta, i zostaje domyślny.
           </Paragraph>
           <Paragraph>
-            Zgodę wycofasz w każdej chwili, a klucz usuniesz jednym przyciskiem: Plany → Cele → Planista
-            AI. Klucz leży w bezpiecznym magazynie telefonu, nie w bazie, więc nie trafia do kopii
-            zapasowej i nie da się go odczytać z powrotem — także z tego ekranu.
+            Klucze są osobne dla każdego dostawcy i każdy usuwa się jednym przyciskiem: Ustawienia →
+            Modele AI. Tam też wycofasz zgodę. Klucze leżą w bezpiecznym magazynie telefonu, nie
+            w bazie, więc nie trafiają do kopii zapasowej i nie da się ich odczytać z powrotem —
+            także z tego ekranu.
           </Paragraph>
           <Paragraph>
-            Tego, co Google robi z przysłanym zapytaniem, ta aplikacja nie kontroluje. Zasady
-            przetwarzania są po stronie Google i zależą od rodzaju Twojego klucza — przy darmowym
-            poziomie Google zastrzega sobie prawo wykorzystania zapytań do ulepszania modeli.
+            Tego, co dostawca robi z przysłanym zapytaniem, ta aplikacja nie kontroluje. Zasady
+            przetwarzania są po jego stronie i zależą od rodzaju Twojego klucza — na darmowych
+            poziomach dostawcy zwykle zastrzegają sobie prawo wykorzystania zapytań do ulepszania
+            modeli. Wysyłasz tylko do tego, którego klucz sam wkleiłeś.
           </Paragraph>
         </Section>
 

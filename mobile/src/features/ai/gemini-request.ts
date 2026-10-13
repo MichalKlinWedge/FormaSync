@@ -5,8 +5,7 @@
  * go nawet zaimportować — a to, co dokładnie lecisz do Google, jest akurat warte sprawdzenia.
  */
 
-/** Zdjęcie doklejone do zapytania: typ MIME i zawartość w base64. */
-export type GeminiImage = { mimeType: string; data: string };
+import type { AiImage } from './providers';
 
 export type GeminiPart = { text: string } | { inline_data: { mime_type: string; data: string } };
 
@@ -17,7 +16,7 @@ export type GeminiPart = { text: string } | { inline_data: { mime_type: string; 
  * Nazwy pól są w stylu REST API Google (`inline_data`, `mime_type`), a nie w camelCase — to ta
  * sama konwencja, której używa reszta zapytania.
  */
-export function contentParts(prompt: string, image?: GeminiImage | null): GeminiPart[] {
+export function contentParts(prompt: string, image?: AiImage | null): GeminiPart[] {
   const parts: GeminiPart[] = [];
   if (image !== undefined && image !== null) {
     parts.push({ inline_data: { mime_type: image.mimeType, data: image.data } });

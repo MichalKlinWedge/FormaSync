@@ -10,9 +10,13 @@ import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
 import { syncWorkoutReminders } from '@/features/calendar/reminders';
 import { formatDistance, formatPace, formatSeconds } from '@/features/endurance/format';
+import { AiError, NoApiKeyError } from '@/features/ai/client';
+import { ProviderPicker } from '@/features/ai/provider-picker';
+import { PROVIDER_COMPANIES, PROVIDER_LABELS } from '@/features/ai/providers';
+import { guidance, hasConsent, setConsent } from '@/features/ai/tokens';
+import { useAiProvider } from '@/features/ai/use-providers';
 import { buildContext } from '@/features/goals/ai/context';
-import { GeminiError, NoApiKeyError, planWithGemini, PlanReplyError } from '@/features/goals/ai/gemini';
-import { guidance, hasConsent, setConsent } from '@/features/goals/ai/tokens';
+import { planWithAi, PlanReplyError } from '@/features/goals/ai/plan';
 import { buildBrief, currentForm } from '@/features/goals/brief';
 import { findJunk, sweepJunk } from '@/features/goals/cleanup';
 import { planGoal } from '@/features/goals/planner';
@@ -49,6 +53,7 @@ export default function GoalScreen() {
   const [time, setTime] = useState<string | null>('07:00');
   const [reminder, setReminder] = useState<number | null>(60);
   const [asking, setAsking] = useState(false);
+  const { provider, setProvider, configured } = useAiProvider();
   // Wybór dni trzymamy jako odstępstwa od stanu planu: po przesunięciu ekran wraca do tego,
   // co faktycznie stoi w kalendarzu, zamiast pokazywać poprzedni wybór.
   const [picked, setPicked] = useState<Record<number, number>>({});
@@ -89,34 +94,35 @@ export default function GoalScreen() {
    * Plan od modelu. Zgody pytamy raz i zapisujemy: to pierwsza rzecz w aplikacji, która wypuszcza
    * treningi poza telefon, więc musi o tym powiedzieć wprost, zanim cokolwiek wyśle.
    */
-  const askGemini = () => {
+  const askModel = () => {
     if (goal === null) return;
     if (!hasConsent()) {
       Alert.alert(
-        'Wysłać dane do Google?',
-        'Do Gemini pojadą: dystans i data zawodów, czas docelowy, dni treningowe, tygodniowa objętość, najlepsze tempo i lista treningów z ostatnich tygodni. Nie pojadą pomiary ciała, tętno, sen ani ciśnienie.',
+        `Wysłać dane do ${PROVIDER_COMPANIES[provider]}?`,
+        `Do ${PROVIDER_LABELS[provider]} pojadą: dystans i data zawodów, czas docelowy, dni treningowe, tygodniowa objętość, najlepsze tempo i lista treningów z ostatnich tygodni. Nie pojadą pomiary ciała, tętno, sen ani ciśnienie.`,
         [
           { text: 'Anuluj', style: 'cancel' },
           {
             text: 'Wyślij',
             onPress: () => {
               setConsent(true);
-              void runGemini();
+              void runModel();
             },
           },
         ],
       );
       return;
     }
-    void runGemini();
+    void runModel();
   };
 
-  const runGemini = async () => {
+  const runModel = async () => {
     if (goal === null) return;
     setAsking(true);
     try {
       const today = todayKey();
-      const weeks = await planWithGemini(
+      const weeks = await planWithAi(
+        provider,
         buildBrief(db, goal, new Date()),
         currentForm(db, goal.sport).history,
         today,
@@ -124,7 +130,7 @@ export default function GoalScreen() {
       );
       const added = savePlan(db, goalId, weeks, 'GEMINI');
       askToWrite(
-        'Plan od Gemini',
+        `Plan od ${PROVIDER_LABELS[provider]}`,
         `${pluralWith(weeks.length, 'tydzień', 'tygodnie', 'tygodni')}, ${pluralWith(added, 'jednostka', 'jednostki', 'jednostek')}. Tempa i odcinki policzyła aplikacja, nie model.`,
       );
     } catch (e) {
@@ -306,21 +312,22 @@ export default function GoalScreen() {
             icon="rule"
             onPress={plan}
           />
+          <ProviderPicker configured={configured} value={provider} onChange={setProvider} />
           <Button
-            label={asking ? 'Pytam Gemini…' : 'Ułóż plan przez Gemini'}
+            label={asking ? `Pytam ${PROVIDER_LABELS[provider]}…` : `Ułóż plan przez ${PROVIDER_LABELS[provider]}`}
             icon="auto_awesome"
             variant="secondary"
-            onPress={askGemini}
+            onPress={askModel}
             disabled={asking}
           />
           <Button
-            label="Planista AI — klucz, model, wytyczne"
+            label="Modele AI — klucze i wytyczne"
             icon="key"
             variant="secondary"
             onPress={() => router.push('/goal/ai')}
           />
           <Button
-            label="Podejrzyj polecenie dla Gemini"
+            label="Podejrzyj polecenie dla modelu"
             icon="visibility"
             variant="secondary"
             onPress={() => router.push({ pathname: '/goal/prompt', params: { id: goalId } })}
@@ -328,7 +335,7 @@ export default function GoalScreen() {
           {goal.plannedBy !== null && (
             <ThemedText type="small" themeColor="textSecondary">
               {goal.plannedBy === 'GEMINI'
-                ? 'Obecny plan ułożyło Gemini.'
+                ? 'Obecny plan ułożył model AI.'
                 : 'Obecny plan ułożyły reguły w aplikacji.'}
             </ThemedText>
           )}
@@ -524,8 +531,8 @@ function describeAiError(error: unknown): string {
   if (error instanceof PlanReplyError) {
     return `${error.message} Spróbuj jeszcze raz albo ułóż plan z reguł — wychodzi od razu i bez internetu.`;
   }
-  if (error instanceof GeminiError) return error.message;
-  return 'Nie udało się połączyć z Google. Sprawdź internet i spróbuj ponownie.';
+  if (error instanceof AiError) return error.message;
+  return 'Nie udało się połączyć z modelem. Sprawdź internet i spróbuj ponownie.';
 }
 
 const styles = StyleSheet.create({

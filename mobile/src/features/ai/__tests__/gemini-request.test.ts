@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from '@jest/globals';
 
-import { contentParts } from '../request';
+import { contentParts } from '../gemini-request';
 
 describe('contentParts', () => {
   it('samo polecenie to jedna część z tekstem', () => {
