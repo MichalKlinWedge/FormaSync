@@ -6,6 +6,7 @@ import { isModelName, parseModelList, type GeminiModel, type ModelListReply } fr
 import { buildPrompt, parsePlanReply, PlanReplyError } from './prompt';
 import { contentParts, type GeminiImage } from './request';
 import { loadApiKey, modelName } from './tokens';
+import { GeminiError, logFailure, send } from './transport';
 
 /**
  * Plan ułożony przez Gemini. Dokładamy go jako drugą opcję obok reguł — nie zamiast nich:
@@ -15,7 +16,8 @@ import { loadApiKey, modelName } from './tokens';
  * zniknięcia i mówimy wprost, co poszło nie tak — zamiast milczeć i pokazać pusty plan.
  */
 
-export class GeminiError extends Error {}
+export { GeminiError } from './transport';
+
 export class NoApiKeyError extends GeminiError {
   constructor() {
     super('Najpierw wklej klucz do Gemini w ustawieniach celu.');
@@ -25,6 +27,9 @@ export class NoApiKeyError extends GeminiError {
 export { PlanReplyError } from './prompt';
 
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
+
+/** Na samą listę modeli czekamy krócej: to jedno zdanie odpowiedzi, nie praca modelu. */
+const LIST_TIMEOUT_MS = 20_000;
 
 /** Odpowiedź w postaci, jakiej potrzebujemy. Każde pole może nie przyjść. */
 type GeminiReply = {
@@ -70,7 +75,7 @@ export async function askGemini(prompt: string, image?: GeminiImage | null): Pro
     );
   }
 
-  const response = await fetch(
+  const response = await send(
     `${ENDPOINT}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
     {
       method: 'POST',
@@ -82,16 +87,30 @@ export async function askGemini(prompt: string, image?: GeminiImage | null): Pro
         generationConfig: { responseMimeType: 'application/json', temperature: 0.4 },
       }),
     },
+    { label: `${model} generateContent${image ? ' ze zdjęciem' : ''}` },
   );
 
   const body = (await response.json().catch(() => null)) as GeminiReply | null;
-  if (!response.ok) throw new GeminiError(describeStatus(response.status, body?.error?.message));
+  if (!response.ok) {
+    logFailure(model, `HTTP ${response.status}: ${body?.error?.message ?? 'bez treści'}`);
+    // Awarię po stronie Google warto powtórzyć; odmowę z klucza albo z nazwy modelu — nie, bo
+    // drugie takie samo zapytanie dostanie tę samą odpowiedź.
+    throw new GeminiError(describeStatus(response.status, body?.error?.message), {
+      retryable: response.status >= 500,
+    });
+  }
 
   const blocked = body?.promptFeedback?.blockReason;
-  if (blocked !== undefined) throw new GeminiError(`Gemini odmówił odpowiedzi (${blocked}).`);
+  if (blocked !== undefined) {
+    logFailure(model, `odmowa: ${blocked}`);
+    throw new GeminiError(`Gemini odmówił odpowiedzi (${blocked}).`);
+  }
 
   const text = body?.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('') ?? '';
-  if (text.trim() === '') throw new GeminiError('Gemini zwrócił pustą odpowiedź.');
+  if (text.trim() === '') {
+    logFailure(model, 'pusta odpowiedź');
+    throw new GeminiError('Gemini zwrócił pustą odpowiedź.', { retryable: true });
+  }
   return text;
 }
 
@@ -103,11 +122,20 @@ export async function listGeminiModels(): Promise<GeminiModel[]> {
   const key = await loadApiKey();
   if (key === null) throw new NoApiKeyError();
 
-  const response = await fetch(`${ENDPOINT}?key=${encodeURIComponent(key)}&pageSize=200`);
+  const response = await send(
+    `${ENDPOINT}?key=${encodeURIComponent(key)}&pageSize=200`,
+    {},
+    { label: 'lista modeli', timeoutMs: LIST_TIMEOUT_MS },
+  );
   const body = (await response.json().catch(() => null)) as (ModelListReply & {
     error?: { message?: string };
   }) | null;
-  if (!response.ok) throw new GeminiError(describeStatus(response.status, body?.error?.message));
+  if (!response.ok) {
+    logFailure('lista modeli', `HTTP ${response.status}: ${body?.error?.message ?? 'bez treści'}`);
+    throw new GeminiError(describeStatus(response.status, body?.error?.message), {
+      retryable: response.status >= 500,
+    });
+  }
 
   const models = parseModelList(body);
   if (models.length === 0) throw new GeminiError('Google nie zwrócił ani jednego modelu do tekstu.');

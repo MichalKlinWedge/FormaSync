@@ -80,11 +80,20 @@ export default function DescribeMealScreen() {
           { text: 'Ustawienia', onPress: () => router.push('/goal/ai') },
         ]);
       } else {
+        // „Ponów” tylko tam, gdzie powtórzenie ma sens: cisza po stronie Google, zerwane
+        // połączenie, pusta odpowiedź. Przy odmowie z klucza przycisk kazałby stukać w ścianę.
+        const retry = e instanceof GeminiError && e.retryable;
         Alert.alert(
           'Nie udało się oszacować',
           e instanceof GeminiError || e instanceof FoodReplyError
             ? e.message
             : 'Nieznany błąd połączenia.',
+          retry
+            ? [
+                { text: 'Nie teraz', style: 'cancel' },
+                { text: 'Ponów', onPress: () => void estimate() },
+              ]
+            : undefined,
         );
       }
     } finally {
