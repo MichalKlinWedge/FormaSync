@@ -16,9 +16,12 @@ import { syncHydrationReminders } from '@/features/hydration/reminders';
 import { addExtra, logDrink, removeDrink } from '@/features/hydration/repository';
 import { describeTarget } from '@/features/hydration/target';
 import { useHydrationDay, useHydrationHistory } from '@/features/hydration/use-hydration';
+import { useNow } from '@/hooks/use-now';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDate, todayKey } from '@/lib/date';
 import { pluralWith } from '@/lib/number';
+
+const MINUTE_MS = 60_000;
 
 /** Korekta na dziś — upał, sauna. Tylko w górę: nikt nie potrzebuje pić mniej. */
 const EXTRA_STEPS = [250, 500];
@@ -28,6 +31,9 @@ export default function HydrationScreen() {
   const today = todayKey();
   const { consumed, target, portions, settings } = useHydrationDay(today);
   const { days, streak } = useHydrationHistory(today);
+  // Ten ekran przeliczał kreskę tylko wtedy, gdy zmieniły się dane, więc po dłuższym postoju
+  // stał zatrzymany na godzinie wejścia i pokazywał inną kreskę niż kafelek na „Dziś”.
+  const at = new Date(useNow(MINUTE_MS));
 
   const replan = () => void syncHydrationReminders().catch(() => {});
   const maxDay = Math.max(...days.map((day) => Math.max(day.milliliters, day.target)), 1);
@@ -42,9 +48,9 @@ export default function HydrationScreen() {
               z {formatMl(target.total)}
             </ThemedText>
           </View>
-          <DayBar consumedMl={consumed} targetMl={target.total} window={settings.window} />
+          <DayBar consumedMl={consumed} targetMl={target.total} window={settings.window} at={at} />
           <ThemedText type="small" themeColor="textSecondary">
-            {describeDay(consumed, target.total, settings.window, new Date())}
+            {describeDay(consumed, target.total, settings.window, at)}
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             Cel: {describeTarget(target)}

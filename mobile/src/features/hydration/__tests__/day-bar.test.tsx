@@ -22,32 +22,52 @@ function render(element: React.ReactElement): ReactTestRenderer {
   return tree;
 }
 
-/** Warstwy paska: tło, wypełnienie i — gdy jest co pokazać — kreska. */
-const layers = (tree: ReactTestRenderer) =>
-  tree.root.findAllByType(View).map((node) => StyleSheet.flatten(node.props.style));
+type Style = Record<string, unknown>;
+
+const styles = (tree: ReactTestRenderer): Style[] =>
+  tree.root.findAllByType(View).map((node) => StyleSheet.flatten(node.props.style) as Style);
+
+/** Wypełnienie ciągnie się przez całą wysokość paska, kreska leży nad nim. */
+const fillOf = (tree: ReactTestRenderer) => styles(tree).find((style) => style.height === '100%');
+const paceOf = (tree: ReactTestRenderer) =>
+  styles(tree).find((style) => style.position === 'absolute');
 
 describe('DayBar', () => {
   it('stawia kreskę tam, gdzie wypada pora dnia', () => {
     const tree = render(
       <DayBar consumedMl={800} targetMl={2600} window={WINDOW} at={at(14, 30)} />,
     );
-    const [, fill, pace] = layers(tree);
 
-    expect(pace).toBeDefined();
-    expect(pace.left).toBe('50%');
+    expect(paceOf(tree)?.left).toBe('50%');
     // Wypełnienie zostaje za kreską — to jest właśnie „jestem pod kreską”, widoczne wprost.
-    expect(fill.width).toBe(`${(800 / 2600) * 100}%`);
+    expect(fillOf(tree)?.width).toBe(`${(800 / 2600) * 100}%`);
+  });
+
+  it('nie zaokrągla końca wypełnienia, żeby dało się je zestawić z kreską', () => {
+    const fill = fillOf(render(<DayBar consumedMl={800} targetMl={2600} window={WINDOW} at={at(14)} />));
+
+    expect(fill?.borderTopLeftRadius).toBe(7);
+    expect(fill?.borderRadius).toBeUndefined();
+  });
+
+  it('rysuje kreskę także wtedy, gdy wypada dokładnie na końcu wypitego', () => {
+    // Co do mililitra na kresce: pasek i zdanie pod nim muszą mówić to samo, więc kreska
+    // zostaje — po prostu styka się z końcem wypełnienia.
+    const tree = render(<DayBar consumedMl={1300} targetMl={2600} window={WINDOW} at={at(14, 30)} />);
+
+    expect(paceOf(tree)?.left).toBe('50%');
+    expect(fillOf(tree)?.width).toBe('50%');
   });
 
   it('nie rysuje kreski, gdy cel jest dowieziony', () => {
     const tree = render(
       <DayBar consumedMl={2600} targetMl={2600} window={WINDOW} at={at(14, 30)} />,
     );
-    expect(layers(tree)).toHaveLength(2);
+    expect(paceOf(tree)).toBeUndefined();
   });
 
   it('nie rysuje kreski przed otwarciem okna dnia', () => {
     const tree = render(<DayBar consumedMl={0} targetMl={2600} window={WINDOW} at={at(6)} />);
-    expect(layers(tree)).toHaveLength(2);
+    expect(paceOf(tree)).toBeUndefined();
   });
 });

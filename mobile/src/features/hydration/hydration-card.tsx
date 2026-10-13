@@ -6,6 +6,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
+import { useNow } from '@/hooks/use-now';
 import { todayKey } from '@/lib/date';
 
 import { describeDay } from './day';
@@ -16,6 +17,8 @@ import { syncHydrationReminders } from './reminders';
 import { logDrink, undoLastDrink } from './repository';
 import { useHydrationDay } from './use-hydration';
 
+const MINUTE_MS = 60_000;
+
 /**
  * Kafelek nawodnienia na „Dziś”. Stoi poza przełącznikiem sportu, bo picie nie jest cechą
  * dyscypliny — pije się każdego dnia, także takiego bez treningu.
@@ -23,6 +26,9 @@ import { useHydrationDay } from './use-hydration';
 export function HydrationCard() {
   const today = todayKey();
   const { consumed, target, portions, settings } = useHydrationDay(today);
+  // Jedna chwila na kreskę i na zdanie pod nią — inaczej mogły trafić na różne strony tego
+  // samego tyknięcia i pokazać dwie różne rzeczy. Co minutę, bo kreska przesuwa się o włos.
+  const at = new Date(useNow(MINUTE_MS));
 
   // Po każdej zmianie planujemy przypomnienia od nowa: wypita szklanka zdejmuje najbliższe.
   const drink = (milliliters: number) => {
@@ -43,7 +49,7 @@ export function HydrationCard() {
             NAWODNIENIE
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            {describeDay(consumed, target.total, settings.window, new Date())}
+            {describeDay(consumed, target.total, settings.window, at)}
           </ThemedText>
         </View>
         <ThemedText type="smallBold">
@@ -55,6 +61,7 @@ export function HydrationCard() {
         consumedMl={consumed}
         targetMl={target.total}
         window={settings.window}
+        at={at}
         height={12}
       />
 
