@@ -65,6 +65,26 @@ export function dayRatio(consumedMl: number, targetMl: number): number {
   return Math.min(1, Math.max(0, consumedMl / targetMl));
 }
 
+/**
+ * Gdzie na pasku postawić kreskę „tyle powinno już być wypite”, w zakresie 0–1. `null` znaczy
+ * „nie stawiaj jej wcale”.
+ *
+ * Milczy w trzech przypadkach i za każdym razem z tego samego powodu: kreska pokryłaby się
+ * z krawędzią paska, a krawędź to nie jest żadna informacja. Przed otwarciem okna dnia stanęłaby
+ * na samym początku, po jego zamknięciu i po dowiezieniu celu — na samym końcu.
+ */
+export function paceRatio(
+  consumedMl: number,
+  targetMl: number,
+  window: DayWindow,
+  at: Date,
+): number | null {
+  if (targetMl <= 0 || consumedMl >= targetMl) return null;
+  const expected = expectedAt(targetMl, window, at);
+  if (expected <= 0 || expected >= targetMl) return null;
+  return expected / targetMl;
+}
+
 /** Zdanie pod paskiem: dowieziony cel, spokój albo zaległość. */
 export function describeDay(
   consumedMl: number,

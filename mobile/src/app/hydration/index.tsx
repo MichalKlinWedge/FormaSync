@@ -8,7 +8,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
-import { dayRatio, describeDay } from '@/features/hydration/day';
+import { describeDay } from '@/features/hydration/day';
+import { DayBar } from '@/features/hydration/day-bar';
 import { formatMl, portionTime } from '@/features/hydration/format';
 import { PortionButtons } from '@/features/hydration/portion-buttons';
 import { syncHydrationReminders } from '@/features/hydration/reminders';
@@ -41,17 +42,7 @@ export default function HydrationScreen() {
               z {formatMl(target.total)}
             </ThemedText>
           </View>
-          <View style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
-            <View
-              style={[
-                styles.fill,
-                {
-                  backgroundColor: consumed >= target.total ? theme.chart1 : theme.accent,
-                  width: `${dayRatio(consumed, target.total) * 100}%`,
-                },
-              ]}
-            />
-          </View>
+          <DayBar consumedMl={consumed} targetMl={target.total} window={settings.window} />
           <ThemedText type="small" themeColor="textSecondary">
             {describeDay(consumed, target.total, settings.window, new Date())}
           </ThemedText>
@@ -185,8 +176,6 @@ const styles = StyleSheet.create({
   content: { padding: Spacing.four, gap: Spacing.five, paddingBottom: Spacing.six },
   group: { gap: Spacing.two },
   header: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.two },
-  track: { height: 14, borderRadius: 7, overflow: 'hidden' },
-  fill: { height: '100%', borderRadius: 7 },
   row: { flexDirection: 'row', gap: Spacing.two },
   cell: { flex: 1 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },

@@ -6,10 +6,10 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
-import { useTheme } from '@/hooks/use-theme';
 import { todayKey } from '@/lib/date';
 
-import { dayRatio, describeDay } from './day';
+import { describeDay } from './day';
+import { DayBar } from './day-bar';
 import { formatMl } from './format';
 import { PortionButtons } from './portion-buttons';
 import { syncHydrationReminders } from './reminders';
@@ -21,7 +21,6 @@ import { useHydrationDay } from './use-hydration';
  * dyscypliny — pije się każdego dnia, także takiego bez treningu.
  */
 export function HydrationCard() {
-  const theme = useTheme();
   const today = todayKey();
   const { consumed, target, portions, settings } = useHydrationDay(today);
 
@@ -52,17 +51,12 @@ export function HydrationCard() {
         </ThemedText>
       </View>
 
-      <View style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
-        <View
-          style={[
-            styles.fill,
-            {
-              backgroundColor: consumed >= target.total ? theme.chart1 : theme.accent,
-              width: `${dayRatio(consumed, target.total) * 100}%`,
-            },
-          ]}
-        />
-      </View>
+      <DayBar
+        consumedMl={consumed}
+        targetMl={target.total}
+        window={settings.window}
+        height={12}
+      />
 
       <PortionButtons portions={settings.portions} onDrink={drink} />
 
@@ -93,8 +87,6 @@ const styles = StyleSheet.create({
   card: { borderRadius: 16, padding: Spacing.three, gap: Spacing.two },
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two },
   headerText: { flex: 1, gap: Spacing.half },
-  track: { height: 12, borderRadius: 6, overflow: 'hidden' },
-  fill: { height: '100%', borderRadius: 6 },
   row: { flexDirection: 'row', gap: Spacing.two },
   cell: { flex: 1 },
 });

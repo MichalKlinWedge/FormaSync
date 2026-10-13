@@ -10,6 +10,7 @@ import {
   describeReminder,
   expectedAt,
   formatTime,
+  paceRatio,
   parseTime,
   type DayWindow,
 } from '../day';
@@ -101,5 +102,32 @@ describe('describeReminder', () => {
     expect(describeReminder(500, 1800)).toBe(
       'Brakuje 500 ml do kreski na teraz. Do celu dnia 1,8 l.',
     );
+  });
+});
+
+describe('paceRatio — gdzie postawić kreskę na pasku', () => {
+  it('w połowie okna dnia stoi w połowie paska', () => {
+    // Okno 08:00–21:00 ma 13 godzin, więc połowa wypada o 14:30.
+    expect(paceRatio(0, 2600, WINDOW, at(14, 30))).toBeCloseTo(0.5, 5);
+  });
+
+  it('nie zależy od tego, ile już wypite — pokazuje porę dnia, nie postęp', () => {
+    expect(paceRatio(2000, 2600, WINDOW, at(14, 30))).toBeCloseTo(0.5, 5);
+  });
+
+  // W każdym z poniższych kreska pokryłaby się z krawędzią paska, a krawędź nic nie mówi.
+  it.each([
+    ['przed otwarciem okna', 0, 2600, at(6)],
+    ['dokładnie o otwarciu', 0, 2600, at(8)],
+    ['po zamknięciu okna', 0, 2600, at(22)],
+    ['po dowiezieniu celu', 2600, 2600, at(14, 30)],
+    ['ponad cel', 3000, 2600, at(14, 30)],
+    ['bez celu', 0, 0, at(14, 30)],
+  ])('milczy: %s', (_label, consumed, target, moment) => {
+    expect(paceRatio(consumed, target, WINDOW, moment)).toBeNull();
+  });
+
+  it('milczy przy zepsutym oknie, zamiast stawiać kreskę byle gdzie', () => {
+    expect(paceRatio(0, 2600, { from: '21:00', to: '08:00' }, at(14, 30))).toBeNull();
   });
 });
