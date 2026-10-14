@@ -99,7 +99,7 @@ describe('askClaude', () => {
       (e: unknown) => e,
     )) as AiError;
 
-    expect(error.message).toContain('chwilowo nie odpowiada');
+    expect(error.message).toContain('przeciążony');
     expect(error.retryable).toBe(true);
   });
 

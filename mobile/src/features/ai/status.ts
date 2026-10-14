@@ -1,4 +1,4 @@
-import { PROVIDER_LABELS, type Provider } from './providers';
+import { PROVIDER_COMPANIES, PROVIDER_LABELS, type Provider } from './providers';
 
 /**
  * Odmowa dostawcy po ludzku.
@@ -31,8 +31,23 @@ export function describeStatus(
       + ' i wybierz nazwę z niej.';
   }
   if (status === 429) return `Wyczerpany limit zapytań do ${who}. Spróbuj później.`;
-  // 529 to „przeciążony” u Anthropic — z punktu widzenia telefonu to ta sama awaria co każda 5xx.
+  // 503 u Google i 529 u Anthropic to zwykle przeciążenie jednego modelu, a nie awaria dostawcy —
+  // i najczęściej dostaje się nim po najnowszym wariancie. Bez nazwy modelu w komunikacie wychodzi
+  // na to, że zepsuła się cała funkcja, a wystarczy odczekać albo wybrać inny model.
+  if (model !== '' && overloaded(status, message)) {
+    return `Model „${model}” jest w tej chwili przeciążony po stronie ${PROVIDER_COMPANIES[provider]}.`
+      + ' Spróbuj jeszcze raz za chwilę albo wybierz inny model w Ustawieniach.';
+  }
   if (status >= 500) return `${who} chwilowo nie odpowiada. Spróbuj później.`;
 
   return message ?? `${who} odrzucił zapytanie (kod ${status}).`;
+}
+
+/** Tak dostawcy mówią „za dużo chętnych na ten model”, każdy swoimi słowami. */
+const OVERLOAD = /overload|high demand|capacity|busy|unavailable/i;
+
+/** Przeciążenie modelu, a nie awaria: kod albo treść odpowiedzi. */
+function overloaded(status: number, message: string | undefined): boolean {
+  if (status === 503 || status === 529) return true;
+  return status >= 500 && OVERLOAD.test(message ?? '');
 }
