@@ -55,6 +55,7 @@ export async function askGemini(
     // drugie takie samo zapytanie dostanie tę samą odpowiedź.
     throw new AiError(describeStatus('GEMINI', response.status, body?.error?.message, model), {
       retryable: response.status >= 500,
+      modelGone: response.status === 404,
     });
   }
 

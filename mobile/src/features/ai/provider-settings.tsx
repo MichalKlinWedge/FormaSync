@@ -9,6 +9,7 @@ import { useTheme } from '@/hooks/use-theme';
 
 import { listAiModels } from './client';
 import { type AiModel, isModelName, normalizeModel } from './models';
+import { forgetRejected, rejectedModels } from './rejected';
 import {
   DEFAULT_MODELS,
   PROVIDER_KEY_SOURCES,
@@ -31,6 +32,7 @@ export function ProviderSettings({ provider }: { provider: Provider }) {
   const [key, setKey] = useState('');
   const [model, setModel] = useState(() => modelName(provider));
   const [models, setModels] = useState<AiModel[] | null>(null);
+  const [hidden, setHidden] = useState<string[]>([]);
   const [listing, setListing] = useState(false);
 
   useEffect(() => {
@@ -49,6 +51,10 @@ export function ProviderSettings({ provider }: { provider: Provider }) {
     await saveApiKey(provider, key);
     setKey('');
     setSaved(await hasApiKey(provider));
+    // Inny klucz bywa uprawniony do czegoś innego, więc odmowy poprzedniego przestają obowiązywać.
+    forgetRejected(provider);
+    setModels(null);
+    setHidden([]);
     Alert.alert('Zapisane', 'Klucz leży w bezpiecznym magazynie telefonu.');
   };
 
@@ -75,10 +81,12 @@ export function ProviderSettings({ provider }: { provider: Provider }) {
     Alert.alert('Zapisane', `Zapytania pójdą do modelu ${wanted}.`);
   };
 
-  const fetchModels = async () => {
+  const fetchModels = async (withRejected = false) => {
+    if (withRejected) forgetRejected(provider);
     setListing(true);
     try {
       setModels(await listAiModels(provider));
+      setHidden(rejectedModels(provider));
     } catch (error) {
       Alert.alert('Nie udało się', error instanceof Error ? error.message : 'Nieznany błąd.');
     } finally {
@@ -162,6 +170,20 @@ export function ProviderSettings({ provider }: { provider: Provider }) {
             />
           ))}
         </View>
+      )}
+      {models !== null && hidden.length > 0 && (
+        <>
+          <ThemedText type="small" themeColor="textSecondary">
+            {`Poza listą zostało to, co ten klucz już odrzucił: ${hidden.join(', ')}.`}
+          </ThemedText>
+          <Button
+            label="Pokaż także odrzucone"
+            icon="visibility"
+            variant="secondary"
+            disabled={listing}
+            onPress={() => void fetchModels(true)}
+          />
+        </>
       )}
     </View>
   );

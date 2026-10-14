@@ -77,6 +77,7 @@ export async function askClaude(
     logFailure(`Claude ${model}`, `HTTP ${response.status}: ${body?.error?.message ?? 'bez treści'}`);
     throw new AiError(describeStatus('CLAUDE', response.status, body?.error?.message, model), {
       retryable: response.status >= 500,
+      modelGone: response.status === 404,
     });
   }
 

@@ -59,6 +59,7 @@ export async function askOpenAi(
     logFailure(`ChatGPT ${model}`, `HTTP ${response.status}: ${body?.error?.message ?? 'bez treści'}`);
     throw new AiError(describeStatus('OPENAI', response.status, body?.error?.message, model), {
       retryable: response.status >= 500,
+      modelGone: response.status === 404,
     });
   }
 

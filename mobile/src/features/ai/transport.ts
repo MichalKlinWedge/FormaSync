@@ -17,14 +17,21 @@ export type ErrorOptions = {
    * zapraszaniem do stukania w ścianę.
    */
   retryable?: boolean;
+  /**
+   * Czy odmowa dotyczy samego modelu, a nie zapytania: tego wariantu ten klucz nie obsłuży ani
+   * teraz, ani później. Taki model zapamiętujemy i znika z listy do wyboru.
+   */
+  modelGone?: boolean;
 };
 
 export class AiError extends Error {
   readonly retryable: boolean;
+  readonly modelGone: boolean;
 
   constructor(message: string, options: ErrorOptions = {}) {
     super(message);
     this.retryable = options.retryable ?? false;
+    this.modelGone = options.modelGone ?? false;
   }
 }
 

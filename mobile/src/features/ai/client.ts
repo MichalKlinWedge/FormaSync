@@ -3,6 +3,7 @@ import { askGemini, geminiModels } from './gemini';
 import { type AiModel, isModelName } from './models';
 import { askOpenAi, openAiModels } from './openai';
 import { type AiImage, PROVIDER_LABELS, type Provider } from './providers';
+import { rememberRejected, withoutRejected } from './rejected';
 import { defaultProvider, loadApiKey, modelName } from './tokens';
 import { AiError } from './transport';
 
@@ -63,9 +64,16 @@ export async function askAi(
   const { key, model } = await ready(provider);
   const image = options.image;
 
-  if (provider === 'CLAUDE') return askClaude(key, model, prompt, image);
-  if (provider === 'OPENAI') return askOpenAi(key, model, prompt, image);
-  return askGemini(key, model, prompt, image);
+  try {
+    if (provider === 'CLAUDE') return await askClaude(key, model, prompt, image);
+    if (provider === 'OPENAI') return await askOpenAi(key, model, prompt, image);
+    return await askGemini(key, model, prompt, image);
+  } catch (error) {
+    // Odmowa z samego modelu nie minie: ten klucz tego wariantu nie dostanie. Zapisujemy ją, żeby
+    // nie wrócił przy następnym wyborze z listy.
+    if (error instanceof AiError && error.modelGone) rememberRejected(provider, model);
+    throw error;
+  }
 }
 
 /**
@@ -76,7 +84,13 @@ export async function listAiModels(provider: Provider): Promise<AiModel[]> {
   const key = await loadApiKey(provider);
   if (key === null) throw new NoApiKeyError(provider);
 
-  if (provider === 'CLAUDE') return claudeModels(key);
-  if (provider === 'OPENAI') return openAiModels(key);
-  return geminiModels(key);
+  const all = provider === 'CLAUDE'
+    ? await claudeModels(key)
+    : provider === 'OPENAI'
+      ? await openAiModels(key)
+      : await geminiModels(key);
+
+  // Dostawca pokazuje też warianty, których ten klucz nie dostanie — dowiedzieliśmy się o nich
+  // z odmów i nie ma powodu podsuwać ich ponownie.
+  return withoutRejected(provider, all);
 }
