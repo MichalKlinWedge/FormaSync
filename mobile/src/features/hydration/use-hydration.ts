@@ -2,7 +2,14 @@ import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { useMemo } from 'react';
 
 import { db } from '@/db/client';
-import { appSettings, bodyMeasurements, hydrationDays, hydrationLogs, workoutSessions } from '@/db/schema';
+import {
+  appSettings,
+  bodyMeasurements,
+  hydrationDays,
+  hydrationLogs,
+  scheduledWorkouts,
+  workoutSessions,
+} from '@/db/schema';
 import { latestWeightKg } from '@/features/progress/repository';
 import { addDays } from '@/lib/date';
 
@@ -11,6 +18,7 @@ import {
   dailySummaries,
   dayPortions,
   extraOn,
+  plannedTrainingSecondsOn,
   trainingSecondsOn,
   type Portion,
 } from './repository';
@@ -28,10 +36,10 @@ export type HydrationDay = {
 /**
  * Stan nawodnienia dnia, przeliczany po każdej wypitej porcji.
  *
- * Obserwujemy pięć tabel, bo cel zależy nie tylko od wypitego: dochodzą ustawienia, korekta dnia,
- * masa ciała z pomiarów i czas dzisiejszych treningów. Bez sygnału z sesji kafelek nie zauważyłby
- * dodatku za trening zakończony chwilę wcześniej, a bez sygnału z ustawień — zmienionych porcji
- * ani nowego celu; czekałby z nimi na następną wypitą szklankę.
+ * Obserwujemy sześć tabel, bo cel zależy nie tylko od wypitego: dochodzą ustawienia, korekta dnia,
+ * masa ciała z pomiarów, czas dzisiejszych treningów i to, co zostało w planie na dziś. Bez sygnału
+ * z sesji kafelek nie zauważyłby dodatku za trening zakończony chwilę wcześniej, a bez sygnału
+ * z ustawień — zmienionych porcji ani nowego celu; czekałby z nimi na następną wypitą szklankę.
  */
 export function useHydrationDay(dayKey: string): HydrationDay {
   const { data: logs } = useLiveQuery(db.select({ id: hydrationLogs.id }).from(hydrationLogs));
@@ -39,6 +47,11 @@ export function useHydrationDay(dayKey: string): HydrationDay {
   const { data: settingRows } = useLiveQuery(db.select({ key: appSettings.key }).from(appSettings));
   const { data: weights } = useLiveQuery(db.select({ id: bodyMeasurements.id }).from(bodyMeasurements));
   const { data: sessions } = useLiveQuery(db.select({ id: workoutSessions.id }).from(workoutSessions));
+  // Szósta tabela: zaplanowane treningi. Bez niej cel całego dnia nie drgnąłby ani po wpisaniu
+  // treningu do kalendarza, ani po jego odhaczeniu.
+  const { data: plans } = useLiveQuery(
+    db.select({ id: scheduledWorkouts.id }).from(scheduledWorkouts),
+  );
 
   return useMemo(() => {
     const settings = loadHydrationSettings(db);
@@ -50,11 +63,12 @@ export function useHydrationDay(dayKey: string): HydrationDay {
         weightKg: latestWeightKg(db),
         manualMl: settings.manualMl,
         trainingSeconds: trainingSecondsOn(db, dayKey),
+        plannedSeconds: plannedTrainingSecondsOn(db, dayKey),
         extraMl: extraOn(db, dayKey),
       }),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sygnały zmiany, dane czytają funkcje repozytorium
-  }, [logs, extras, settingRows, weights, sessions, dayKey]);
+  }, [logs, extras, settingRows, weights, sessions, plans, dayKey]);
 }
 
 export type HydrationHistory = { days: DayResult[]; streak: number };

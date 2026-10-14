@@ -478,3 +478,24 @@ export function listLogged(db: SyncDb, fromKey: string, toKey: string): LoggedEn
     .filter((entry) => entry.date >= fromKey && entry.date <= toKey)
     .sort((a, b) => a.date.localeCompare(b.date) || a.sessionId - b.sessionId);
 }
+
+/**
+ * Dyscypliny treningów, które na dany dzień stoją w kalendarzu i nie zostały odhaczone.
+ *
+ * Potrzebne poza kalendarzem: kalorie i woda liczą z tego, ile dzień jeszcze doda, gdy wyjdzie
+ * zgodnie z planem. Zwracamy same dyscypliny, bo czas bierze się z historii, nie z terminu.
+ */
+export function plannedSportsOn(db: SyncDb, dayKey: string): Sport[] {
+  return db
+    .select({ sport: schema.workoutPlans.sport })
+    .from(schema.scheduledWorkouts)
+    .innerJoin(schema.workoutPlans, eq(schema.scheduledWorkouts.planId, schema.workoutPlans.id))
+    .where(
+      and(
+        eq(schema.scheduledWorkouts.scheduledDate, dayKey),
+        eq(schema.scheduledWorkouts.isCompleted, false),
+      ),
+    )
+    .all()
+    .map((row) => row.sport);
+}

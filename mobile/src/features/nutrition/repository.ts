@@ -2,8 +2,11 @@ import { and, asc, desc, eq, gte, isNotNull, lte, ne } from 'drizzle-orm';
 
 import * as schema from '@/db/schema';
 import type { SyncDb } from '@/db/types';
+import { plannedSportsOn } from '@/features/calendar/repository';
 import { normalizeText } from '@/features/exercises/filter';
+import { typicalSessionSeconds } from '@/features/workout/repository';
 import { addDays, toDateKey } from '@/lib/date';
+import { median } from '@/lib/stats';
 
 import { trainingBurn } from './energy';
 import { type FoodDraft, nutrientsFor } from './food';
@@ -325,14 +328,6 @@ export function trainingKcalOn(db: SyncDb, dayKey: string, weightKg: number | nu
   return trainingKcalRange(db, dayKey, dayKey, weightKg)[dayKey] ?? 0;
 }
 
-/** Środkowa wartość z listy; null dla pustej. Mediana, bo jeden wyskok nie ma prawa rządzić. */
-function median(values: number[]): number | null {
-  if (values.length === 0) return null;
-  const sorted = [...values].sort((a, b) => a - b);
-  const middle = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 1 ? sorted[middle] : Math.round((sorted[middle - 1] + sorted[middle]) / 2);
-}
-
 export type TypicalLunch = { kcal: number; proteinG: number | null; days: number };
 
 /**
@@ -379,25 +374,6 @@ export function typicalLunch(db: SyncDb, fromKey: string, toKey: string): Typica
   return { kcal, proteinG: median(proteins), days: kcalByDay.size };
 }
 
-/** Ile zwykle trwa taki trening: mediana z ostatnich zakończonych. Null, gdy nie ma z czego liczyć. */
-export function typicalSessionSeconds(db: SyncDb, sport: schema.Sport, sample = 20): number | null {
-  const rows = db
-    .select({ seconds: schema.workoutSessions.totalDurationSeconds })
-    .from(schema.workoutSessions)
-    .where(
-      and(
-        eq(schema.workoutSessions.sport, sport),
-        eq(schema.workoutSessions.status, 'COMPLETED'),
-        isNotNull(schema.workoutSessions.totalDurationSeconds),
-      ),
-    )
-    .orderBy(desc(schema.workoutSessions.startTime))
-    .limit(sample)
-    .all();
-
-  return median(rows.map((row) => row.seconds ?? 0).filter((seconds) => seconds > 0));
-}
-
 export type PlannedTraining = { kcal: number; minutes: number; sport: schema.Sport };
 
 /**
@@ -414,29 +390,18 @@ export function plannedTrainingOn(
 ): PlannedTraining | null {
   if (weightKg === null || weightKg <= 0) return null;
 
-  const entries = db
-    .select({ sport: schema.workoutPlans.sport })
-    .from(schema.scheduledWorkouts)
-    .innerJoin(schema.workoutPlans, eq(schema.scheduledWorkouts.planId, schema.workoutPlans.id))
-    .where(
-      and(
-        eq(schema.scheduledWorkouts.scheduledDate, dayKey),
-        eq(schema.scheduledWorkouts.isCompleted, false),
-      ),
-    )
-    .all();
-
-  if (entries.length === 0) return null;
+  const sports = plannedSportsOn(db, dayKey);
+  if (sports.length === 0) return null;
 
   let seconds = 0;
   let kcal = 0;
-  for (const entry of entries) {
-    const typical = typicalSessionSeconds(db, entry.sport);
+  for (const sport of sports) {
+    const typical = typicalSessionSeconds(db, sport);
     if (typical === null) continue;
     seconds += typical;
-    kcal += trainingBurn(entry.sport, typical, weightKg);
+    kcal += trainingBurn(sport, typical, weightKg);
   }
 
   if (kcal <= 0) return null;
-  return { kcal, minutes: Math.round(seconds / 60), sport: entries[0].sport };
+  return { kcal, minutes: Math.round(seconds / 60), sport: sports[0] };
 }

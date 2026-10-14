@@ -1,4 +1,4 @@
-import { and, asc, eq, isNotNull, isNull, max } from 'drizzle-orm';
+import { and, asc, desc, eq, isNotNull, isNull, max } from 'drizzle-orm';
 
 import * as schema from '@/db/schema';
 import type { SyncDb } from '@/db/types';
@@ -9,6 +9,7 @@ import {
   DEFAULT_SETS,
 } from '@/features/plans/draft';
 import { suggestedTarget } from '@/features/progress/repository';
+import { median } from '@/lib/stats';
 
 import { type ActiveSession, elapsedSeconds } from './logic';
 
@@ -493,4 +494,28 @@ export function abandonSession(db: SyncDb, sessionId: number, now = nowIso()): v
       .where(eq(schema.workoutSessions.id, sessionId))
       .run();
   });
+}
+
+/**
+ * Ile zwykle trwa taki trening: mediana z ostatnich zakończonych. Null, gdy nie ma z czego liczyć.
+ *
+ * Stąd biorą czas treningi, których jeszcze nie było — kalorie i woda na dziś muszą skądś wiedzieć,
+ * ile potrwa wieczorne wyjście, a jedyne wiarygodne źródło to poprzednie takie same.
+ */
+export function typicalSessionSeconds(db: SyncDb, sport: schema.Sport, sample = 20): number | null {
+  const rows = db
+    .select({ seconds: schema.workoutSessions.totalDurationSeconds })
+    .from(schema.workoutSessions)
+    .where(
+      and(
+        eq(schema.workoutSessions.sport, sport),
+        eq(schema.workoutSessions.status, 'COMPLETED'),
+        isNotNull(schema.workoutSessions.totalDurationSeconds),
+      ),
+    )
+    .orderBy(desc(schema.workoutSessions.startTime))
+    .limit(sample)
+    .all();
+
+  return median(rows.map((row) => row.seconds ?? 0).filter((seconds) => seconds > 0));
 }

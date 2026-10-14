@@ -14,6 +14,7 @@ import {
   dayPortions,
   extraOn,
   logDrink,
+  plannedTrainingSecondsOn,
   removeDrink,
   trainingSecondsOn,
   undoLastDrink,
@@ -169,6 +170,54 @@ describe('czas treningów', () => {
       .run();
 
     expect(trainingSecondsOn(db, TODAY)).toBe(0);
+  });
+});
+
+describe('plannedTrainingSecondsOn', () => {
+  /** Termin na dziś; czas bierze się z historii takich samych treningów, nie z terminu. */
+  function schedule(db: ReturnType<typeof createTestDb>, dayKey: string) {
+    const planId = db
+      .insert(schema.workoutPlans)
+      .values({ sport: 'RUNNING', title: 'Plan' })
+      .returning({ id: schema.workoutPlans.id })
+      .get().id;
+    db.insert(schema.scheduledWorkouts)
+      .values({ planId, scheduledDate: dayKey, isCompleted: false })
+      .run();
+  }
+
+  it('liczy nieodbyty trening po medianie czasu takich samych', () => {
+    const db = createTestDb({ seed: true });
+    schedule(db, TODAY);
+    training(db, at(8, 17), 3600);
+    training(db, at(9, 17), 1800);
+
+    // Mediana z dwóch to ich średnia — 45 minut.
+    expect(plannedTrainingSecondsOn(db, TODAY)).toBe(2700);
+  });
+
+  it('bez historii takiego treningu nie zgaduje czasu', () => {
+    const db = createTestDb({ seed: true });
+    schedule(db, TODAY);
+
+    expect(plannedTrainingSecondsOn(db, TODAY)).toBe(0);
+  });
+
+  it('odhaczony termin przestaje być planem', () => {
+    const db = createTestDb({ seed: true });
+    schedule(db, TODAY);
+    training(db, at(9, 17), 3600);
+    db.update(schema.scheduledWorkouts).set({ isCompleted: true }).run();
+
+    expect(plannedTrainingSecondsOn(db, TODAY)).toBe(0);
+  });
+
+  it('nie zagląda do innych dni', () => {
+    const db = createTestDb({ seed: true });
+    schedule(db, '2026-10-11');
+    training(db, at(9, 17), 3600);
+
+    expect(plannedTrainingSecondsOn(db, TODAY)).toBe(0);
   });
 });
 

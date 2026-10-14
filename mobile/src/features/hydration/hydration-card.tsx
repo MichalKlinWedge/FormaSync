@@ -11,7 +11,7 @@ import { todayKey } from '@/lib/date';
 
 import { describeDay } from './day';
 import { DayBar } from './day-bar';
-import { formatMl } from './format';
+import { mlHeadline } from './format';
 import { PortionButtons } from './portion-buttons';
 import { syncHydrationReminders } from './reminders';
 import { logDrink, undoLastDrink } from './repository';
@@ -53,13 +53,14 @@ export function HydrationCard() {
           </ThemedText>
         </View>
         <ThemedText type="smallBold">
-          {formatMl(consumed)} / {formatMl(target.total)}
+          {mlHeadline(consumed, target.total, target.dayTotal)}
         </ThemedText>
       </View>
 
       <DayBar
         consumedMl={consumed}
         targetMl={target.total}
+        plannedMl={target.planned}
         window={settings.window}
         at={at}
         height={12}

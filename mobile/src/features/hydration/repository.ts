@@ -2,6 +2,8 @@ import { and, asc, desc, eq, gte, lte, ne } from 'drizzle-orm';
 
 import * as schema from '@/db/schema';
 import type { SyncDb } from '@/db/types';
+import { plannedSportsOn } from '@/features/calendar/repository';
+import { typicalSessionSeconds } from '@/features/workout/repository';
 import { addDays, toDateKey } from '@/lib/date';
 
 import type { DaySummary } from './stats';
@@ -128,6 +130,21 @@ function trainingSecondsByDay(db: SyncDb, fromKey: string): Map<string, number> 
 /** Ile dziś przetrenowane — do dodatku treningowego w celu dnia. */
 export function trainingSecondsOn(db: SyncDb, dayKey: string): number {
   return trainingSecondsByDay(db, dayKey).get(dayKey) ?? 0;
+}
+
+/**
+ * Ile treningu dzień ma jeszcze przed sobą: terminy z kalendarza, których nie odhaczono, liczone
+ * po medianie czasu takich samych treningów z historii.
+ *
+ * Do celu nie wchodzi — wody nie trzeba wypić z góry za wysiłek, którego nie było — ale mówi,
+ * dokąd cel dojdzie wieczorem, gdy dzień wyjdzie zgodnie z planem.
+ */
+export function plannedTrainingSecondsOn(db: SyncDb, dayKey: string): number {
+  let seconds = 0;
+  for (const sport of plannedSportsOn(db, dayKey)) {
+    seconds += typicalSessionSeconds(db, sport) ?? 0;
+  }
+  return seconds;
 }
 
 /**

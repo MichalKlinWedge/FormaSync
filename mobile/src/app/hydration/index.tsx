@@ -45,10 +45,18 @@ export default function HydrationScreen() {
           <View style={styles.header}>
             <ThemedText type="title">{formatMl(consumed)}</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              z {formatMl(target.total)}
+              {target.planned > 0
+                ? `z ${formatMl(target.total)} · cel dnia ${formatMl(target.dayTotal)}`
+                : `z ${formatMl(target.total)}`}
             </ThemedText>
           </View>
-          <DayBar consumedMl={consumed} targetMl={target.total} window={settings.window} at={at} />
+          <DayBar
+            consumedMl={consumed}
+            targetMl={target.total}
+            plannedMl={target.planned}
+            window={settings.window}
+            at={at}
+          />
           <ThemedText type="small" themeColor="textSecondary">
             {describeDay(consumed, target.total, settings.window, at)}
           </ThemedText>

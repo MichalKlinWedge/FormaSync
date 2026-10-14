@@ -26,6 +26,22 @@ describe('dailyTarget', () => {
     expect(dailyTarget({ ...input, weightKg: 81.2 }).base).toBe(2450);
   });
 
+  it('zaplanowany trening podnosi cel dnia, ale nie dzisiejszy cel', () => {
+    const target = dailyTarget({ ...input, weightKg: 80, plannedSeconds: 3600 });
+
+    // Wody nie pije się z góry za wysiłek, którego nie było.
+    expect(target.total).toBe(2400);
+    expect(target.planned).toBe(500);
+    expect(target.dayTotal).toBe(2900);
+  });
+
+  it('bez zaplanowanego treningu cel dnia równa się dzisiejszemu', () => {
+    const target = dailyTarget({ ...input, weightKg: 80 });
+
+    expect(target.planned).toBe(0);
+    expect(target.dayTotal).toBe(target.total);
+  });
+
   it('bez masy ciała bierze wartość domyślną', () => {
     expect(dailyTarget(input)).toMatchObject({ base: DEFAULT_TARGET_ML, basis: 'DEFAULT' });
   });
@@ -70,6 +86,15 @@ describe('describeTarget', () => {
 
   it('bez treningu i korekty podaje samą podstawę', () => {
     expect(describeTarget(dailyTarget({ ...input, weightKg: 80 }))).toBe('2,4 l z masy ciała');
+  });
+
+  it('dopowiada cel dnia, gdy w planie został trening', () => {
+    const target = dailyTarget({ ...input, weightKg: 80, plannedSeconds: 3600 });
+
+    // Liczbę od jednostki dzieli spacja nierozdzielająca, więc porównujemy wzorcem.
+    expect(describeTarget(target)).toMatch(
+      /^2,4\sl z masy ciała\. Po zaplanowanym treningu \(\+500\sml\) cel dnia to 2,9\sl$/,
+    );
   });
 
   it('nie udaje, że zna masę ciała, gdy jej nie ma', () => {

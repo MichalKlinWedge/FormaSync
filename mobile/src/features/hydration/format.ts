@@ -20,3 +20,13 @@ export function portionTime(iso: string): string {
   const at = new Date(iso);
   return `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
 }
+
+/**
+ * Nagłówek dnia: wypite, cel na teraz i — gdy w planie został trening — cel całego dnia. Trzecia
+ * liczba pojawia się tylko wtedy, gdy coś wnosi; bez treningu w planie powtarzałaby drugą.
+ */
+export function mlHeadline(consumedMl: number, targetMl: number, dayTargetMl: number): string {
+  const parts = [formatMl(consumedMl), formatMl(targetMl)];
+  if (dayTargetMl > targetMl) parts.push(formatMl(dayTargetMl));
+  return parts.join(' / ');
+}

@@ -29,8 +29,12 @@ const styles = (tree: ReactTestRenderer): Style[] =>
 
 /** Wypełnienie ciągnie się przez całą wysokość paska, kreska leży nad nim. */
 const fillOf = (tree: ReactTestRenderer) => styles(tree).find((style) => style.height === '100%');
+/** Kreska: wąski pasek na wierzchu. Odcinek zaplanowanego treningu też leży absolutnie, więc
+ * rozróżniamy je po tym, co każde z nich ma własnego: szerokość kreski i prawą krawędź odcinka. */
 const paceOf = (tree: ReactTestRenderer) =>
-  styles(tree).find((style) => style.position === 'absolute');
+  styles(tree).find((style) => style.position === 'absolute' && style.width === 2);
+const plannedOf = (tree: ReactTestRenderer) =>
+  styles(tree).find((style) => style.position === 'absolute' && style.right === 0);
 
 describe('DayBar', () => {
   it('stawia kreskę tam, gdzie wypada pora dnia', () => {
@@ -57,6 +61,34 @@ describe('DayBar', () => {
 
     expect(paceOf(tree)?.left).toBe('50%');
     expect(fillOf(tree)?.width).toBe('50%');
+  });
+
+  it('zaplanowany trening rozciąga pasek i dostaje własny odcinek', () => {
+    const tree = render(
+      <DayBar consumedMl={800} targetMl={2600} plannedMl={400} window={WINDOW} at={at(14, 30)} />,
+    );
+
+    // Wypełnienie mierzy się całym dniem, nie samym dzisiejszym celem.
+    expect(fillOf(tree)?.width).toBe(`${(800 / 3000) * 100}%`);
+    // Odcinek zaczyna się dokładnie tam, gdzie kończy się cel na teraz.
+    expect(plannedOf(tree)?.left).toBe(`${(2600 / 3000) * 100}%`);
+  });
+
+  it('kreska celu zostaje przy dzisiejszym celu, choć pasek jest dłuższy', () => {
+    const tree = render(
+      <DayBar consumedMl={800} targetMl={2600} plannedMl={400} window={WINDOW} at={at(14, 30)} />,
+    );
+
+    // O 14:30 wypada połowa dzisiejszego celu — na rozciągniętym pasku to mniej niż połowa.
+    expect(paceOf(tree)?.left).toBe(`${0.5 * (2600 / 3000) * 100}%`);
+  });
+
+  it('bez zaplanowanego treningu nie rysuje odcinka', () => {
+    const tree = render(
+      <DayBar consumedMl={800} targetMl={2600} window={WINDOW} at={at(14, 30)} />,
+    );
+
+    expect(plannedOf(tree)).toBeUndefined();
   });
 
   it('nie rysuje kreski, gdy cel jest dowieziony', () => {
