@@ -8,8 +8,9 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { todayKey } from '@/lib/date';
 
+import { budgetBar } from './bar';
 import { describeEnergy } from './energy';
-import { formatGrams, formatKcal } from './format';
+import { formatGrams, formatKcal, kcalHeadline } from './format';
 import { useNutritionDay } from './use-nutrition';
 
 /**
@@ -25,7 +26,7 @@ export function NutritionCard() {
   const { totals, energy, protein, settings } = useNutritionDay(today);
   const target = energy.target;
   const left = target === null ? null : target - totals.kcal;
-  const ratio = target === null || target <= 0 ? 0 : Math.min(totals.kcal / target, 1);
+  const bar = target === null ? null : budgetBar(totals.kcal, target, energy.dayTarget);
 
   return (
     <ThemedView type="backgroundElement" style={styles.card}>
@@ -38,20 +39,26 @@ export function NutritionCard() {
             {describeEnergy(energy, settings.mode)}
           </ThemedText>
         </View>
-        <ThemedText type="smallBold">
-          {target === null ? formatKcal(totals.kcal) : `${formatKcal(totals.kcal)} / ${formatKcal(target)}`}
-        </ThemedText>
+        <ThemedText type="smallBold">{kcalHeadline(totals.kcal, target, energy.dayTarget)}</ThemedText>
       </View>
 
-      {target !== null && (
+      {bar !== null && (
         <>
           <View style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
+            {energy.planned > 0 && (
+              <View
+                style={[
+                  styles.planned,
+                  { left: `${bar.earned * 100}%`, backgroundColor: theme.chart2 },
+                ]}
+              />
+            )}
             <View
               style={[
                 styles.fill,
                 {
-                  backgroundColor: totals.kcal > target ? theme.accent : theme.chart1,
-                  width: `${ratio * 100}%`,
+                  backgroundColor: bar.over ? theme.accent : theme.chart1,
+                  width: `${bar.ratio * 100}%`,
                 },
               ]}
             />
@@ -103,6 +110,7 @@ const styles = StyleSheet.create({
   headerText: { flex: 1, gap: Spacing.half },
   track: { height: 12, borderRadius: 6, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: 6 },
+  planned: { position: 'absolute', top: 0, bottom: 0, right: 0 },
   row: { flexDirection: 'row', gap: Spacing.two },
   cell: { flex: 1 },
 });

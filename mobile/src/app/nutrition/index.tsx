@@ -10,7 +10,7 @@ import { db } from '@/db/client';
 import { mealTypes } from '@/db/schema';
 import { describeEnergy } from '@/features/nutrition/energy';
 import { amountPrefix } from '@/features/nutrition/food';
-import { formatGrams, formatKcal, mealTime } from '@/features/nutrition/format';
+import { formatGrams, formatKcal, kcalHeadline, mealTime } from '@/features/nutrition/format';
 import { describeGoal } from '@/features/nutrition/goal';
 import { MEAL_LABELS } from '@/features/nutrition/meal';
 import { type MealEntry, removeMeal } from '@/features/nutrition/repository';
@@ -46,7 +46,7 @@ export default function NutritionScreen() {
             {formatDayWithWeekday(today).toUpperCase()}
           </ThemedText>
           <ThemedText type="title">
-            {target === null ? formatKcal(totals.kcal) : `${formatKcal(totals.kcal)} / ${formatKcal(target)}`}
+            {kcalHeadline(totals.kcal, target, energy.dayTarget)}
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             {describeEnergy(energy, settings.mode)}

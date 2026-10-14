@@ -81,6 +81,28 @@ describe('dailyEnergy', () => {
     expect(energy).toMatchObject({ manual: true, base: 2500, delta: 0, target: 2950 });
   });
 
+  it('zaplanowany trening podnosi cel dnia, ale nie budżet na teraz', () => {
+    const energy = dailyEnergy(input({ trainingKcal: 446, plannedKcal: 300 }));
+
+    // Budżet jest ten sam co bez planu — zjeść wolno to, co się już spaliło.
+    expect(energy.target).toBe(2770);
+    expect(energy.planned).toBe(300);
+    expect(energy.dayTarget).toBe(3070);
+  });
+
+  it('bez zaplanowanego treningu cel dnia równa się budżetowi', () => {
+    const energy = dailyEnergy(input());
+
+    expect(energy.planned).toBe(0);
+    expect(energy.dayTarget).toBe(energy.target);
+  });
+
+  it('bez danych do wzoru nie ma też celu dnia', () => {
+    const energy = dailyEnergy(input({ sex: null, plannedKcal: 300 }));
+
+    expect(energy.dayTarget).toBeNull();
+  });
+
   it('bez danych do wzoru nie udaje budżetu i mówi, czego brakuje', () => {
     const energy = dailyEnergy(input({ sex: null, heightCm: null }));
     expect(energy.target).toBeNull();
@@ -101,6 +123,13 @@ describe('describeEnergy', () => {
     expect(sentence).toContain(`2${SP}320${KCAL} na utrzymanie`);
     expect(sentence).toContain(`+ 450${KCAL} za dzisiejszy trening`);
     expect(sentence).toContain(`− 550${KCAL} na redukcję`);
+  });
+
+  it('dopowiada cel dnia, gdy w planie został trening', () => {
+    const sentence = describeEnergy(dailyEnergy(input({ plannedKcal: 300 })), 'MAINTENANCE');
+
+    expect(sentence).toContain(`+300${KCAL}`);
+    expect(sentence).toContain(`cel dnia to 2${SP}620${KCAL}`);
   });
 
   it('pomija składniki, których nie ma', () => {

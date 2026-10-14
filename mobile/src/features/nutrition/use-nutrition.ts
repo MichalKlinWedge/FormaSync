@@ -2,12 +2,20 @@ import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { useMemo } from 'react';
 
 import { db } from '@/db/client';
-import { appSettings, bodyMeasurements, mealLogs, workoutSessions } from '@/db/schema';
+import { appSettings, bodyMeasurements, mealLogs, scheduledWorkouts, workoutSessions } from '@/db/schema';
 import { age, heightCm, sex } from '@/features/profile/profile';
 import { latestWeightKg } from '@/features/progress/repository';
 
 import { type DailyEnergy, dailyEnergy, proteinTarget } from './energy';
-import { dayMeals, dayTotals, type DayTotals, type MealEntry, recentMeals, trainingKcalOn } from './repository';
+import {
+  dayMeals,
+  dayTotals,
+  type DayTotals,
+  type MealEntry,
+  plannedTrainingOn,
+  recentMeals,
+  trainingKcalOn,
+} from './repository';
 import {
   loadNutritionSettings,
   type NutritionSettings,
@@ -38,6 +46,11 @@ export function useNutritionDay(dayKey: string): NutritionDay {
   const { data: settingRows } = useLiveQuery(db.select({ key: appSettings.key }).from(appSettings));
   const { data: weights } = useLiveQuery(db.select({ id: bodyMeasurements.id }).from(bodyMeasurements));
   const { data: sessions } = useLiveQuery(db.select({ id: workoutSessions.id }).from(workoutSessions));
+  // Piąty sygnał: zaplanowane treningi. Bez niego cel całego dnia nie drgnąłby po wpisaniu
+  // treningu do kalendarza ani po jego odhaczeniu.
+  const { data: plans } = useLiveQuery(
+    db.select({ id: scheduledWorkouts.id }).from(scheduledWorkouts),
+  );
 
   return useMemo(() => {
     const settings = loadNutritionSettings(db);
@@ -58,11 +71,12 @@ export function useNutritionDay(dayKey: string): NutritionDay {
         weightKg,
         activity: settings.activity,
         trainingKcal: trainingKcalOn(db, dayKey, weightKg),
+        plannedKcal: plannedTrainingOn(db, dayKey, weightKg)?.kcal ?? 0,
         mode: settings.mode,
         ratePerWeek: resolvedRate(settings),
         manualKcal: settings.manualKcal,
       }),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sygnały zmiany, dane czytają funkcje repozytorium
-  }, [meals, settingRows, weights, sessions, dayKey]);
+  }, [meals, settingRows, weights, sessions, plans, dayKey]);
 }

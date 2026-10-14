@@ -104,6 +104,12 @@ export type EnergyInput = {
   activity: ActivityLevel;
   /** Kalorie dzisiejszych zakończonych treningów. */
   trainingKcal: number;
+  /**
+   * Kalorie treningów zaplanowanych na dziś, których jeszcze nie było. Do budżetu nie wchodzą —
+   * zjeść wolno to, co się już spaliło — ale pokazują, dokąd budżet dojdzie, gdy dzień wyjdzie
+   * zgodnie z planem.
+   */
+  plannedKcal?: number;
   mode: DietMode;
   ratePerWeek: number;
   /** Stały budżet wpisany ręcznie; gdy jest, wzór i cel nie mają już nic do powiedzenia. */
@@ -118,6 +124,10 @@ export type DailyEnergy = {
   /** Utrzymanie: przemiana podstawowa razy ruch dnia, bez treningu. */
   base: number | null;
   training: number;
+  /** Kalorie treningów jeszcze nieodbytych — poza budżetem, ale w celu całego dnia. */
+  planned: number;
+  /** Cel całego dnia: budżet plus to, co dołoży zaplanowany trening. */
+  dayTarget: number | null;
   /** Poprawka z celu diety: ujemna na redukcji, dodatnia na masie. */
   delta: number;
   missing: EnergyGap[];
@@ -145,6 +155,7 @@ export function dailyEnergy(input: EnergyInput): DailyEnergy {
 
   const manual = input.manualKcal !== null && input.manualKcal > 0;
   const training = toStep(Math.max(input.trainingKcal, 0));
+  const planned = toStep(Math.max(input.plannedKcal ?? 0, 0));
   const delta = manual ? 0 : toStep(dailyDelta(input.mode, input.ratePerWeek));
   const base = manual
     ? toStep(input.manualKcal as number)
@@ -153,7 +164,18 @@ export function dailyEnergy(input: EnergyInput): DailyEnergy {
       : toStep(bmr * ACTIVITY_FACTORS[input.activity]);
 
   if (base === null) {
-    return { target: null, bmr, base: null, training, delta, missing, manual, floored: false };
+    return {
+      target: null,
+      dayTarget: null,
+      bmr,
+      base: null,
+      training,
+      planned,
+      delta,
+      missing,
+      manual,
+      floored: false,
+    };
   }
 
   const sum = base + delta + training;
@@ -162,11 +184,15 @@ export function dailyEnergy(input: EnergyInput): DailyEnergy {
   const floor = bmr === null ? 0 : toStep(bmr);
   const floored = sum < floor;
 
+  const target = Math.max(sum, floor);
+
   return {
-    target: Math.max(sum, floor),
+    target,
+    dayTarget: target + planned,
     bmr,
     base,
     training,
+    planned,
     delta,
     missing,
     manual,
@@ -186,9 +212,16 @@ export function describeEnergy(energy: DailyEnergy, mode: DietMode): string {
   if (energy.delta > 0) parts.push(`+ ${formatKcal(energy.delta)} na ${MODE_FOR_LABELS[mode]}`);
   const sentence = parts.join(' ');
 
-  return energy.floored
+  const floored = energy.floored
     ? `${sentence}. Podniesione do przemiany podstawowej — niżej nie schodzimy.`
     : sentence;
+
+  // Zaplanowany trening doliczy się dopiero, gdy się odbędzie — ale cel całego dnia widać już
+  // teraz, bo od niego zależy, ile da się rozpisać na posiłki.
+  return energy.planned > 0
+    ? `${floored}. Po zaplanowanym treningu (+${formatKcal(energy.planned)}) cel dnia to`
+      + ` ${formatKcal(energy.dayTarget as number)}`
+    : floored;
 }
 
 /** Cel białka z masy ciała. Null, dopóki nie znamy masy. */
