@@ -36,7 +36,8 @@ export const PROVIDER_KEY_SOURCES: Record<Provider, string> = {
  * ekran każe pobrać listę od dostawcy i wybrać z niej — to jedyne pewne źródło.
  */
 export const DEFAULT_MODELS: Record<Provider, string> = {
-  GEMINI: 'gemini-2.5-flash',
+  // gemini-2.5-flash Google zamknął dla nowych kluczy i sam odsyła stąd do 3.8.
+  GEMINI: 'gemini-3.8-flash',
   CLAUDE: 'claude-sonnet-5-5',
   OPENAI: '',
 };

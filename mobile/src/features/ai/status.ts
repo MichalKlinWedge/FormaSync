@@ -27,6 +27,13 @@ export function describeStatus(
 
   if (status === 401 || status === 403) return `Klucz do ${who} jest nieważny albo bez uprawnień.`;
   if (status === 404) {
+    // Wycofując wariant, dostawca zwykle podaje w odmowie następcę. Szkoda go wyrzucać: bez tego
+    // zostaje wyprawa po listę, a odpowiedź leży w komunikacie, który właśnie przyszedł.
+    const instead = suggested(message, model);
+    if (instead !== null) {
+      return `Model „${model}” nie jest już dostępny dla tego klucza. ${PROVIDER_COMPANIES[provider]}`
+        + ` proponuje w zamian „${instead}” — wpisz go w ustawieniach albo wybierz z listy modeli.`;
+    }
     return `Model „${model}” nie istnieje dla tego klucza. Pobierz listę modeli w ustawieniach`
       + ' i wybierz nazwę z niej.';
   }
@@ -41,6 +48,18 @@ export function describeStatus(
   if (status >= 500) return `${who} chwilowo nie odpowiada. Spróbuj później.`;
 
   return message ?? `${who} odrzucił zapytanie (kod ${status}).`;
+}
+
+/** Nazwa następcy wyłuskana z odmowy — „models/gemini-3.8-flash” i tym podobne. */
+const NAMED = /models\/([a-z0-9][a-z0-9.-]*)/gi;
+
+/** Model podany przez dostawcę w zamian; null, gdy odmowa wymienia tylko ten, o który pytaliśmy. */
+function suggested(message: string | undefined, model: string): string | null {
+  for (const match of (message ?? '').matchAll(NAMED)) {
+    const name = match[1].toLowerCase();
+    if (name !== model.toLowerCase()) return name;
+  }
+  return null;
 }
 
 /** Tak dostawcy mówią „za dużo chętnych na ten model”, każdy swoimi słowami. */

@@ -53,4 +53,28 @@ describe('describeStatus', () => {
     expect(message).toContain('gemini-wymyslony');
     expect(message).toContain('listę modeli');
   });
+
+  it('wycofany wariant podaje następcę, którego wskazał sam dostawca', () => {
+    const message = describeStatus(
+      'GEMINI',
+      404,
+      'This model models/gemini-2.5-flash is no longer available to new users. Please update your'
+        + ' code to use models/gemini-3.8-flash for the latest features.',
+      'gemini-2.5-flash',
+    );
+
+    expect(message).toContain('gemini-3.8-flash');
+    expect(message).toContain('Google');
+  });
+
+  it('nie podaje jako następcy tego samego modelu, o który pytaliśmy', () => {
+    const message = describeStatus(
+      'GEMINI',
+      404,
+      'models/gemini-wymyslony is not found for API version v1beta',
+      'gemini-wymyslony',
+    );
+
+    expect(message).toContain('Pobierz listę modeli');
+  });
 });
