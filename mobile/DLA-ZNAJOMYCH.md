@@ -6,23 +6,35 @@ Co rozdać, komu i czym to potem aktualizować. Techniczna strona kanałów jest
 ## Skąd wziąć plik
 
 ```bash
-npx eas-cli@latest build -p android --profile friends
+npm run apk:friends
 ```
 
-Gotowy build daje na stronie EAS przycisk pobrania i kod QR — i to jest to, co się rozdaje.
-Budowanie zajmuje około dwóch godzin.
+Budowanie zajmuje około dwóch godzin. Linku ze strony EAS **nie rozdawaj** — wygasa po trzydziestu
+dniach i w połowie miesiąca przestaje działać komuś, kto właśnie zmienił telefon. Zamiast tego plik
+idzie do wydania na GitHubie:
+
+```bash
+npm run release:friends
+```
+
+Znajomym podaje się jeden adres, ten sam na zawsze:
+<https://github.com/MichalKlinWedge/FormaSync/releases/latest>. Zawsze prowadzi do najnowszego
+pliku, więc wystarczy raz go wysłać, a przy kolejnej wersji nie trzeba pisać nic nowego.
 
 **Nie instaluj tego APK na własnym telefonie.** Ma ten sam identyfikator pakietu i ten sam klucz
 podpisu co Twój, więc nadpisałby Twoją instalację i przeniósł telefon na kanał `friends` —
 od tej chwili `npm run ota` przestałby do niego docierać. Do siebie budujesz profil `preview`.
 
-Późniejsze poprawki w samym JavaScripcie nie wymagają nowego pliku:
+Nowy plik jest potrzebny tylko wtedy, gdy zmieni się wersja aplikacji w `app.json` albo dojdzie
+moduł natywny — czyli gdy zmieni się runtime. Poza tym poprawki idą same:
 
 ```bash
 npm run ota:friends -- --message "Co się zmieniło"
 ```
 
-Paczka dochodzi przy **drugim** uruchomieniu aplikacji. Dlatego przed pierwszym rozdaniem lepiej
+Aplikacja pyta serwer przy starcie i po każdym powrocie na pierwszy plan, a gdy coś znajdzie,
+pokazuje znaczek na ekranie startowym — dotknięcie uruchamia nową wersję. Bez dotykania niczego
+paczka wchodzi przy **drugim** uruchomieniu aplikacji. Dlatego przed pierwszym rozdaniem lepiej
 zbudować APK na świeżo, niż rozdać stary i dosłać poprawkę — pierwsze wrażenie z aplikacji byłoby
 z błędem, który już jest naprawiony.
 
@@ -39,8 +51,9 @@ FormaSync — aplikacja treningowa (Android)
 Co możesz ustawić u siebie (wszystko opcjonalne):
 • Garmin — logujesz się na własne konto, żeby wciągać tętno, sen
   i treningi z zegarka oraz wysyłać plany na zegarek.
-• Trener AI — potrzebuje własnego klucza z Google AI Studio
-  (darmowy pułap wystarcza).
+• Trener AI — potrzebuje własnego klucza do jednego z trzech:
+  Gemini, Claude albo ChatGPT. Klucz zakłada się u dostawcy
+  i rozlicza na własnym koncie.
 • Kopie zapasowe na serwerze — podaję adres i token zaproszenia
   osobno. Kopia jest szyfrowana hasłem, które znasz tylko Ty:
   zapisz je poza telefonem, bo bez niego kopii nie odzyska nikt,

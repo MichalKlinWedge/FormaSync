@@ -69,7 +69,9 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "ota": "npx eas-cli@latest update --branch preview --environment preview --platform android",
-    "ota:friends": "npx eas-cli@latest update --branch friends --environment preview --platform android"
+    "ota:friends": "npx eas-cli@latest update --branch friends --environment preview --platform android",
+    "apk:friends": "npx eas-cli@latest build --platform android --profile friends",
+    "release:friends": "node scripts/release-apk.mjs friends"
   },
   "private": true
 }

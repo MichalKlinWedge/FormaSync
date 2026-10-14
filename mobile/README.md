@@ -41,8 +41,21 @@ inną gałąź nigdy do niego nie dotrze, choć EAS zgłosi sukces. Na tym stoi 
 APK dla znajomych buduje się raz i rozdaje linkiem:
 
 ```bash
-npx eas-cli@latest build -p android --profile friends
+npm run apk:friends
 ```
+
+Link, który EAS daje do gotowego pliku, **wygasa po trzydziestu dniach** — wysłany na czacie
+przestaje działać w połowie miesiąca. Dlatego plik ląduje w wydaniu na GitHubie, pod adresem,
+który się nie zmienia:
+
+```bash
+npm run release:friends
+```
+
+Skrypt bierze ostatni gotowy build z profilu `friends`, pobiera z niego plik i wystawia wydanie
+z listą zmian z historii repozytorium. Dla znajomych zostaje jeden link na zawsze:
+[releases/latest](https://github.com/MichalKlinWedge/FormaSync/releases/latest). Co poszłoby do
+wydania, widać bez skutków ubocznych: `node scripts/release-apk.mjs friends --dry-run`.
 
 Dzięki temu `npm run ota` wysyła paczkę **wyłącznie na mój telefon**. Robota w toku, w której
 jeszcze coś nie działa, nie ma jak trafić do kogoś, kto akurat jest w połowie treningu. Do
