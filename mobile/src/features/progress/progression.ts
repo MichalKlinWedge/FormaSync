@@ -211,17 +211,30 @@ export type ProgressionProposal = {
 };
 
 /**
- * Zbiera wykonanie planu z ostatniej ukończonej sesji i przekłada je na sugestie.
+ * Zbiera wykonanie planu z ukończonej sesji i przekłada je na sugestie. Domyślnie z ostatniej,
+ * ale można wskazać konkretną — automatyczna progresja liczy z tej, która właśnie się skończyła
+ * albo którą właśnie poprawiono, a to nie zawsze jest ta najnowsza.
+ *
  * Zwraca null, gdy plan jest szablonem albo nie był jeszcze wykonany.
  */
-export function proposeProgression(db: SyncDb, planId: number): ProgressionProposal | null {
+export function proposeProgression(
+  db: SyncDb,
+  planId: number,
+  sessionId?: number,
+): ProgressionProposal | null {
   const plan = db.select().from(schema.workoutPlans).where(eq(schema.workoutPlans.id, planId)).get();
   if (!plan || plan.isTemplate) return null;
 
   const session = db
     .select()
     .from(schema.workoutSessions)
-    .where(and(eq(schema.workoutSessions.planId, planId), eq(schema.workoutSessions.status, 'COMPLETED')))
+    .where(
+      and(
+        eq(schema.workoutSessions.planId, planId),
+        eq(schema.workoutSessions.status, 'COMPLETED'),
+        ...(sessionId === undefined ? [] : [eq(schema.workoutSessions.id, sessionId)]),
+      ),
+    )
     .orderBy(desc(schema.workoutSessions.startTime))
     .get();
   if (!session) return null;

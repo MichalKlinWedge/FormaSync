@@ -31,6 +31,8 @@ import { useSession } from '@/features/workout/use-session';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDateTime } from '@/lib/date';
 
+import { describeAutoProgression, runAutoProgression } from '@/features/progress/auto';
+
 import { deleteSession, loadSessionMeta, proposePlanUpdate, updateSessionMeta } from './repository';
 import { useFlushNotes } from './use-flush-notes';
 
@@ -84,6 +86,22 @@ export function SessionDetails({ id, updatePlanRoute, footer }: SessionDetailsPr
       },
     ]);
 
+  /**
+   * Poprawka w zapisanym treningu zmienia podstawę progresji, więc przy włączonym trybie
+   * automatycznym plan idzie za nią od razu — bez wracania tu po tygodniu. Powtórzenie nic nie
+   * dokłada: drugie przeliczenie wychodzi na tę samą liczbę, która już w planie stoi.
+   */
+  const afterEdit = () => {
+    const progression = runAutoProgression(db, id);
+    reload();
+    if (progression !== null) {
+      Alert.alert(
+        `Plan „${progression.planTitle}” zaktualizowany`,
+        describeAutoProgression(progression),
+      );
+    }
+  };
+
   const openPlanUpdate = () => {
     const proposal = proposePlanUpdate(db, id);
     if (!proposal) {
@@ -134,10 +152,10 @@ export function SessionDetails({ id, updatePlanRoute, footer }: SessionDetailsPr
                   exercise={exercise}
                   set={set}
                   onEdit={(values) => updateSet(db, set.id, values)}
-                  onEditEnd={reload}
+                  onEditEnd={afterEdit}
                   onRemove={() => {
                     removeSet(db, set.id);
-                    reload();
+                    afterEdit();
                   }}
                 />
               ))}

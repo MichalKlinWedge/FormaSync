@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
+import { Chip } from '@/components/chip';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -24,6 +25,7 @@ import { syncWorkoutReminders } from '@/features/calendar/reminders';
 import { WellnessSection } from '@/features/wellness/wellness-section';
 import { GarminAccountSection } from '@/features/garmin/connect/account-section';
 import { ProfileSection } from '@/features/profile/profile-section';
+import { autoProgressionOn, setAutoProgression } from '@/features/progress/auto';
 import { describeBundle } from '@/features/updates/bundle';
 import { describeCheck, fetchNewerBundle } from '@/features/updates/check';
 import { findActiveSessionId } from '@/features/workout/repository';
@@ -32,6 +34,7 @@ import { formatNumber } from '@/lib/number';
 
 export default function SettingsScreen() {
   const [busy, setBusy] = useState<null | 'export' | 'import' | 'update'>(null);
+  const [autoProgression, setAuto] = useState(() => autoProgressionOn(db));
   // Wersja z manifestu, nie wpisana w kod — inaczej rozjeżdża się z app.json przy pierwszym wydaniu.
   const appVersion = Constants.expoConfig?.version ?? '—';
   // Stałe expo-updates są ustalane przy starcie aplikacji — czytamy je raz, bez stanu.
@@ -158,6 +161,44 @@ export default function SettingsScreen() {
 
         <View style={styles.section}>
           <ThemedText type="smallBold" themeColor="textSecondary">
+            PROGRESJA
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Po każdym zakończonym treningu — i po każdej poprawce w już zapisanym — plan dostaje
+            ciężary na następny raz. Reguła jest ta sama, co w kreatorze progresji: komplet serii
+            i powtórzeń to krok w górę, niepełne wykonanie albo wysokie RPE to ten sam ciężar,
+            a połowa zaplanowanej pracy — krok w dół.
+          </ThemedText>
+          <View style={styles.chips}>
+            <Chip
+              label="Automatycznie"
+              selected={autoProgression}
+              onPress={() => {
+                setAutoProgression(db, true);
+                setAuto(true);
+              }}
+            />
+            <Chip
+              label="Pytaj mnie"
+              selected={!autoProgression}
+              onPress={() => {
+                setAutoProgression(db, false);
+                setAuto(false);
+              }}
+            />
+          </View>
+          <ThemedText type="small" themeColor="textSecondary">
+            {autoProgression
+              ? 'Po treningu zobaczysz, co się zmieniło. Zmiana dotyczy planu, z którego poszedł'
+                + ' trening — szablony zostają nietknięte, a przy układaniu nowego planu ciężary'
+                + ' i tak biorą się z Twojej historii.'
+              : 'Nic nie dzieje się samo. Progresję odpalasz z ekranu planu, a cele z wykonanego'
+                + ' treningu przepisujesz z historii.'}
+          </ThemedText>
+        </View>
+
+        <View style={styles.section}>
+          <ThemedText type="smallBold" themeColor="textSecondary">
             KALORIE
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
@@ -250,5 +291,6 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { padding: Spacing.four, gap: Spacing.five, paddingBottom: Spacing.six },
   section: { gap: Spacing.two },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   busy: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
 });

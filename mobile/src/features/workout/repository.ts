@@ -8,6 +8,7 @@ import {
   DEFAULT_REST_SECONDS,
   DEFAULT_SETS,
 } from '@/features/plans/draft';
+import { type AutoProgression, runAutoProgression } from '@/features/progress/auto';
 import { suggestedTarget } from '@/features/progress/repository';
 import { median } from '@/lib/stats';
 
@@ -413,8 +414,16 @@ export type FinishValues = { userNotes?: string | null; rpeRating?: number | nul
 /**
  * Kończy sesję: usuwa niewykonane serie (plan pozostaje w session_exercises, więc nadal wiadomo,
  * ile serii zaplanowano) i oznacza powiązany termin w kalendarzu jako zrealizowany.
+ *
+ * Zwraca to, co progresja zmieniła w planie — null, gdy tryb automatyczny jest wyłączony albo
+ * nie było czego zmieniać. Ekran kończący trening ma z czego powiedzieć, co się stało.
  */
-export function finishSession(db: SyncDb, sessionId: number, values: FinishValues = {}, now = nowIso()): void {
+export function finishSession(
+  db: SyncDb,
+  sessionId: number,
+  values: FinishValues = {},
+  now = nowIso(),
+): AutoProgression | null {
   db.transaction((tx) => {
     const session = tx
       .select()
@@ -447,6 +456,10 @@ export function finishSession(db: SyncDb, sessionId: number, values: FinishValue
         .run();
     }
   });
+
+  // Dopiero po transakcji: progresja czyta ukończoną sesję, a w jej trakcie sesja jeszcze
+  // ukończona nie jest. Przy wyłączonym trybie to jeden odczyt ustawienia i tyle.
+  return runAutoProgression(db, sessionId);
 }
 
 /**

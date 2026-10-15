@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
@@ -10,6 +10,7 @@ import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
 import { formatDistance, formatPace } from '@/features/endurance/format';
 import { loadEnduranceSession, paceBreakdown, sessionTotals } from '@/features/endurance/session';
+import { describeAutoProgression } from '@/features/progress/auto';
 import { isEndurance } from '@/features/sports/sport';
 import { formatClock, summarize } from '@/features/workout/logic';
 import { cancelCountdown } from '@/features/workout/notifications';
@@ -41,10 +42,24 @@ export default function FinishWorkoutScreen() {
   const pace = asEndurance === null ? null : paceBreakdown(asEndurance.segments);
 
   const save = () => {
-    finishSession(db, session.id, { userNotes: notes.trim() || null, rpeRating: rpe });
+    const progression = finishSession(db, session.id, {
+      userNotes: notes.trim() || null,
+      rpeRating: rpe,
+    });
     clearTimedSet(db);
     void cancelCountdown();
     router.replace('/');
+
+    // Plan zmienił się sam, więc trzeba o tym powiedzieć — cicha podmiana ciężarów byłaby
+    // niespodzianką dopiero przy następnym treningu, przy sztandze.
+    if (progression !== null) {
+      Alert.alert(
+        `Plan „${progression.planTitle}” zaktualizowany`,
+        `${describeAutoProgression(progression)}
+
+Automatyczną progresję wyłączysz w Ustawieniach.`,
+      );
+    }
   };
 
   return (
