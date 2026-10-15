@@ -8,7 +8,12 @@ import { searchPlans } from '../search';
 const PLANS = [
   { id: 1, title: 'Interwały 5x1 km', description: 'Odcinki szybciej od tempa startowego.' },
   { id: 2, title: 'Długi 16 km', description: 'Najdłuższa jednostka tygodnia.' },
-  { id: 3, title: 'PPL — Pull siłownia', description: 'Dzień 2 z 3 planu Push-Pull-Legs.' },
+  {
+    id: 3,
+    title: 'PPL — Pull siłownia',
+    description: 'Dzień 2 z 3 planu Push-Pull-Legs.',
+    exercises: ['Martwy ciąg', 'Wiosłowanie sztangą'],
+  },
   { id: 4, title: 'Ławeczka skośna', description: null },
 ];
 
@@ -41,5 +46,20 @@ describe('searchPlans', () => {
 
   it('plan bez opisu nie wywraca szukania', () => {
     expect(searchPlans(PLANS, 'skosna').map((plan) => plan.id)).toEqual([4]);
+  });
+
+  it('szuka po nazwie ćwiczenia w środku planu', () => {
+    // Plan pamięta się różnie: raz po tytule, raz po tym, że „to ten z martwym ciągiem”.
+    expect(searchPlans(PLANS, 'martwy ciag').map((plan) => plan.id)).toEqual([3]);
+    expect(searchPlans(PLANS, 'wioslowanie').map((plan) => plan.id)).toEqual([3]);
+  });
+
+  it('słowa wolno mieszać między nazwą, opisem i ćwiczeniem', () => {
+    expect(searchPlans(PLANS, 'pull martwy').map((plan) => plan.id)).toEqual([3]);
+  });
+
+  it('plan bez listy ćwiczeń szuka jak dotąd', () => {
+    // Ekran terminu podaje plany bez ćwiczeń — ma znajdować po nazwie, a nie nic.
+    expect(searchPlans(PLANS, 'interwaly').map((plan) => plan.id)).toEqual([1]);
   });
 });

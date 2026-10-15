@@ -29,10 +29,25 @@ export function usePlanList(sport?: Sport) {
       .from(planSegments)
       .groupBy(planSegments.planId),
   );
+  // Nazwy ćwiczeń osobnym zapytaniem z tego samego powodu co odcinki: złączone z liczeniem
+  // zwielokrotniłyby wiersze. Potrzebuje ich szukanie — planu szuka się po tym, co w nim jest.
+  const { data: exerciseNames } = useLiveQuery(
+    db
+      .select({ planId: planExercises.planId, name: exercises.name })
+      .from(planExercises)
+      .innerJoin(exercises, eq(planExercises.exerciseId, exercises.id))
+      .orderBy(asc(planExercises.orderIndex)),
+  );
+  const namesByPlan = new Map<number, string[]>();
+  for (const row of exerciseNames) {
+    namesByPlan.set(row.planId, [...(namesByPlan.get(row.planId) ?? []), row.name]);
+  }
+
   const segmentsByPlan = new Map(segmentCounts.map((row) => [row.planId, row.segmentCount]));
   const withCounts = data.map((plan) => ({
     ...plan,
     segmentCount: segmentsByPlan.get(plan.id) ?? 0,
+    exercises: namesByPlan.get(plan.id) ?? [],
   }));
   const ofSport = sport === undefined ? withCounts : withCounts.filter((p) => p.sport === sport);
   return {

@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
@@ -11,6 +12,7 @@ import { emptyDraft } from '@/features/plans/draft';
 import { emptyEnduranceDraft } from '@/features/endurance/draft';
 import { useEnduranceDraftStore } from '@/features/endurance/draft-store';
 import { usePlanDraftStore } from '@/features/plans/draft-store';
+import { matchesSearch, searchPlans } from '@/features/plans/search';
 import { usePlanList } from '@/features/plans/use-plans';
 import { SportSwitcher } from '@/features/sports/sport-switcher';
 import { isEndurance } from '@/features/sports/sport';
@@ -24,6 +26,13 @@ export default function PlansScreen() {
   const theme = useTheme();
   const sport = useActiveSport();
   const { own, templates } = usePlanList(sport);
+  // Jedno pole na całe szukanie: nazwa, opis i nazwy ćwiczeń w środku. Plan pamięta się różnie —
+  // raz po tytule, raz po tym, że „to ten z martwym ciągiem” — a trzy pola kazałyby zgadywać,
+  // w które wpisać.
+  const [search, setSearch] = useState('');
+  const foundOwn = searchPlans(own, search);
+  const foundTemplates = searchPlans(templates, search);
+  const searching = search.trim() !== '';
   const startDraft = usePlanDraftStore((s) => s.start);
   const startEnduranceDraft = useEnduranceDraftStore((s) => s.start);
 
@@ -60,25 +69,50 @@ export default function PlansScreen() {
             onPress={() => router.push('/goal')}
           />
 
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Szukaj: nazwa, opis albo ćwiczenie"
+            placeholderTextColor={theme.textSecondary}
+            autoCapitalize="none"
+            autoCorrect={false}
+            clearButtonMode="while-editing"
+            style={[
+              styles.search,
+              { color: theme.text, backgroundColor: theme.backgroundElement, borderColor: theme.border },
+            ]}
+          />
+
           <Section title="Moje plany">
-            {own.length === 0 ? (
+            {foundOwn.length === 0 ? (
               <ThemedView type="backgroundElement" style={styles.card}>
                 <ThemedText type="small" themeColor="textSecondary">
-                  Nie masz jeszcze własnych planów. Utwórz plan od zera przyciskiem + albo skopiuj jeden z
-                  szablonów poniżej.
+                  {searching
+                    ? 'Żaden własny plan nie pasuje do tego, czego szukasz.'
+                    : 'Nie masz jeszcze własnych planów. Utwórz plan od zera przyciskiem + albo skopiuj'
+                      + ' jeden z szablonów poniżej.'}
                 </ThemedText>
               </ThemedView>
             ) : (
-              own.map((plan) => <PlanCard key={plan.id} plan={plan} />)
+              foundOwn.map((plan) => <PlanCard key={plan.id} plan={plan} search={search} />)
             )}
           </Section>
 
-          {/* Dyscyplina bez szablonów nie potrzebuje pustego nagłówka. */}
+          {/* Dyscyplina bez szablonów nie potrzebuje pustego nagłówka. Przy szukaniu nagłówek
+              zostaje nawet pusty: inaczej nie wiadomo, czy szablonów nie ma, czy nie pasują. */}
           {templates.length > 0 && (
             <Section title="Szablony">
-              {templates.map((plan) => (
-                <PlanCard key={plan.id} plan={plan} />
-              ))}
+              {foundTemplates.length === 0 ? (
+                <ThemedView type="backgroundElement" style={styles.card}>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Żaden szablon nie pasuje do tego, czego szukasz.
+                  </ThemedText>
+                </ThemedView>
+              ) : (
+                foundTemplates.map((plan) => (
+                  <PlanCard key={plan.id} plan={plan} search={search} />
+                ))
+              )}
             </Section>
           )}
         </ScrollView>
@@ -98,8 +132,11 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function PlanCard({ plan }: { plan: PlanSummary }) {
+function PlanCard({ plan, search }: { plan: PlanSummary; search: string }) {
   const theme = useTheme();
+  // Gdy plan trafił na listę przez ćwiczenie, samo „PPL — Pull” nie mówi dlaczego. Pokazujemy
+  // więc te ćwiczenia, które pasują — to one są odpowiedzią na zadane pytanie.
+  const matching = matchingExercises(plan.exercises, search);
   return (
     <Pressable
       onPress={() => router.push({ pathname: '/plans/[id]', params: { id: plan.id } })}
@@ -115,11 +152,18 @@ function PlanCard({ plan }: { plan: PlanSummary }) {
           {isEndurance(plan.sport)
             ? pluralWith(plan.segmentCount, 'odcinek', 'odcinki', 'odcinków')
             : pluralWith(plan.exerciseCount, 'ćwiczenie', 'ćwiczenia', 'ćwiczeń')}
+          {matching.length > 0 ? ` · ${matching.join(', ')}` : ''}
         </ThemedText>
       </View>
       <Icon name="chevron_right" size={20} color={theme.textSecondary} />
     </Pressable>
   );
+}
+
+/** Ćwiczenia planu, które same w sobie pasują do zapytania — bez tych z nazwy i opisu. */
+function matchingExercises(names: readonly string[], search: string): string[] {
+  if (search.trim() === '') return [];
+  return names.filter((name) => matchesSearch({ title: name, description: null }, search));
 }
 
 const styles = StyleSheet.create({
@@ -140,4 +184,11 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
   },
   cardText: { flex: 1, gap: Spacing.half },
+  search: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    fontSize: 16,
+  },
 });
