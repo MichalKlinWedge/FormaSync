@@ -87,6 +87,16 @@ export function buildPrompt(
     (month) => `${month.month}: ${Math.round(month.meters / 1000)} km`,
   );
 
+  // Zaplanowane kontra wykonane. Jednostka bez wykonania jest tu równie ważna jak ta zrobiona:
+  // to po niej widać, że tydzień był za ciężki albo że zabrakło na niego miejsca.
+  const results = context.results.map((result) => {
+    const planned = `plan ${formatDistance(result.plannedMeters)}`;
+    if (result.doneMeters === null) return `${result.date} ${result.kind}: ${planned} → nie wykonane`;
+    const pace = result.pace === null ? '' : ` (${formatSeconds(result.pace)}/km)`;
+    return `${result.date} ${result.kind}: ${planned} → ${formatDistance(result.doneMeters)}`
+      + ` w ${formatSeconds(result.doneSeconds ?? 0)}${pace}`;
+  });
+
   const own = context.guidance.trim();
 
   return [
@@ -107,9 +117,14 @@ export function buildPrompt(
     ...section('REKORDY POLICZONE Z HISTORII', records),
     ...section('REKORDY ŻYCIOWE Z GARMINA (z całego konta, nie tylko z wczytanej historii)', garmin),
     ...section(`OBJĘTOŚĆ MIESIĄC PO MIESIĄCU (ostatnie ${context.monthly.length} miesięcy)`, monthly),
+    ...section(
+      'REALIZACJA DOTYCHCZASOWEGO PLANU (zaplanowane → wykonane; to jest korekta, nie pierwszy plan)',
+      results,
+    ),
     '',
     'ZASADY',
-    `- Plan zaczyna się ${startOfWeek(from)} i kończy w dniu zawodów ${brief.eventDate}.`,
+    `- Plan zaczyna się ${from} i kończy w dniu zawodów ${brief.eventDate}. Nie planuj niczego`
+      + ' przed tą datą: przeszłość została wytrenowana albo opuszczona i tak zostaje.',
     '- Treningi wyłącznie w podanych dniach tygodnia; wyjątkiem jest dzień zawodów.',
     '- W dniu zawodów dokładnie jedna jednostka rodzaju RACE o dystansie zawodów.',
     '- Najwyżej jedna jednostka na dzień.',
@@ -122,6 +137,15 @@ export function buildPrompt(
     '- Gdy historia jest uboga albo poprzerywana, pierwsze tygodnie przeznacz na odbudowę'
       + ' regularności, a nie na obciążenie.',
     '- Przed startem dwa tygodnie zejścia z objętości.',
+    ...(context.results.length === 0
+      ? []
+      : [
+          '- To jest korekta planu w trakcie cyklu. Wyjdź od realizacji powyżej: jednostki'
+            + ' opuszczone albo skrócone znaczą, że obciążenie było za duże lub zabrakło na nie'
+            + ' miejsca — nie powtarzaj tego samego tygodnia w nadziei, że tym razem wyjdzie.',
+          '- Wykonane szybciej i lżej, niż zakładał plan, jest powodem do podniesienia poprzeczki,'
+            + ' a nie do zostawienia jej tam, gdzie była.',
+        ]),
     `- Rodzaje jednostek: ${goalWorkoutKinds.map((kind) => `${kind} (${KIND_HINTS[kind]})`).join(', ')}.`,
     `- Fazy tygodni: ${goalPhases.map((phase) => `${phase} (${PHASE_HINTS[phase]})`).join(', ')}.`,
     ...section(
@@ -185,7 +209,9 @@ export function parsePlanReply(text: string, brief: GoalBrief, from: string): Pl
     for (const workout of rawWorkouts) {
       const date = workout?.date;
       if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
-      if (date < firstMonday || date > lastDate) continue;
+      // Wcześniej niż dziś nie da się już nic przetrenować, a i tak nie weszłoby do planu:
+      // zapis zostawia przeszłość nietkniętą.
+      if (date < from || date > lastDate) continue;
       if (!isKind(workout.kind)) continue;
       // Zawody tylko w dniu startu, a w pozostałe dni tylko to, na co jest czas w tygodniu.
       if (workout.kind === 'RACE' && date !== brief.eventDate) continue;

@@ -1,11 +1,9 @@
 import { askAi, type Provider } from '@/features/ai/client';
 import { AiError } from '@/features/ai/transport';
 
-import type { FormWorkout } from '../brief';
 import type { GoalBrief, PlannedWeek } from '../planner';
 
-import { EMPTY_CONTEXT, type PromptContext } from './context';
-import { buildPrompt, parsePlanReply, PlanReplyError } from './prompt';
+import { parsePlanReply, PlanReplyError } from './prompt';
 
 /**
  * Plan ułożony przez model. Dokładamy go jako drugą opcję obok reguł — nie zamiast nich:
@@ -17,15 +15,17 @@ import { buildPrompt, parsePlanReply, PlanReplyError } from './prompt';
 
 export { PlanReplyError } from './prompt';
 
-/** Cały przebieg: polecenie, zapytanie, odczyt planu. */
+/**
+ * Zapytanie i odczyt planu. Polecenie przychodzi gotowe, bo może być poprawione ręcznie i zapisane
+ * przy celu — składanie go tutaj oznaczałoby, że podgląd pokazuje co innego, niż pojedzie.
+ */
 export async function planWithAi(
   provider: Provider,
+  prompt: string,
   brief: GoalBrief,
-  history: FormWorkout[],
   from: string,
-  context: PromptContext = EMPTY_CONTEXT,
 ): Promise<PlannedWeek[]> {
-  const reply = await askAi(buildPrompt(brief, history, from, context), { provider });
+  const reply = await askAi(prompt, { provider });
   try {
     return parsePlanReply(reply, brief, from);
   } catch (error) {

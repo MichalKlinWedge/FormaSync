@@ -24,6 +24,7 @@ import {
   materializeGoal,
   moveGoalDays,
   saveGoal,
+  saveGoalPrompt,
   savePlan,
   setGoalStatus,
 } from '../repository';
@@ -372,5 +373,32 @@ describe('deleteGoal', () => {
 
     const left = db.select().from(schema.scheduledWorkouts).all();
     expect(left.map((row) => row.id)).toEqual([term.id]);
+  });
+});
+
+describe('saveGoalPrompt', () => {
+  it('zapisuje polecenie przy celu i oddaje je z powrotem', () => {
+    const db = createTestDb();
+    const id = saveGoal(db, GOAL);
+
+    saveGoalPrompt(db, id, '  Ułóż plan na nowo, bez interwałów.  ');
+
+    // Zapisujemy przycięte: wiodące spacje z pola tekstowego nie są treścią polecenia.
+    expect(loadGoal(db, id)?.aiPrompt).toBe('Ułóż plan na nowo, bez interwałów.');
+  });
+
+  it('puste przywraca składanie z danych', () => {
+    const db = createTestDb();
+    const id = saveGoal(db, GOAL);
+    saveGoalPrompt(db, id, 'Coś własnego.');
+
+    saveGoalPrompt(db, id, '   ');
+
+    expect(loadGoal(db, id)?.aiPrompt).toBeNull();
+  });
+
+  it('nowy cel nie ma własnego polecenia', () => {
+    const db = createTestDb();
+    expect(loadGoal(db, saveGoal(db, GOAL))?.aiPrompt).toBeNull();
   });
 });

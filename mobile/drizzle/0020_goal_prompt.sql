@@ -1,0 +1,1 @@
+ALTER TABLE `training_goals` ADD `ai_prompt` text;

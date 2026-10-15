@@ -451,6 +451,11 @@ export const trainingGoals = sqliteTable('training_goals', {
   status: text('status', { enum: goalStatuses }).notNull().default('ACTIVE'),
   /** Czym ułożono plan: regułami w aplikacji czy modelem. Null dla planu jeszcze niewygenerowanego. */
   plannedBy: text('planned_by'),
+  /**
+   * Polecenie dla modelu poprawione ręcznie. Null znaczy „składaj je z danych jak zwykle”.
+   * Zapisane zastępuje składane w całości — razem z datami i historią, które w nim stoją.
+   */
+  aiPrompt: text('ai_prompt'),
   notes: text('notes'),
   createdAt: createdAt(),
 });

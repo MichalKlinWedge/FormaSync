@@ -141,6 +141,13 @@
       "when": 1791742586506,
       "tag": "0019_meal_amount",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1792081314287,
+      "tag": "0020_goal_prompt",
+      "breakpoints": true
     }
   ]
 }

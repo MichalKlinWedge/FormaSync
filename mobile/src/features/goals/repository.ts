@@ -79,6 +79,17 @@ export function listGoals(db: SyncDb): Goal[] {
 export const loadGoal = (db: SyncDb, id: number): Goal | null =>
   db.select().from(schema.trainingGoals).where(eq(schema.trainingGoals.id, id)).get() ?? null;
 
+/**
+ * Polecenie dla modelu poprawione ręcznie. Puste przywraca składanie z danych — i tak ma być,
+ * bo wyczyszczone pole znaczy „rób jak zwykle”, a nie „pytaj o nic”.
+ */
+export function saveGoalPrompt(db: SyncDb, id: number, prompt: string | null): void {
+  db.update(schema.trainingGoals)
+    .set({ aiPrompt: prompt?.trim() || null })
+    .where(eq(schema.trainingGoals.id, id))
+    .run();
+}
+
 export function setGoalStatus(db: SyncDb, id: number, status: schema.GoalStatus): void {
   db.update(schema.trainingGoals).set({ status }).where(eq(schema.trainingGoals.id, id)).run();
 }

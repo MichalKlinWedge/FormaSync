@@ -11,13 +11,12 @@ import { db } from '@/db/client';
 import { syncWorkoutReminders } from '@/features/calendar/reminders';
 import { formatDistance, formatPace, formatSeconds } from '@/features/endurance/format';
 import { AiError, NoApiKeyError } from '@/features/ai/client';
-import { ProviderPicker } from '@/features/ai/provider-picker';
 import { PROVIDER_COMPANIES, PROVIDER_LABELS } from '@/features/ai/providers';
-import { guidance, hasConsent, setConsent } from '@/features/ai/tokens';
+import { hasConsent, setConsent } from '@/features/ai/tokens';
 import { useAiProvider } from '@/features/ai/use-providers';
-import { buildContext } from '@/features/goals/ai/context';
 import { planWithAi, PlanReplyError } from '@/features/goals/ai/plan';
-import { buildBrief, currentForm } from '@/features/goals/brief';
+import { goalPrompt } from '@/features/goals/ai/source';
+import { buildBrief } from '@/features/goals/brief';
 import { findJunk, sweepJunk } from '@/features/goals/cleanup';
 import { planGoal } from '@/features/goals/planner';
 import {
@@ -53,7 +52,9 @@ export default function GoalScreen() {
   const [time, setTime] = useState<string | null>('07:00');
   const [reminder, setReminder] = useState<number | null>(60);
   const [asking, setAsking] = useState(false);
-  const { provider, setProvider, configured } = useAiProvider();
+  // Dostawcę bierzemy domyślnego z ustawień — wybór przy każdym zapytaniu był pytaniem
+  // o decyzję, która już raz zapadła.
+  const { provider } = useAiProvider();
   // Wybór dni trzymamy jako odstępstwa od stanu planu: po przesunięciu ekran wraca do tego,
   // co faktycznie stoi w kalendarzu, zamiast pokazywać poprzedni wybór.
   const [picked, setPicked] = useState<Record<number, number>>({});
@@ -123,10 +124,9 @@ export default function GoalScreen() {
       const today = todayKey();
       const weeks = await planWithAi(
         provider,
+        goalPrompt(db, goal, today).text,
         buildBrief(db, goal, new Date()),
-        currentForm(db, goal.sport).history,
         today,
-        buildContext(db, goal.sport, guidance()),
       );
       const added = savePlan(db, goalId, weeks, 'GEMINI');
       askToWrite(
@@ -312,9 +312,14 @@ export default function GoalScreen() {
             icon="rule"
             onPress={plan}
           />
-          <ProviderPicker configured={configured} value={provider} onChange={setProvider} />
           <Button
-            label={asking ? `Pytam ${PROVIDER_LABELS[provider]}…` : `Ułóż plan przez ${PROVIDER_LABELS[provider]}`}
+            label={
+              asking
+                ? `Pytam ${PROVIDER_LABELS[provider]}…`
+                : workouts.length === 0
+                  ? 'Ułóż plan z AI'
+                  : 'Przelicz plan z AI'
+            }
             icon="auto_awesome"
             variant="secondary"
             onPress={askModel}
@@ -327,8 +332,12 @@ export default function GoalScreen() {
             onPress={() => router.push('/goal/ai')}
           />
           <Button
-            label="Podejrzyj polecenie dla modelu"
-            icon="visibility"
+            label={
+              goal.aiPrompt === null
+                ? 'Polecenie dla modelu — podejrzyj i popraw'
+                : 'Polecenie dla modelu — poprawione'
+            }
+            icon="edit_note"
             variant="secondary"
             onPress={() => router.push({ pathname: '/goal/prompt', params: { id: goalId } })}
           />
