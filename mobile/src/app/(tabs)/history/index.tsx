@@ -19,7 +19,6 @@ import { formatDateTime } from '@/lib/date';
 import { pluralWith } from '@/lib/number';
 
 export default function HistoryScreen() {
-  const theme = useTheme();
   const sport = useActiveSport();
   const groups = useHistory(sport);
 
@@ -31,43 +30,17 @@ export default function HistoryScreen() {
 
           <SportSwitcher />
 
-          <View style={styles.actions}>
-            <Pressable
-              onPress={() => router.push('/history/progress')}
-              style={({ pressed }) => [
-                styles.action,
-                { backgroundColor: theme.backgroundElement, opacity: pressed ? 0.7 : 1 },
-              ]}>
-              <Icon name="show_chart" size={22} color={theme.accent} />
-              <ThemedText type="smallBold">Statystyki</ThemedText>
-            </Pressable>
-            <Pressable
-              onPress={() => router.push('/history/body')}
-              style={({ pressed }) => [
-                styles.action,
-                { backgroundColor: theme.backgroundElement, opacity: pressed ? 0.7 : 1 },
-              ]}>
-              <Icon name="monitor_weight" size={22} color={theme.accent} />
-              <ThemedText type="smallBold">Pomiary ciała</ThemedText>
-            </Pressable>
-            <Pressable
-              onPress={() => router.push('/history/daily')}
-              style={({ pressed }) => [
-                styles.action,
-                { backgroundColor: theme.backgroundElement, opacity: pressed ? 0.7 : 1 },
-              ]}>
-              <Icon name="water_drop" size={22} color={theme.accent} />
-              <ThemedText type="smallBold">Woda i jedzenie</ThemedText>
-            </Pressable>
-            <Pressable
-              onPress={() => router.push('/history/import')}
-              style={({ pressed }) => [
-                styles.action,
-                { backgroundColor: theme.backgroundElement, opacity: pressed ? 0.7 : 1 },
-              ]}>
-              <Icon name="watch" size={22} color={theme.accent} />
-              <ThemedText type="smallBold">Z zegarka</ThemedText>
-            </Pressable>
+          {/* Dwa rzędy po dwa: w jednym wierszu dłuższe nazwy łamały się na trzy linijki
+              i kafelki przestawały być równe. */}
+          <View style={styles.tiles}>
+            <View style={styles.actions}>
+              <Tile icon="show_chart" label="Statystyki" href="/history/progress" />
+              <Tile icon="watch" label="Z zegarka" href="/history/import" />
+            </View>
+            <View style={styles.actions}>
+              <Tile icon="monitor_weight" label="Pomiary ciała" href="/history/body" />
+              <Tile icon="water_drop" label="Woda i jedzenie" href="/history/daily" />
+            </View>
           </View>
 
           {groups.length === 0 ? (
@@ -91,6 +64,30 @@ export default function HistoryScreen() {
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
+  );
+}
+
+function Tile({
+  icon,
+  label,
+  href,
+}: {
+  icon: Parameters<typeof Icon>[0]['name'];
+  label: string;
+  href: Parameters<typeof router.push>[0];
+}) {
+  const theme = useTheme();
+
+  return (
+    <Pressable
+      onPress={() => router.push(href)}
+      style={({ pressed }) => [
+        styles.action,
+        { backgroundColor: theme.backgroundElement, opacity: pressed ? 0.7 : 1 },
+      ]}>
+      <Icon name={icon} size={22} color={theme.accent} />
+      <ThemedText type="smallBold">{label}</ThemedText>
+    </Pressable>
   );
 }
 
@@ -152,6 +149,7 @@ const styles = StyleSheet.create({
   },
   rowText: { flex: 1, gap: Spacing.half },
   empty: { borderRadius: 16, padding: Spacing.three },
+  tiles: { gap: Spacing.two },
   actions: { flexDirection: 'row', gap: Spacing.two },
   action: {
     flex: 1,
