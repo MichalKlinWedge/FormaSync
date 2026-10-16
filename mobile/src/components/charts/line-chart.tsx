@@ -3,6 +3,7 @@ import React from 'react';
 import Svg, { Circle, Line, Path, Text as SvgText } from 'react-native-svg';
 
 import { ChartFrame } from '@/components/charts/chart-frame';
+import { niceTicks } from '@/components/charts/ticks';
 import { useTheme } from '@/hooks/use-theme';
 
 export type LineSeries = {
@@ -18,6 +19,11 @@ type LineChartProps = {
   height?: number;
   formatValue: (value: number) => string;
   emptyMessage?: string;
+  /**
+   * Ile linii pomocniczych rysować. To życzenie, nie obietnica: linie stoją na okrągłych
+   * wartościach, więc wychodzi ich tyle, ile mieści się w zakresie przy takim kroku.
+   */
+  gridLines?: number;
 };
 
 const AXIS_WIDTH = 46;
@@ -30,7 +36,14 @@ const TOP_PAD = 14;
  * Punkt końcowy każdej serii jest podpisany — dzięki temu wartość da się odczytać bez
  * dotykania wykresu, czego wymaga też słabszy kontrast pomarańczowego w trybie jasnym.
  */
-export function LineChart({ labels, series, height = 180, formatValue, emptyMessage }: LineChartProps) {
+export function LineChart({
+  labels,
+  series,
+  height = 180,
+  formatValue,
+  emptyMessage,
+  gridLines = 3,
+}: LineChartProps) {
   const theme = useTheme();
   const all = series.flatMap((s) => s.values.filter((v): v is number => v !== null));
   const hasData = all.length >= 2 && labels.length >= 2;
@@ -40,6 +53,10 @@ export function LineChart({ labels, series, height = 180, formatValue, emptyMess
   const span = max - min || Math.max(max * 0.1, 1);
   const low = min - span * 0.1;
   const high = max + span * 0.1;
+  // Przy zakresie, w którym nie mieści się żadna okrągła wartość, zostaje podział na równo —
+  // lepsza linia w połowie niż wykres bez żadnej.
+  const ticks = niceTicks(low, high, gridLines);
+  const grid = ticks.length >= 2 ? ticks : [low, (low + high) / 2, high];
 
   return (
     <ChartFrame
@@ -55,27 +72,26 @@ export function LineChart({ labels, series, height = 180, formatValue, emptyMess
 
         return (
           <Svg width={width} height={height}>
-            {[low, (low + high) / 2, high].map((tick) => (
-              <Line
-                key={tick}
-                x1={AXIS_WIDTH}
-                x2={width - RIGHT_PAD}
-                y1={y(tick)}
-                y2={y(tick)}
-                stroke={theme.border}
-                strokeWidth={1}
-              />
-            ))}
-            {[high, low].map((tick) => (
-              <SvgText
-                key={tick}
-                x={AXIS_WIDTH - 6}
-                y={y(tick) + 4}
-                fontSize={10}
-                fill={theme.textSecondary}
-                textAnchor="end">
-                {formatValue(tick)}
-              </SvgText>
+            {grid.map((tick) => (
+              <React.Fragment key={tick}>
+                <Line
+                  x1={AXIS_WIDTH}
+                  x2={width - RIGHT_PAD}
+                  y1={y(tick)}
+                  y2={y(tick)}
+                  stroke={theme.border}
+                  strokeWidth={1}
+                />
+                {/* Każda linia ma swój opis — linia bez wartości mówi tylko tyle, że coś rośnie. */}
+                <SvgText
+                  x={AXIS_WIDTH - 6}
+                  y={y(tick) + 4}
+                  fontSize={10}
+                  fill={theme.textSecondary}
+                  textAnchor="end">
+                  {formatValue(tick)}
+                </SvgText>
+              </React.Fragment>
             ))}
 
             {series.map((s) => {

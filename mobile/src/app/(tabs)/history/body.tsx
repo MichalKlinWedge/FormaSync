@@ -106,6 +106,7 @@ export default function BodyMeasurementsScreen() {
               labels={weightPoints.map((p) => shortDate(p.date))}
               series={[{ name: 'Waga', color: theme.chart1, values: weightPoints.map((p) => p.value) }]}
               formatValue={(value) => formatNumber(value, 1)}
+              gridLines={5}
               emptyMessage="Zapisz wagę z co najmniej dwóch dni, aby zobaczyć wykres."
             />
           </View>
@@ -129,6 +130,7 @@ export default function BodyMeasurementsScreen() {
                 },
               ]}
               formatValue={(value) => String(Math.round(value))}
+              gridLines={5}
               emptyMessage="Zapisz ciśnienie z co najmniej dwóch dni, aby zobaczyć wykres."
             />
           </View>
