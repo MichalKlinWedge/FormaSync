@@ -11,8 +11,6 @@ import { db } from '@/db/client';
 import { useScheduledRange } from '@/features/calendar/use-calendar';
 import { HydrationCard } from '@/features/hydration/hydration-card';
 import { NutritionCard } from '@/features/nutrition/nutrition-card';
-import { usePlanList } from '@/features/plans/use-plans';
-import { SportSwitcher } from '@/features/sports/sport-switcher';
 import { useActiveSport } from '@/features/sports/sport-store';
 import { UpdateBadge } from '@/features/updates/update-badge';
 import { elapsedSeconds, formatClock } from '@/features/workout/logic';
@@ -28,8 +26,9 @@ export default function TodayScreen() {
   const now = useNow(1000);
   const today = todayKey();
   const active = useActiveSessionBanner();
+  // Dyscyplina dotyczy już tylko treningu bez planu; wybór z tego ekranu zniknął, bo nie
+  // zmieniał na nim niczego poza listą, której też tu nie ma.
   const sport = useActiveSport();
-  const { own, templates } = usePlanList(sport);
   const todayEntries = useScheduledRange(today, today).filter((entry) => !entry.isCompleted);
 
   const begin = (options: StartSessionOptions) => {
@@ -43,8 +42,6 @@ export default function TodayScreen() {
       } else throw e;
     }
   };
-
-  const quickStart = own.length > 0 ? own : templates;
 
   return (
     <ThemedView style={styles.container}>
@@ -66,8 +63,6 @@ export default function TodayScreen() {
             </Pressable>
           </View>
 
-          <SportSwitcher />
-
           <HydrationCard />
 
           <NutritionCard />
@@ -88,12 +83,19 @@ export default function TodayScreen() {
             </Pressable>
           ) : (
             <>
-              {todayEntries.length > 0 && (
-                <View style={styles.section}>
-                  <ThemedText type="smallBold" themeColor="textSecondary">
-                    W PLANIE NA DZIŚ
+              {/* Tylko to, co stoi na dziś w kalendarzu. Lista planów „na wszelki wypadek” mówiła
+                  o wszystkich dyscyplinach naraz i spychała dzisiejszy trening poza ekran. */}
+              <View style={styles.section}>
+                <ThemedText type="smallBold" themeColor="textSecondary">
+                  W PLANIE NA DZIŚ
+                </ThemedText>
+                {todayEntries.length === 0 ? (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Nic nie zaplanowane. Termin dołożysz w kalendarzu, a trening bez planu
+                    zaczniesz przyciskiem niżej.
                   </ThemedText>
-                  {todayEntries.map((entry) => (
+                ) : (
+                  todayEntries.map((entry) => (
                     <Pressable
                       key={entry.id}
                       onPress={() => begin({ kind: 'scheduled', scheduledId: entry.id })}
@@ -109,31 +111,8 @@ export default function TodayScreen() {
                       </View>
                       <Icon name="play_arrow" size={24} color={theme.accent} />
                     </Pressable>
-                  ))}
-                </View>
-              )}
-
-              <View style={styles.section}>
-                <ThemedText type="smallBold" themeColor="textSecondary">
-                  {todayEntries.length > 0 ? 'ALBO ZACZNIJ INNY' : 'ROZPOCZNIJ TRENING'}
-                </ThemedText>
-                {quickStart.slice(0, 5).map((plan) => (
-                  <Pressable
-                    key={plan.id}
-                    onPress={() => begin({ kind: 'plan', planId: plan.id })}
-                    style={({ pressed }) => [
-                      styles.row,
-                      { backgroundColor: theme.backgroundElement, opacity: pressed ? 0.7 : 1 },
-                    ]}>
-                    <View style={styles.rowText}>
-                      <ThemedText type="smallBold">{plan.title}</ThemedText>
-                      <ThemedText type="small" themeColor="textSecondary">
-                        {plan.isTemplate ? 'szablon' : 'mój plan'}
-                      </ThemedText>
-                    </View>
-                    <Icon name="play_arrow" size={24} color={theme.accent} />
-                  </Pressable>
-                ))}
+                  ))
+                )}
                 <Button
                   label="Trening bez planu"
                   icon="add"
