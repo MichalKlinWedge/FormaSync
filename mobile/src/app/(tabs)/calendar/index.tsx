@@ -24,6 +24,7 @@ import {
   useLoggedRange,
   useScheduledRange,
 } from '@/features/calendar/use-calendar';
+import { DayRecordCard } from '@/features/calendar/day-record-card';
 import { formatDistance, formatSeconds } from '@/features/endurance/format';
 import { DayProposalCard } from '@/features/nutrition/day-proposal-card';
 import { SPORT_ICONS, SPORT_LABELS } from '@/features/sports/sport';
@@ -214,6 +215,8 @@ export default function CalendarScreen() {
             />
 
             <DayProposalCard dayKey={selected} today={today} />
+
+            <DayRecordCard dayKey={selected} today={today} />
           </View>
         </ScrollView>
       </SafeAreaView>
