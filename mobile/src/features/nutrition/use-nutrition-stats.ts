@@ -33,20 +33,22 @@ export type NutritionStats = {
 };
 
 /**
- * Dane do statystyk kalorii: dwa tygodnie wstecz, dzień po dniu.
+ * Dane do statystyk kalorii: zadane okno wstecz, dzień po dniu. Domyślnie dwa tygodnie — tyle
+ * potrzebuje rachunek własnego wydatku i tyle pokazuje ekran statystyk.
  *
  * Budżet każdego dnia liczymy dzisiejszą masą ciała — w dwa tygodnie zmienia ona przemianę
  * podstawową o kilkanaście kalorii, a trzymanie masy sprzed każdego dnia kosztowałoby zapytanie
  * na dzień i nie zmieniło żadnego wniosku.
  */
-export function useNutritionStats(todayKey: string): NutritionStats {
+export function useNutritionStats(todayKey: string, days = WINDOW_DAYS): NutritionStats {
   const { data: meals } = useLiveQuery(db.select({ id: mealLogs.id }).from(mealLogs));
   const { data: settingRows } = useLiveQuery(db.select({ key: appSettings.key }).from(appSettings));
   const { data: weights } = useLiveQuery(db.select({ id: bodyMeasurements.id }).from(bodyMeasurements));
   const { data: sessions } = useLiveQuery(db.select({ id: workoutSessions.id }).from(workoutSessions));
 
   return useMemo(() => {
-    const from = addDays(todayKey, -(WINDOW_DAYS - 1));
+    const span = Math.max(days, 1);
+    const from = addDays(todayKey, -(span - 1));
     const settings = loadNutritionSettings(db);
     const weightKg = latestWeightKg(db);
 
@@ -64,12 +66,12 @@ export function useNutritionStats(todayKey: string): NutritionStats {
       manualKcal: settings.manualKcal,
     };
 
-    const days: DayStat[] = [];
-    for (let index = 0; index < WINDOW_DAYS; index += 1) {
+    const stats: DayStat[] = [];
+    for (let index = 0; index < span; index += 1) {
       const dayKey = addDays(from, index);
       const row = totals.get(dayKey);
       const trainingKcal = training[dayKey] ?? 0;
-      days.push({
+      stats.push({
         dayKey,
         kcal: row?.kcal ?? 0,
         proteinG: Math.round(row?.proteinG ?? 0),
@@ -79,20 +81,23 @@ export function useNutritionStats(todayKey: string): NutritionStats {
       });
     }
 
-    const logged = days.filter((day) => day.meals > 0);
+    const logged = stats.filter((day) => day.meals > 0);
     const points = weightPointsSince(db, from);
     const base = dailyEnergy({ ...profile, trainingKcal: 0 }).base;
     const avgTraining = Math.round(
-      days.reduce((sum, day) => sum + day.trainingKcal, 0) / Math.max(days.length, 1),
+      stats.reduce((sum, day) => sum + day.trainingKcal, 0) / Math.max(stats.length, 1),
     );
 
     return {
-      days,
-      week: summarize(days.slice(-WEEK_DAYS)),
-      window: summarize(days),
+      days: stats,
+      week: summarize(stats.slice(-WEEK_DAYS)),
+      window: summarize(stats),
+      // Własny wydatek liczymy zawsze z tego samego okna, niezależnie od tego, jak szeroki
+      // wykres ktoś sobie wybrał: na krótszym rachunek nie ma prawa się domknąć, a na dłuższym
+      // mierzyłby ciało sprzed miesięcy.
       tdee: adaptiveTdee(
-        logged.map((day) => day.kcal),
-        points,
+        logged.slice(-WINDOW_DAYS).map((day) => day.kcal),
+        points.slice(-WINDOW_DAYS),
       ),
       formulaKcal: base === null ? null : base + avgTraining,
       weights: points,
@@ -101,5 +106,5 @@ export function useNutritionStats(todayKey: string): NutritionStats {
       settings,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sygnały zmiany, dane czytają funkcje repozytorium
-  }, [meals, settingRows, weights, sessions, todayKey]);
+  }, [meals, settingRows, weights, sessions, todayKey, days]);
 }

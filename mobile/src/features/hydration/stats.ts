@@ -1,4 +1,7 @@
 import { fromDateKey, toDateKey } from '@/lib/date';
+import { pluralWith } from '@/lib/number';
+
+import { formatMl } from './format';
 
 import { dailyTarget } from './target';
 
@@ -61,4 +64,44 @@ export function currentStreak(days: DayResult[], todayKey: string): number {
 export function averageMl(days: DaySummary[]): number {
   if (days.length === 0) return 0;
   return Math.round(days.reduce((sum, day) => sum + day.milliliters, 0) / days.length);
+}
+
+export type HydrationSummary = {
+  /** Dni z jakimkolwiek zapisem picia. */
+  days: number;
+  /** Dni, w których cel został dowieziony. */
+  metDays: number;
+  avgMl: number | null;
+  avgTargetMl: number | null;
+};
+
+/**
+ * Podsumowanie kilku dni picia.
+ *
+ * Liczymy wyłącznie dni z jakimkolwiek zapisem — tak samo jak przy jedzeniu. Dzień bez ani jednej
+ * porcji nie znaczy, że nic się nie piło; znaczy, że nikt tego nie zapisał, a wliczony zaniżałby
+ * średnią o połowę i pokazywał odwodnienie, którego nie było.
+ */
+export function summarizeHydration(days: DayResult[]): HydrationSummary {
+  const logged = days.filter((day) => day.milliliters > 0);
+  const mean = (values: number[]): number | null =>
+    values.length === 0 ? null : Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+
+  return {
+    days: logged.length,
+    metDays: logged.filter((day) => day.met).length,
+    avgMl: mean(logged.map((day) => day.milliliters)),
+    avgTargetMl: mean(logged.map((day) => day.target)),
+  };
+}
+
+/** Okres jednym zdaniem: ile średnio przy jakim celu i jak często cel był dowieziony. */
+export function describeHydration(summary: HydrationSummary): string {
+  if (summary.days === 0 || summary.avgMl === null || summary.avgTargetMl === null) {
+    return 'Z tych dni nie ma ani jednego zapisu picia.';
+  }
+
+  const met = `${summary.metDays} z ${pluralWith(summary.days, 'dnia', 'dni', 'dni')}`;
+  return `Średnio ${formatMl(summary.avgMl)} przy celu ${formatMl(summary.avgTargetMl)}`
+    + ` — cel dowieziony w ${met}.`;
 }

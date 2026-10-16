@@ -51,6 +51,15 @@ export default function HistoryScreen() {
               <ThemedText type="smallBold">Pomiary ciała</ThemedText>
             </Pressable>
             <Pressable
+              onPress={() => router.push('/history/daily')}
+              style={({ pressed }) => [
+                styles.action,
+                { backgroundColor: theme.backgroundElement, opacity: pressed ? 0.7 : 1 },
+              ]}>
+              <Icon name="water_drop" size={22} color={theme.accent} />
+              <ThemedText type="smallBold">Woda i jedzenie</ThemedText>
+            </Pressable>
+            <Pressable
               onPress={() => router.push('/history/import')}
               style={({ pressed }) => [
                 styles.action,

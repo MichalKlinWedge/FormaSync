@@ -3,7 +3,14 @@
  */
 import { describe, expect, it } from '@jest/globals';
 
-import { averageMl, currentStreak, withTargets, type DaySummary } from '../stats';
+import {
+  averageMl,
+  currentStreak,
+  describeHydration,
+  summarizeHydration,
+  withTargets,
+  type DaySummary,
+} from '../stats';
 
 const day = (dayKey: string, milliliters: number, trainingSeconds = 0, extraMl = 0): DaySummary => ({
   dayKey,
@@ -86,5 +93,58 @@ describe('averageMl', () => {
 
   it('bez dni nie dzieli przez zero', () => {
     expect(averageMl([])).toBe(0);
+  });
+});
+
+describe('summarizeHydration', () => {
+  const period = () =>
+    withTargets(
+      [
+        day('2026-10-07', 2400),
+        day('2026-10-08', 1800),
+        // Dzień bez ani jednej porcji: nikt tego nie zapisał, więc nie wiadomo, ile wypito.
+        day('2026-10-09', 0),
+        day('2026-10-10', 2600),
+      ],
+      80,
+      null,
+    );
+
+  it('liczy tylko dni z zapisem', () => {
+    const summary = summarizeHydration(period());
+
+    expect(summary.days).toBe(3);
+    expect(summary.avgMl).toBe(2267);
+    expect(summary.avgTargetMl).toBe(2400);
+  });
+
+  it('liczy dni z dowiezionym celem', () => {
+    expect(summarizeHydration(period()).metDays).toBe(2);
+  });
+
+  it('bez zapisów nie wymyśla średniej', () => {
+    const summary = summarizeHydration(withTargets([day('2026-10-10', 0)], 80, null));
+
+    expect(summary).toMatchObject({ days: 0, metDays: 0, avgMl: null, avgTargetMl: null });
+  });
+});
+
+describe('describeHydration', () => {
+  it('mówi średnią, cel i ile dni z dowiezionym', () => {
+    const sentence = describeHydration({
+      days: 14,
+      metDays: 9,
+      avgMl: 2300,
+      avgTargetMl: 2600,
+    });
+
+    // Liczbę od jednostki dzieli spacja nierozdzielająca, więc porównujemy wzorcem.
+    expect(sentence).toMatch(/^Średnio 2,3\sl przy celu 2,6\sl — cel dowieziony w 9 z 14\sdni\.$/);
+  });
+
+  it('pusty okres nazywa pustym, zamiast pokazywać zero', () => {
+    expect(describeHydration({ days: 0, metDays: 0, avgMl: null, avgTargetMl: null })).toBe(
+      'Z tych dni nie ma ani jednego zapisu picia.',
+    );
   });
 });
