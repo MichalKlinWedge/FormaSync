@@ -1,16 +1,16 @@
+import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { LineChart } from '@/components/charts/line-chart';
 import { CompactNumberInput } from '@/components/compact-number-input';
-import { Icon } from '@/components/icon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
+import { MEASUREMENT_FIELDS, PRESSURE_FIELDS } from '@/features/progress/measurement-fields';
 import {
-  deleteMeasurement,
   type MeasurementInput,
   MeasurementValidationError,
   saveMeasurement,
@@ -19,22 +19,6 @@ import { useMeasurements } from '@/features/progress/use-progress';
 import { useTheme } from '@/hooks/use-theme';
 import { addDays, formatDate, fromDateKey, todayKey } from '@/lib/date';
 import { formatNumber } from '@/lib/number';
-
-const FIELDS: { key: keyof MeasurementInput; label: string; suffix: string; decimal?: boolean }[] = [
-  { key: 'weightKg', label: 'Waga', suffix: 'kg', decimal: true },
-  { key: 'bodyFatPercent', label: 'Tł. tłuszczowa', suffix: '%', decimal: true },
-  { key: 'chestCm', label: 'Klatka', suffix: 'cm', decimal: true },
-  { key: 'waistCm', label: 'Talia', suffix: 'cm', decimal: true },
-  { key: 'hipsCm', label: 'Biodra', suffix: 'cm', decimal: true },
-  { key: 'armCm', label: 'Ramię', suffix: 'cm', decimal: true },
-  { key: 'thighCm', label: 'Udo', suffix: 'cm', decimal: true },
-];
-
-/** Ciśnienie stoi osobno: to para liczb całkowitych w innej jednostce niż reszta pomiarów. */
-const PRESSURE_FIELDS: { key: 'systolic' | 'diastolic'; label: string }[] = [
-  { key: 'systolic', label: 'Skurczowe' },
-  { key: 'diastolic', label: 'Rozkurczowe' },
-];
 
 const emptyInput = (date: string): MeasurementInput => ({
   measuredOn: date,
@@ -88,12 +72,6 @@ export default function BodyMeasurementsScreen() {
     }
   };
 
-  const confirmDelete = (id: number, measuredOn: string) =>
-    Alert.alert('Usunąć pomiar?', formatDate(measuredOn), [
-      { text: 'Anuluj', style: 'cancel' },
-      { text: 'Usuń', style: 'destructive', onPress: () => deleteMeasurement(db, id) },
-    ]);
-
   return (
     <KeyboardAvoidingView style={styles.flex} behavior="padding">
       <ThemedView style={styles.flex}>
@@ -146,7 +124,7 @@ export default function BodyMeasurementsScreen() {
             <ThemedText type="smallBold">{formatDate(date)}</ThemedText>
 
             <View style={styles.fields}>
-              {FIELDS.map((field) => (
+              {MEASUREMENT_FIELDS.map((field) => (
                 <View key={`${field.key}-${formKey}`} style={styles.field}>
                   <ThemedText type="small" themeColor="textSecondary" style={styles.fieldLabel} numberOfLines={1}>
                     {field.label}
@@ -184,50 +162,20 @@ export default function BodyMeasurementsScreen() {
             <Button label="Zapisz pomiar" icon="check" onPress={save} />
           </View>
 
-          <View style={styles.section}>
-            <ThemedText type="smallBold" themeColor="textSecondary">
-              HISTORIA POMIARÓW
-            </ThemedText>
-            {measurements.length === 0 ? (
-              <ThemedText type="small" themeColor="textSecondary">
-                Nie zapisano jeszcze żadnego pomiaru.
-              </ThemedText>
-            ) : (
-              measurements.map((measurement) => (
-                <ThemedView key={measurement.id} type="backgroundElement" style={styles.row}>
-                  <View style={styles.rowText}>
-                    <ThemedText type="smallBold">{formatDate(measurement.measuredOn)}</ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {describe(measurement)}
-                    </ThemedText>
-                  </View>
-                  <Pressable
-                    accessibilityLabel="Usuń pomiar"
-                    onPress={() => confirmDelete(measurement.id, measurement.measuredOn)}
-                    hitSlop={6}>
-                    <Icon name="delete" size={20} color={theme.textSecondary} />
-                  </Pressable>
-                </ThemedView>
-              ))
-            )}
-          </View>
+          <Button
+            label={
+              measurements.length === 0
+                ? 'Historia pomiarów'
+                : `Historia pomiarów (${measurements.length})`
+            }
+            icon="history"
+            variant="secondary"
+            onPress={() => router.push('/history/measurements')}
+          />
         </ScrollView>
       </ThemedView>
     </KeyboardAvoidingView>
   );
-}
-
-function describe(measurement: Record<string, unknown>): string {
-  const parts = FIELDS.map((field) => {
-    const value = measurement[field.key];
-    return typeof value === 'number' ? `${field.label} ${formatNumber(value, 1)} ${field.suffix}` : null;
-  });
-  // Ciśnienie czyta się jako jedną wartość „120/80”, a nie jako dwie osobne liczby.
-  const { systolic, diastolic } = measurement;
-  if (typeof systolic === 'number' && typeof diastolic === 'number') {
-    parts.push(`Ciśnienie ${systolic}/${diastolic}`);
-  }
-  return parts.filter(Boolean).join(' · ') || 'brak wartości';
 }
 
 function shortDate(dateKey: string): string {
@@ -243,12 +191,4 @@ const styles = StyleSheet.create({
   fields: { gap: Spacing.two },
   field: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   fieldLabel: { width: 108 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-    borderRadius: 14,
-    padding: Spacing.three,
-  },
-  rowText: { flex: 1 },
 });
