@@ -277,3 +277,24 @@ export const describeItems = (items: ProposedItem[]): string =>
   items
     .map((item) => (item.grams === null ? item.name : `${formatGrams(item.grams)} ${item.name}`))
     .join(' · ');
+
+/**
+ * Czy ten posiłek z propozycji leży już w dzienniku dnia.
+ *
+ * Stan przycisku „Zjedzone” bierzemy z dziennika, a nie z pamięci ekranu. Pamięć ekranu znika przy
+ * wyjściu i powrocie — a wtedy ten sam posiłek dałoby się zapisać drugi raz i budżet dnia zjadłby
+ * go podwójnie. Z dziennika wynika też rzecz odwrotna: skasowanie wpisu znowu odblokowuje przycisk.
+ *
+ * Dopasowujemy po posiłku i nazwie, bo propozycja bywa w jednym posiłku rozbita na dwie pozycje —
+ * sam posiłek odhaczyłby obie naraz.
+ */
+export function isLogged(
+  meal: Pick<ProposedMeal, 'meal' | 'title'>,
+  entries: readonly { meal: MealType; title: string }[],
+): boolean {
+  const title = normalized(meal.title);
+  return entries.some((entry) => entry.meal === meal.meal && normalized(entry.title) === title);
+}
+
+/** Dziennik zapisuje nazwę obciętą, a wielkość liter nie czyni z posiłku innego posiłku. */
+const normalized = (title: string): string => title.trim().toLocaleLowerCase('pl');

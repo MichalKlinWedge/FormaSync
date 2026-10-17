@@ -20,6 +20,7 @@ import {
   DEFAULT_LUNCH_SHARE,
   describeItems,
   freeBudget,
+  isLogged,
   type MealPlan,
   MealPlanError,
   parseMealPlan,
@@ -72,7 +73,6 @@ export default function ProposeMealsScreen() {
   const [lunchText, setLunchText] = useState('');
   const [withTraining, setWithTraining] = useState(true);
   const [plan, setPlan] = useState<MealPlan | null>(() => loadProposal(db, requested ?? today));
-  const [eaten, setEaten] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
   const { provider, setProvider, configured } = useAiProvider();
@@ -99,7 +99,6 @@ export default function ProposeMealsScreen() {
     setDay(key);
     setPlan(loadProposal(db, key));
     setLunchText('');
-    setEaten([]);
     setShowPrompt(false);
   };
 
@@ -150,7 +149,6 @@ export default function ProposeMealsScreen() {
     try {
       const result = parseMealPlan(await askAi(buildPlanPrompt(request), { provider }), request);
       setPlan(result);
-      setEaten([]);
       saveProposal(db, day, result, today);
     } catch (e) {
       if (e instanceof NoApiKeyError) {
@@ -189,7 +187,6 @@ export default function ProposeMealsScreen() {
         proteinG: meal.proteinG,
         grams: grams > 0 ? grams : null,
       });
-      setEaten((current) => [...current, meal.meal]);
     } catch (e) {
       Alert.alert('Nie zapisano', e instanceof MealError ? e.message : (e as Error).message);
     }
@@ -362,10 +359,10 @@ export default function ProposeMealsScreen() {
                 ) : null}
                 {day === today && (
                   <Button
-                    label={eaten.includes(meal.meal) ? 'Zapisane' : 'Zjedzone'}
-                    icon={eaten.includes(meal.meal) ? 'check' : 'add'}
+                    label={isLogged(meal, meals) ? 'Zapisane w dzienniku' : 'Zjedzone'}
+                    icon={isLogged(meal, meals) ? 'check' : 'add'}
                     variant="secondary"
-                    disabled={eaten.includes(meal.meal)}
+                    disabled={isLogged(meal, meals)}
                     onPress={() => eat(meal)}
                   />
                 )}
@@ -376,6 +373,8 @@ export default function ProposeMealsScreen() {
               {day === today
                 ? 'Liczby są oszacowaniem modelu, nie etykietą z opakowania. „Zjedzone” wpisuje posiłek'
                   + ' do dziennika tak, jak go widzisz — jeśli zjesz inaczej, popraw wpis w dzienniku.'
+                  + ' Zapisany posiłek zostaje odhaczony także po wyjściu z ekranu; żeby wpisać go'
+                  + ' ponownie, trzeba najpierw usunąć wpis z dziennika.'
                 : 'Do dziennika wpisuje się z tego ekranu dopiero w dniu, którego propozycja dotyczy —'
                   + ' dziennik liczy to, co zjedzone, a nie to, co zaplanowane. Propozycja poczeka.'}
             </ThemedText>

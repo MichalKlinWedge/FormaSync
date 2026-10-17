@@ -3,6 +3,7 @@ import { describe, expect, it } from '@jest/globals';
 import {
   buildPlanPrompt,
   freeBudget,
+  isLogged,
   MealPlanError,
   parseMealPlan,
   type PlanRequest,
@@ -150,5 +151,33 @@ describe('freeBudget', () => {
     const free = freeBudget({ ...base, proteinTargetG: null, lunch: null });
 
     expect(free.proteinG).toBeNull();
+  });
+});
+
+describe('isLogged', () => {
+  const owsianka = { meal: 'BREAKFAST' as const, title: 'Owsianka z bananem' };
+
+  it('nie odhacza posiłku, którego w dzienniku nie ma', () => {
+    expect(isLogged(owsianka, [])).toBe(false);
+    expect(isLogged(owsianka, [{ meal: 'DINNER', title: 'Owsianka z bananem' }])).toBe(false);
+  });
+
+  it('odhacza posiłek, który trafił do dziennika', () => {
+    expect(isLogged(owsianka, [{ meal: 'BREAKFAST', title: 'Owsianka z bananem' }])).toBe(true);
+  });
+
+  it('nie przeszkadza mu obcięta nazwa ani wielkość liter', () => {
+    // Dziennik zapisuje nazwę przez trim, a ręczny wpis bywa z małej litery.
+    expect(isLogged(owsianka, [{ meal: 'BREAKFAST', title: '  owsianka z bananem ' }])).toBe(true);
+  });
+
+  it('rozróżnia dwie pozycje w tym samym posiłku', () => {
+    // Przekąski bywają rozbite na dwie — odhaczenie jednej nie może zablokować drugiej.
+    const jogurt = { meal: 'SNACK' as const, title: 'Jogurt z orzechami' };
+    const jabłko = { meal: 'SNACK' as const, title: 'Jabłko' };
+    const journal = [{ meal: 'SNACK' as const, title: 'Jogurt z orzechami' }];
+
+    expect(isLogged(jogurt, journal)).toBe(true);
+    expect(isLogged(jabłko, journal)).toBe(false);
   });
 });
