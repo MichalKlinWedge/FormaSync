@@ -7,6 +7,7 @@ import {
   elapsedSeconds,
   findCurrentSet,
   formatClock,
+  restStartedAt,
   restState,
   sessionTonnage,
 } from '../logic';
@@ -115,6 +116,40 @@ describe('restState', () => {
   it('brak przerwy, gdy nic nie ukończono lub przerwa wynosi zero', () => {
     expect(restState([exercise({ sets: [set()] })], ms(100))).toBeNull();
     expect(restState([withRest(100, 0)], ms(101))).toBeNull();
+  });
+
+  it('przedłużenie przesuwa koniec, a nie tylko licznik', () => {
+    // Pierwotnie przerwa kończyła się w 190 s. Po dołożeniu 15 s ma tam jeszcze trwać.
+    const rest = restState([withRest(100)], ms(190), 15);
+
+    expect(rest).toMatchObject({ totalSeconds: 105, remainingSeconds: 15 });
+    expect(rest?.endsAt).toBe(ms(205));
+  });
+
+  it('przedłużona przerwa kończy się w nowym terminie', () => {
+    expect(restState([withRest(100)], ms(204), 15)).not.toBeNull();
+    expect(restState([withRest(100)], ms(205), 15)).toBeNull();
+  });
+
+  it('początek przerwy nie rusza się przy przedłużaniu', () => {
+    // To po nim poznaje się, że przedłużenie dotyczy tej przerwy, a nie następnej.
+    expect(restState([withRest(100)], ms(130))?.startedAt).toBe(ms(100));
+    expect(restState([withRest(100)], ms(195), 15)?.startedAt).toBe(ms(100));
+  });
+});
+
+describe('restStartedAt', () => {
+  it('oddaje chwilę ostatnio ukończonej serii, także po końcu przerwy', () => {
+    const done = exercise({ restDurationSeconds: 90, sets: [set({ completedAt: at(100) })] });
+
+    expect(restStartedAt([done])).toBe(ms(100));
+    // Przerwa dawno minęła, a przerwa nadal jest „ta sama” — i tak ją rozpoznajemy.
+    expect(restState([done], ms(5000))).toBeNull();
+    expect(restStartedAt([done])).toBe(ms(100));
+  });
+
+  it('null, gdy nie ukończono jeszcze żadnej serii', () => {
+    expect(restStartedAt([exercise({ sets: [set()] })])).toBeNull();
   });
 });
 

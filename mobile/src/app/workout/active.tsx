@@ -20,7 +20,7 @@ import {
   elapsedSeconds,
   findCurrentSet,
   formatClock,
-  type RestState,
+  restStartedAt,
   restState,
   sessionTonnage,
 } from '@/features/workout/logic';
@@ -59,21 +59,12 @@ const EXTEND_SECONDS = 15;
  */
 const TINT = '1F';
 
-/** Ręczna korekta bieżącej przerwy. Wiązana z konkretną przerwą przez jej pierwotny koniec. */
-type RestOverride = { baseEndsAt: number; delta: number | 'skip' };
-
-function applyOverride(base: RestState | null, override: RestOverride | null, now: number): RestState | null {
-  if (!base || !override) return base;
-  if (override.delta === 'skip') return null;
-  const endsAt = base.endsAt + override.delta * 1000;
-  if (now >= endsAt) return null;
-  return {
-    ...base,
-    endsAt,
-    remainingSeconds: Math.ceil((endsAt - now) / 1000),
-    totalSeconds: base.totalSeconds + override.delta,
-  };
-}
+/**
+ * Ręczna korekta bieżącej przerwy. Wiązana z przerwą przez chwilę jej rozpoczęcia, a nie przez
+ * koniec: koniec przesuwa się przy każdym przedłużeniu, więc po nim przedłużonej przerwy nie dało
+ * się rozpoznać i gasła w pierwotnym terminie.
+ */
+type RestOverride = { startedAt: number; delta: number | 'skip' };
 
 export default function ActiveWorkoutScreen() {
   useKeepAwake();
@@ -89,14 +80,17 @@ export default function ActiveWorkoutScreen() {
   // Po powrocie z okna dodawania ćwiczeń sesja może mieć nowe pozycje.
   useFocusEffect(useCallback(() => reload(), [reload]));
 
-  const baseRest = session ? restState(session.exercises, now) : null;
-  const override = baseRest && restOverride?.baseEndsAt === baseRest.endsAt ? restOverride : null;
-  const rest = applyOverride(baseRest, override, now);
+  const restStart = session ? restStartedAt(session.exercises) : null;
+  const override = restStart !== null && restOverride?.startedAt === restStart ? restOverride : null;
+  const skipped = override?.delta === 'skip';
+  const rest =
+    session && !skipped
+      ? restState(session.exercises, now, typeof override?.delta === 'number' ? override.delta : 0)
+      : null;
 
   // Wibracja i dźwięk w chwili, gdy przerwa dobiega końca przy otwartym ekranie
   // (pominięcie nie wibruje i nie pika).
   const restActive = rest !== null;
-  const skipped = override?.delta === 'skip';
   const wasActive = useRef(false);
   useEffect(() => {
     if (wasActive.current && !restActive && !skipped) {
@@ -159,15 +153,20 @@ export default function ActiveWorkoutScreen() {
   };
 
   const extendRest = () => {
-    if (!baseRest || !rest) return;
+    if (!rest) return;
     const delta = (typeof override?.delta === 'number' ? override.delta : 0) + EXTEND_SECONDS;
-    setRestOverride({ baseEndsAt: baseRest.endsAt, delta });
-    void scheduleCountdown((baseRest.endsAt + delta * 1000 - now) / 1000, rest.exerciseName, 'rest');
+    setRestOverride({ startedAt: rest.startedAt, delta });
+    // Koniec przerwy już uwzględnia wcześniejsze przedłużenia, więc dokładamy tylko to jedno.
+    void scheduleCountdown(
+      (rest.endsAt + EXTEND_SECONDS * 1000 - now) / 1000,
+      rest.exerciseName,
+      'rest',
+    );
   };
 
   const skipRest = () => {
-    if (!baseRest) return;
-    setRestOverride({ baseEndsAt: baseRest.endsAt, delta: 'skip' });
+    if (!rest) return;
+    setRestOverride({ startedAt: rest.startedAt, delta: 'skip' });
     void cancelCountdown();
   };
 
@@ -178,7 +177,7 @@ export default function ActiveWorkoutScreen() {
       return;
     }
     // Powrót do pracy kończy przerwę — nie ma czego już odliczać.
-    if (baseRest) setRestOverride({ baseEndsAt: baseRest.endsAt, delta: 'skip' });
+    if (rest) setRestOverride({ startedAt: rest.startedAt, delta: 'skip' });
     startTimedSet(db, set.id, seconds);
     setTimedStore(loadTimedSet(db));
     void scheduleCountdown(seconds, exercise.name, 'set');

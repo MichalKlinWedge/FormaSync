@@ -81,17 +81,17 @@ export function findCurrentSet(
 export type RestState = {
   /** Ćwiczenie, po którego serii trwa przerwa. */
   exerciseName: string;
+  /** Chwila zakończenia serii, od której przerwa leci. Nie rusza się przy przedłużaniu. */
+  startedAt: number;
   endsAt: number;
   remainingSeconds: number;
   totalSeconds: number;
 };
 
-/**
- * Przerwa wynika z ostatnio ukończonej serii i czasu przerwy jej ćwiczenia.
- * Zwraca null, gdy przerwa już minęła albo nie ukończono jeszcze żadnej serii —
- * dzięki temu stan odtwarza się poprawnie po ponownym otwarciu aplikacji.
- */
-export function restState(exercises: ActiveExercise[], now: number): RestState | null {
+/** Ostatnio ukończona seria — ta, po której trwa przerwa. */
+function lastCompleted(
+  exercises: ActiveExercise[],
+): { exercise: ActiveExercise; completedAt: number } | null {
   let latest: { exercise: ActiveExercise; completedAt: number } | null = null;
   for (const exercise of exercises) {
     for (const set of exercise.sets) {
@@ -100,15 +100,44 @@ export function restState(exercises: ActiveExercise[], now: number): RestState |
       if (!latest || at > latest.completedAt) latest = { exercise, completedAt: at };
     }
   }
+  return latest;
+}
+
+/**
+ * Kiedy zaczęła się bieżąca przerwa; null, gdy nie ukończono jeszcze żadnej serii.
+ *
+ * Tożsamość przerwy, po której poznaje się ręczne przedłużenie. Po końcu samej przerwy ta chwila
+ * nadal jest znana — a koniec nie, bo przesuwa go właśnie przedłużenie.
+ */
+export function restStartedAt(exercises: ActiveExercise[]): number | null {
+  return lastCompleted(exercises)?.completedAt ?? null;
+}
+
+/**
+ * Przerwa wynika z ostatnio ukończonej serii i czasu przerwy jej ćwiczenia.
+ * Zwraca null, gdy przerwa już minęła albo nie ukończono jeszcze żadnej serii —
+ * dzięki temu stan odtwarza się poprawnie po ponownym otwarciu aplikacji.
+ *
+ * `extraSeconds` to ręczne przedłużenie. Dokładamy je tutaj, a nie po wyliczeniu przerwy, bo
+ * przerwa policzona bez niego gaśnie w pierwotnym terminie — i gasiła przedłużoną razem z sobą.
+ */
+export function restState(
+  exercises: ActiveExercise[],
+  now: number,
+  extraSeconds = 0,
+): RestState | null {
+  const latest = lastCompleted(exercises);
   if (!latest || latest.exercise.restDurationSeconds <= 0) return null;
 
-  const endsAt = latest.completedAt + latest.exercise.restDurationSeconds * 1000;
+  const totalSeconds = latest.exercise.restDurationSeconds + extraSeconds;
+  const endsAt = latest.completedAt + totalSeconds * 1000;
   if (now >= endsAt) return null;
   return {
     exerciseName: latest.exercise.name,
+    startedAt: latest.completedAt,
     endsAt,
     remainingSeconds: Math.ceil((endsAt - now) / 1000),
-    totalSeconds: latest.exercise.restDurationSeconds,
+    totalSeconds,
   };
 }
 
