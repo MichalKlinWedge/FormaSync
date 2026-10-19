@@ -78,6 +78,17 @@ export function startOfWeek(key: string): string {
   return addDays(key, -weekdayIndex(key));
 }
 
+/**
+ * Ile tygodni kalendarza dzieli dwa dni; ujemne, gdy drugi wypada wcześniej. Liczymy po
+ * poniedziałkach, więc wtorek i następna niedziela to jeden tydzień różnicy, a nie zero.
+ */
+export function weeksBetween(fromKey: string, toKey: string): number {
+  const from = fromDateKey(startOfWeek(fromKey)).getTime();
+  const to = fromDateKey(startOfWeek(toKey)).getTime();
+  // Zaokrąglenie zdejmuje godzinę, którą dokłada zmiana czasu w środku okresu.
+  return Math.round((to - from) / (7 * 24 * 3600 * 1000));
+}
+
 /** Siatka miesiąca: pełne tygodnie od poniedziałku, z dniami sąsiednich miesięcy. */
 export function monthGrid(year: number, month: number): string[][] {
   const first = new Date(year, month, 1);

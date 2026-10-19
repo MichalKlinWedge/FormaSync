@@ -8,7 +8,7 @@ import {
   updateScheduled,
 } from '@/features/calendar/repository';
 import { saveEndurancePlan } from '@/features/endurance/repository';
-import { todayKey } from '@/lib/date';
+import { todayKey, weeksBetween } from '@/lib/date';
 
 import { serializeWeekDays } from './brief';
 import { sweepJunk } from './cleanup';
@@ -156,12 +156,18 @@ export function savePlan(
   sweepJunk(db, from);
 
   const taken = new Set(kept.map((workout) => workout.plannedDate));
-  const rows = weeks
+  const planned = weeks
     .flatMap((week) => week.workouts)
-    .filter((workout) => workout.plannedDate >= from && !taken.has(workout.plannedDate))
+    .filter((workout) => workout.plannedDate >= from && !taken.has(workout.plannedDate));
+
+  // Numer tygodnia liczymy z daty, od początku całego planu — razem z tym, co z niego zostało.
+  // Planista numeruje od dnia, w którym układa, więc przy korekcie w trakcie cyklu ósmy tydzień
+  // zapisałby się jako pierwszy, obok prawdziwego pierwszego.
+  const anchor = [...kept, ...planned].map((workout) => workout.plannedDate).sort()[0] ?? from;
+  const rows = planned
     .map((workout) => ({
       goalId,
-      weekIndex: workout.weekIndex,
+      weekIndex: weeksBetween(anchor, workout.plannedDate),
       phase: workout.phase,
       plannedDate: workout.plannedDate,
       kind: workout.kind,

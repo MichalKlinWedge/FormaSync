@@ -151,6 +151,23 @@ describe('savePlan', () => {
     expect(db.select().from(schema.scheduledWorkouts).all()).toHaveLength(1);
   });
 
+  it('po korekcie w trakcie cyklu numeruje tygodnie dalej, a nie od nowa', () => {
+    const db = createTestDb({ seed: true });
+    const goalId = planned(db);
+    // Pięć tygodni później: pierwsze tygodnie są już wytrenowane i zostają.
+    const later = '2026-11-16';
+
+    savePlan(db, goalId, planGoal(BRIEF, later), 'GEMINI', later);
+
+    const plan = goalPlan(db, goalId);
+    const first = plan.find((workout) => workout.plannedDate >= later)!;
+    // Tydzień korekty jest szóstym tygodniem planu, bo plan zaczął się 12.10.
+    expect(first).toMatchObject({ plannedDate: '2026-11-17', weekIndex: 5 });
+    // A pierwszy tydzień nadal jest jeden — ten z października.
+    expect(plan.filter((workout) => workout.weekIndex === 0).every((w) => w.plannedDate < later))
+      .toBe(true);
+  });
+
   it('nie rusza przeszłości', () => {
     const db = createTestDb({ seed: true });
     const goalId = planned(db);

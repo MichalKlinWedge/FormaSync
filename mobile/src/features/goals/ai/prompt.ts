@@ -1,6 +1,6 @@
 import { goalPhases, goalWorkoutKinds, type GoalPhase, type GoalWorkoutKind } from '@/db/schema';
 import { formatDistance, formatSeconds } from '@/features/endurance/format';
-import { addDays, startOfWeek, weekdayIndex, WEEKDAYS_LONG } from '@/lib/date';
+import { addDays, startOfWeek, weekdayIndex, WEEKDAYS_LONG, weeksBetween } from '@/lib/date';
 import { unwrapJson } from '@/lib/json';
 
 import type { FormWorkout } from '../brief';
@@ -221,10 +221,7 @@ export function parsePlanReply(text: string, brief: GoalBrief, from: string): Pl
       if (!Number.isFinite(meters) || meters <= 0 || meters > limit) continue;
       if (byDate.has(date)) continue;
 
-      const weekIndex = Math.floor(
-        (Date.parse(`${startOfWeek(date)}T00:00:00Z`) - Date.parse(`${firstMonday}T00:00:00Z`)) /
-          (7 * 24 * 3600 * 1000),
-      );
+      const weekIndex = weeksBetween(firstMonday, date);
       if (weekIndex < 0 || weekIndex >= span) continue;
 
       const phase = isPhase(week?.phase) ? week.phase : (phases[weekIndex] ?? phases[weekPosition] ?? 'BUILD');

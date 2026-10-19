@@ -17,6 +17,7 @@ import {
   monthTitle,
   toDateKey,
   weekdayIndex,
+  weeksBetween,
 } from '../date';
 
 // Znaczniki czasu budujemy w czasie lokalnym, żeby testy nie zależały od strefy czasowej.
@@ -41,6 +42,19 @@ describe('klucze dat', () => {
   it('liczy dzień tygodnia od poniedziałku', () => {
     expect(weekdayIndex('2026-09-28')).toBe(0); // poniedziałek
     expect(weekdayIndex('2026-10-04')).toBe(6); // niedziela
+  });
+
+  it('liczy tygodnie po poniedziałkach, a nie po siódemkach dni', () => {
+    // Wtorek i niedziela za pięć dni to ten sam tydzień; następny poniedziałek to już kolejny.
+    expect(weeksBetween('2026-10-13', '2026-10-18')).toBe(0);
+    expect(weeksBetween('2026-10-13', '2026-10-19')).toBe(1);
+    expect(weeksBetween('2026-10-19', '2026-10-13')).toBe(-1);
+  });
+
+  it('nie gubi tygodnia na przestawieniu zegarków', () => {
+    // 25.10.2026 — koniec czasu letniego; ta doba ma 25 godzin.
+    expect(weeksBetween('2026-10-19', '2026-11-02')).toBe(2);
+    expect(weeksBetween('2026-03-23', '2026-04-06')).toBe(2);
   });
 });
 

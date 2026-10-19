@@ -32,6 +32,7 @@ import { planDays } from '@/features/goals/reschedule';
 import { KIND_LABELS, PHASE_LABELS } from '@/features/goals/shapes';
 import { moveGarminSchedule } from '@/features/garmin/connect/move-schedule';
 import { useGoal, weeksLeft } from '@/features/goals/use-goals';
+import { planWeeks } from '@/features/goals/weeks';
 import { SPORT_LABELS } from '@/features/sports/sport';
 import { formatDate, todayKey, weekdayIndex, WEEKDAYS_LONG, WEEKDAYS_SHORT } from '@/lib/date';
 import { pluralWith } from '@/lib/number';
@@ -268,7 +269,7 @@ export default function GoalScreen() {
     );
 
   // Jednostki grupujemy po tygodniu dopiero tutaj: w bazie leżą płasko, po dacie.
-  const weeks = [...new Set(workouts.map((workout) => workout.weekIndex))].sort((a, b) => a - b);
+  const weeks = planWeeks(workouts);
 
   return (
     <ThemedView style={styles.flex}>
@@ -324,12 +325,6 @@ export default function GoalScreen() {
             variant="secondary"
             onPress={askModel}
             disabled={asking}
-          />
-          <Button
-            label="Modele AI — klucze i wytyczne"
-            icon="key"
-            variant="secondary"
-            onPress={() => router.push('/goal/ai')}
           />
           <Button
             label={
@@ -429,15 +424,14 @@ export default function GoalScreen() {
           </View>
         )}
 
-        {weeks.map((weekIndex) => {
-          const inWeek = workouts.filter((workout) => workout.weekIndex === weekIndex);
-          const meters = inWeek.reduce((sum, workout) => sum + (workout.distanceMeters ?? 0), 0);
+        {weeks.map((week) => {
+          const meters = week.workouts.reduce((sum, workout) => sum + (workout.distanceMeters ?? 0), 0);
           return (
-            <View key={weekIndex} style={styles.section}>
+            <View key={week.startDate} style={styles.section}>
               <ThemedText type="smallBold" themeColor="textSecondary">
-                {`TYDZIEŃ ${weekIndex + 1} · ${PHASE_LABELS[inWeek[0].phase].toUpperCase()} · ${formatDistance(meters)}`}
+                {`TYDZIEŃ ${week.number} · ${PHASE_LABELS[week.workouts[0].phase].toUpperCase()} · ${formatDistance(meters)}`}
               </ThemedText>
-              {inWeek.map((workout) => (
+              {week.workouts.map((workout) => (
                 <View key={workout.id} style={styles.workout}>
                   <ThemedText type="small" themeColor="textSecondary" style={styles.date}>
                     {`${WEEKDAYS_SHORT[weekdayIndex(workout.plannedDate)]} ${formatDate(workout.plannedDate).slice(0, 5)}`}

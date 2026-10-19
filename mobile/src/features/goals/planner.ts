@@ -1,5 +1,5 @@
 import type { GoalPhase, GoalWorkoutKind, Sport } from '@/db/schema';
-import { addDays, fromDateKey, startOfWeek } from '@/lib/date';
+import { addDays, startOfWeek, weeksBetween } from '@/lib/date';
 
 import { durationFrom, paceFor, racePace } from './paces';
 import { KIND_NOTES, workoutTitle } from './shapes';
@@ -91,11 +91,8 @@ export type PlannedWeek = {
 
 /** Ile tygodni dzieli start od tygodnia zawodów; zero, gdy zawody już były. */
 export function weeksUntil(from: string, eventDate: string): number {
-  const first = fromDateKey(startOfWeek(from)).getTime();
-  const race = fromDateKey(startOfWeek(eventDate)).getTime();
-  if (race < first) return 0;
-  // Zaokrąglenie zdejmuje godzinę, którą dokłada zmiana czasu w środku okresu.
-  return Math.round((race - first) / (7 * 24 * 3600 * 1000)) + 1;
+  const weeks = weeksBetween(from, eventDate);
+  return weeks < 0 ? 0 : weeks + 1;
 }
 
 /** Fazy kolejnych tygodni. Start zawsze ostatni, przed nim roztrenowanie, resztę dzielimy. */
