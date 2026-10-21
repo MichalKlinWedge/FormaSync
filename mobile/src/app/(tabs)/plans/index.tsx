@@ -69,6 +69,15 @@ export default function PlansScreen() {
             onPress={() => router.push('/goal')}
           />
 
+          {/* Trening od kogoś innego przychodzi tekstem w komunikatorze, więc wejście stoi tam,
+              gdzie i tak się patrzy, szukając planu. */}
+          <Button
+            label="Wczytaj trening od kogoś"
+            icon="content_paste"
+            variant="secondary"
+            onPress={() => router.push('/plans/import')}
+          />
+
           <TextInput
             value={search}
             onChangeText={setSearch}

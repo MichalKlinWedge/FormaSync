@@ -16,6 +16,7 @@ import { usePlanDetails } from '@/features/plans/use-plans';
 import { MuscleOverview } from '@/features/muscles/muscle-overview';
 import { isEndurance } from '@/features/sports/sport';
 import { SendToGarminButton } from '@/features/garmin/connect/send-button';
+import { SharePlanButton } from '@/features/plans/share-button';
 import { proposeProgression } from '@/features/progress/progression';
 import { ensureNotificationPermission } from '@/features/workout/notifications';
 import { ActiveSessionExistsError, startSession } from '@/features/workout/repository';
@@ -107,6 +108,7 @@ export default function PlanDetailsScreen() {
         <View style={styles.actions}>
           <Button label="Rozpocznij trening" icon="play_arrow" onPress={start} />
           <SendToGarminButton planId={id} sport={plan.sport} />
+          <SharePlanButton planId={id} />
           {/* Szablon wolno zmienić i usunąć; kopiowanie zostaje na wierzchu, bo zwykle chodzi
               o własną wersję, a nie o przerabianie wzorca. */}
           {plan.isTemplate ? (

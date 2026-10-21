@@ -8,6 +8,7 @@ export default function PlansLayout() {
       <Stack.Screen name="edit" options={{ title: 'Plan' }} />
       <Stack.Screen name="edit-endurance" options={{ title: 'Plan' }} />
       <Stack.Screen name="progression" options={{ presentation: 'modal', title: 'Sugestie progresji' }} />
+      <Stack.Screen name="import" options={{ title: 'Wczytaj trening' }} />
       <Stack.Screen name="pick-exercise" options={{ presentation: 'modal', title: 'Dodaj ćwiczenia' }} />
     </Stack>
   );

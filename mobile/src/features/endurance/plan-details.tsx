@@ -7,6 +7,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { db } from '@/db/client';
 import { SendToGarminButton } from '@/features/garmin/connect/send-button';
+import { SharePlanButton } from '@/features/plans/share-button';
 import { deleteMessage } from '@/features/plans/labels';
 import { deletePlan } from '@/features/plans/repository';
 import { ensureNotificationPermission } from '@/features/workout/notifications';
@@ -87,6 +88,7 @@ export function EndurancePlanDetails({ planId }: { planId: number }) {
         <View style={styles.actions}>
           <Button label="Rozpocznij trening" icon="play_arrow" onPress={start} />
           <SendToGarminButton planId={planId} sport={plan.sport} />
+          <SharePlanButton planId={planId} />
           {/* Szablon wolno zmienić i usunąć; kopiowanie zostaje na wierzchu, bo zwykle chodzi
               o własną wersję, a nie o przerabianie wzorca. */}
           {plan.isTemplate ? (

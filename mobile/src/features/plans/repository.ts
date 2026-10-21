@@ -12,6 +12,11 @@ function getPlan(db: SyncDb, id: number) {
   return plan;
 }
 
+/** Dyscyplina planu — po niej poznaje się, czy plan ma ćwiczenia, czy odcinki. */
+export function planSport(db: SyncDb, id: number): schema.Sport {
+  return getPlan(db, id).sport;
+}
+
 /** Wczytuje plan jako wersję roboczą do kreatora. */
 export function loadPlanDraft(db: SyncDb, id: number): PlanDraft {
   const plan = getPlan(db, id);

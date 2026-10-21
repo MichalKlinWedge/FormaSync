@@ -1,4 +1,4 @@
-import { count, eq, sql } from 'drizzle-orm';
+import { count, eq } from 'drizzle-orm';
 
 import * as schema from '@/db/schema';
 import type { DifficultyLevel, TrackingType } from '@/db/schema';
@@ -89,24 +89,54 @@ export function setExerciseVideo(db: SyncDb, id: number, rawUrl: string): void {
  * sprzętu ani opisu nie wymagamy, bo przy sztandze nikt nie wypełnia formularza; to, czego
  * brakuje, dopisuje się później w katalogu albo podmienia na gotowe ćwiczenie w historii.
  */
-export function createQuickExercise(db: SyncDb, rawName: string): number {
+export function createQuickExercise(
+  db: SyncDb,
+  rawName: string,
+  trackingType: TrackingType = 'REPS',
+): number {
   const name = rawName.trim();
   if (!name) throw new ExerciseValidationError('Podaj nazwę ćwiczenia.');
 
   // Ta sama nazwa drugi raz to zwykle to samo ćwiczenie — odzyskujemy je, zamiast mnożyć bliźniaki.
-  const existing = db
-    .select({ id: schema.exercises.id })
-    .from(schema.exercises)
-    .where(sql`lower(${schema.exercises.name}) = lower(${name})`)
-    .get();
+  const existing = findExerciseByName(db, name);
   if (existing) return existing.id;
 
   return db
     .insert(schema.exercises)
-    .values({ name, isCustom: true })
+    .values({ name, isCustom: true, trackingType })
     .returning({ id: schema.exercises.id })
     .get().id;
 }
+
+/**
+ * Ćwiczenie o tej nazwie, bez względu na wielkość liter; null, gdy takiego nie ma.
+ *
+ * Nazwa jest jedyną rzeczą, po której da się rozpoznać ćwiczenie w treningu od kogoś innego:
+ * identyfikatory z jego bazy u nas nie znaczą nic.
+ *
+ * Porównujemy w JavaScripcie, a nie przez `lower()` SQLite: tamto zna wyłącznie alfabet
+ * angielski, więc „ŁAWCE” zostawiłoby z wielkim Ł i „ławce” przestałoby być tym samym słowem.
+ * Katalog ćwiczeń liczy setki wierszy, nie miliony, więc przejście po nim nic nie kosztuje.
+ */
+export function findExerciseByName(
+  db: SyncDb,
+  rawName: string,
+): { id: number; trackingType: TrackingType } | null {
+  const name = folded(rawName);
+  if (name === '') return null;
+  const rows = db
+    .select({
+      id: schema.exercises.id,
+      name: schema.exercises.name,
+      trackingType: schema.exercises.trackingType,
+    })
+    .from(schema.exercises)
+    .all();
+  const found = rows.find((row) => folded(row.name) === name);
+  return found === undefined ? null : { id: found.id, trackingType: found.trackingType };
+}
+
+const folded = (name: string): string => name.trim().toLocaleLowerCase('pl');
 
 export type ExerciseUsage = { plans: number; loggedSets: number };
 
