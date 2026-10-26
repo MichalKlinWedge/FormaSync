@@ -405,8 +405,22 @@ export function swapSessionExercise(db: SyncDb, sessionExerciseId: number, exerc
   });
 }
 
+/**
+ * Zdejmuje ćwiczenie z trwającego treningu razem z jego seriami.
+ *
+ * Serie kasujemy sami, mimo że w `schema.ts` stoi przy nich kaskada: do bazy nigdy nie trafiła.
+ * Kolumnę `session_exercise_id` dołożyła migracja 0001 zwykłym `ALTER TABLE ... REFERENCES`,
+ * bez `ON DELETE CASCADE`, a SQLite nie pozwala dopisać tego do istniejącej tabeli inaczej niż
+ * przebudową — za którą nie warto płacić historią treningów. Bez tego kasowania baza odmawiała
+ * usunięcia ćwiczenia, które miało choć jedną zapisaną serię.
+ */
 export function removeSessionExercise(db: SyncDb, sessionExerciseId: number): void {
-  db.delete(schema.sessionExercises).where(eq(schema.sessionExercises.id, sessionExerciseId)).run();
+  db.transaction((tx) => {
+    tx.delete(schema.loggedSets)
+      .where(eq(schema.loggedSets.sessionExerciseId, sessionExerciseId))
+      .run();
+    tx.delete(schema.sessionExercises).where(eq(schema.sessionExercises.id, sessionExerciseId)).run();
+  });
 }
 
 export type FinishValues = { userNotes?: string | null; rpeRating?: number | null };

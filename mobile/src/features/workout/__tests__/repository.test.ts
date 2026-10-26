@@ -18,6 +18,7 @@ import {
   finishSession,
   findActiveSessionId,
   loadSession,
+  removeSessionExercise,
   reopenSet,
   startSession,
   swapSessionExercise,
@@ -339,5 +340,51 @@ describe('swapSessionExercise', () => {
     const id = startSession(db, { kind: 'plan', planId }, T0);
     const squat = loadSession(db, id)!.exercises[0];
     expect(() => swapSessionExercise(db, squat.id, 99999)).toThrow();
+  });
+});
+
+describe('removeSessionExercise', () => {
+  it('zdejmuje ćwiczenie, które ma już zapisane serie', () => {
+    // Baza nie ma kaskady na `logged_sets.session_exercise_id` — bez skasowania serii odmawiała
+    // usunięcia ćwiczenia, a ekran treningu stawał w miejscu.
+    const { db, planId } = setup();
+    const id = startSession(db, { kind: 'plan', planId }, T0);
+    const before = loadSession(db, id)!.exercises;
+    completeSet(db, before[0].sets[0].id, { repsCompleted: 8, weightKg: 60 }, at(60));
+
+    removeSessionExercise(db, before[0].id);
+
+    const after = loadSession(db, id)!;
+    expect(after.exercises).toHaveLength(before.length - 1);
+    expect(after.exercises.map((exercise) => exercise.id)).not.toContain(before[0].id);
+  });
+
+  it('zabiera ze sobą serie usuniętego ćwiczenia', () => {
+    const { db, planId } = setup();
+    const id = startSession(db, { kind: 'plan', planId }, T0);
+    const squat = loadSession(db, id)!.exercises[0];
+    completeSet(db, squat.sets[0].id, { repsCompleted: 8, weightKg: 60 }, at(60));
+
+    removeSessionExercise(db, squat.id);
+
+    const left = db
+      .select()
+      .from(schema.loggedSets)
+      .where(eq(schema.loggedSets.sessionExerciseId, squat.id))
+      .all();
+    expect(left).toEqual([]);
+  });
+
+  it('nie rusza serii pozostałych ćwiczeń', () => {
+    const { db, planId } = setup();
+    const id = startSession(db, { kind: 'plan', planId }, T0);
+    const [first, second] = loadSession(db, id)!.exercises;
+    completeSet(db, second.sets[0].id, { repsCompleted: 10, weightKg: 40 }, at(60));
+
+    removeSessionExercise(db, first.id);
+
+    const after = loadSession(db, id)!.exercises.find((exercise) => exercise.id === second.id)!;
+    expect(after.sets).toHaveLength(second.sets.length);
+    expect(after.sets[0].completedAt).not.toBeNull();
   });
 });

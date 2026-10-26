@@ -152,6 +152,30 @@ export default function ActiveWorkoutScreen() {
     reload();
   };
 
+  /**
+   * Zdejmuje ćwiczenie z treningu. Zapisanych serii nie kasujemy bez pytania: to jedyna rzecz na
+   * tym ekranie, której nie da się odtworzyć z pamięci — reszta stoi w planie.
+   */
+  const dropExercise = (exercise: ActiveExercise) => {
+    const done = exercise.sets.filter((set) => set.completedAt !== null).length;
+    const drop = () => {
+      removeSessionExercise(db, exercise.id);
+      reload();
+    };
+    if (done === 0) {
+      drop();
+      return;
+    }
+    Alert.alert(
+      'Usunąć razem z zapisanymi seriami?',
+      `${exercise.name} — zapisane serie: ${done}. Usunięcie zdejmie je z treningu.`,
+      [
+        { text: 'Zostaw', style: 'cancel' },
+        { text: 'Usuń', style: 'destructive', onPress: drop },
+      ],
+    );
+  };
+
   const extendRest = () => {
     if (!rest) return;
     const delta = (typeof override?.delta === 'number' ? override.delta : 0) + EXTEND_SECONDS;
@@ -317,10 +341,7 @@ export default function ActiveWorkoutScreen() {
                 </View>
                 <Pressable
                   accessibilityLabel={`Usuń ${exercise.name} z treningu`}
-                  onPress={() => {
-                    removeSessionExercise(db, exercise.id);
-                    reload();
-                  }}
+                  onPress={() => dropExercise(exercise)}
                   hitSlop={6}>
                   <Icon name="delete" size={20} color={theme.textSecondary} />
                 </Pressable>

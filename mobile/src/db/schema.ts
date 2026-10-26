@@ -260,6 +260,12 @@ export const loggedSets = sqliteTable(
     sessionId: integer('session_id')
       .notNull()
       .references(() => workoutSessions.id, { onDelete: 'cascade' }),
+    /**
+     * Uwaga: kaskady poniżej nie ma w bazie na telefonach. Kolumnę dołożyła migracja 0001
+     * zwykłym `ALTER TABLE ... REFERENCES`, a SQLite nie zna sposobu na dopisanie
+     * `ON DELETE CASCADE` do istniejącej tabeli bez jej przebudowy. Kto usuwa ćwiczenie sesji,
+     * musi skasować jego serie sam — tak robi `removeSessionExercise`.
+     */
     sessionExerciseId: integer('session_exercise_id')
       .notNull()
       .references(() => sessionExercises.id, { onDelete: 'cascade' }),
