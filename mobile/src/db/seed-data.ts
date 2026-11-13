@@ -11,7 +11,7 @@ import type {
 // Dane startowe: słowniki, katalog ćwiczeń i wbudowane szablony.
 // Zmiana zawartości wymaga podbicia SEED_VERSION (seed.ts dograje brakujące rekordy).
 
-export const SEED_VERSION = 6;
+export const SEED_VERSION = 7;
 
 export const seedCategories: { name: string; description: string }[] = [
   { name: 'Klatka piersiowa', description: 'Mięsień piersiowy większy i mniejszy' },
@@ -1706,6 +1706,32 @@ export const seedTemplates: SeedTemplate[] = [
       { exercise: 'Pompki', sets: 3, reps: 12, rest: 60 },
       { exercise: 'Wiosłowanie hantlem jednorącz', sets: 3, reps: 12, rest: 60 },
       { exercise: 'Plank (deska)', sets: 2, durationSeconds: 45, rest: 45 },
+    ],
+  },
+  {
+    title: 'Dom — Brzuch: kaloryfer i boki',
+    description:
+      'Prosty i skośne brzucha bez obciążania lędźwi: zwis, izometria i antyrotacja zamiast skłonów z ciężarem.',
+    exercises: [
+      { exercise: 'Unoszenie nóg w zwisie', sets: 3, reps: 10, rest: 75 },
+      { exercise: 'Brzuszki (crunch)', sets: 3, reps: 20, rest: 45 },
+      { exercise: 'Hollow hold', sets: 3, durationSeconds: 35, rest: 45 },
+      { exercise: 'Deska boczna', sets: 3, durationSeconds: 35, rest: 30 },
+      { exercise: 'Skręty tułowia z hantlem', sets: 3, reps: 16, rest: 45 },
+      { exercise: 'Pallof press z gumą', sets: 3, reps: 12, rest: 45 },
+    ],
+  },
+  {
+    title: 'Dom — Klatka piersiowa',
+    description:
+      'Klatka na ławce płaskiej, sztandze i hantlach. Stopy na podłodze, lędźwie bez mostka — plecy nie pracują.',
+    exercises: [
+      { exercise: 'Wyciskanie sztangi na ławce płaskiej', sets: 3, reps: 8, rest: 150 },
+      { exercise: 'Wyciskanie hantli na ławce płaskiej', sets: 3, reps: 10, rest: 120 },
+      { exercise: 'Rozpiętki z hantlami', sets: 3, reps: 12, rest: 90 },
+      { exercise: 'Przenoszenie hantla nad głowę leżąc', sets: 3, reps: 12, rest: 75 },
+      { exercise: 'Pompki', sets: 3, reps: 15, rest: 60 },
+      { exercise: 'Pompki diamentowe', sets: 3, reps: 12, rest: 60 },
     ],
   },
 ];
