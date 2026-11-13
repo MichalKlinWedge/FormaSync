@@ -11,7 +11,7 @@ import type {
 // Dane startowe: słowniki, katalog ćwiczeń i wbudowane szablony.
 // Zmiana zawartości wymaga podbicia SEED_VERSION (seed.ts dograje brakujące rekordy).
 
-export const SEED_VERSION = 7;
+export const SEED_VERSION = 8;
 
 export const seedCategories: { name: string; description: string }[] = [
   { name: 'Klatka piersiowa', description: 'Mięsień piersiowy większy i mniejszy' },
@@ -1732,6 +1732,19 @@ export const seedTemplates: SeedTemplate[] = [
       { exercise: 'Przenoszenie hantla nad głowę leżąc', sets: 3, reps: 12, rest: 75 },
       { exercise: 'Pompki', sets: 3, reps: 15, rest: 60 },
       { exercise: 'Pompki diamentowe', sets: 3, reps: 12, rest: 60 },
+    ],
+  },
+  {
+    title: 'Dom — Plecy bez lędźwi',
+    description:
+      'Szerokość i grubość pleców bez martwego ciągu i wiosłowania w opadzie: zwis, podparcie o ławkę i gumy.',
+    exercises: [
+      { exercise: 'Podciąganie na drążku', sets: 3, reps: 8, rest: 120 },
+      { exercise: 'Wiosłowanie hantlem jednorącz', sets: 3, reps: 10, rest: 90 },
+      { exercise: 'Podciąganie podchwytem', sets: 3, reps: 8, rest: 120 },
+      { exercise: 'Przyciąganie gumy do brzucha siedząc', sets: 3, reps: 15, rest: 60 },
+      { exercise: 'Przenoszenie hantla nad głowę leżąc', sets: 3, reps: 12, rest: 75 },
+      { exercise: 'Face pull z gumą', sets: 3, reps: 15, rest: 45 },
     ],
   },
 ];
