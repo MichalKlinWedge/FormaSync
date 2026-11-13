@@ -138,17 +138,38 @@ export default function ActiveWorkoutScreen() {
   const { completed, planned } = countSets(session.exercises);
   const tonnage = sessionTonnage(session.exercises);
   const current = findCurrentSet(session.exercises);
+  /** Bieżąca seria ćwiczenia na czas — tę odpala duży „play” na belce. */
+  const timedCurrent = current && current.exercise.trackingType === 'TIME' ? current : null;
+  const timedCurrentSeconds = timedCurrent
+    ? (timedCurrent.set.durationSeconds ?? timedCurrent.exercise.targetDurationSeconds)
+    : null;
+
+  /**
+   * Kończy serię i puszcza przerwę. Jedna droga dla licznika i dla kropki przy serii: serię na
+   * czas zamyka jedno i drugie, z czasem, który zdążył upłynąć — przy pełnym odliczeniu
+   * zaplanowanym, przy odpuszczeniu w połowie takim, ile się wytrzymało.
+   */
+  const finishSet = (exercise: ActiveExercise | undefined, setId: number) => {
+    const counting = timed?.setId === setId ? timed : null;
+    completeSet(db, setId, counting ? { durationSeconds: Math.max(1, counting.elapsedSeconds) } : {});
+    if (counting) {
+      clearTimedSet(db);
+      setTimedStore(null);
+    }
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setRestOverride(null);
+    if (exercise) void scheduleCountdown(exercise.restDurationSeconds, exercise.name, 'rest');
+    else void cancelCountdown();
+    reload();
+  };
 
   const toggleSet = (exercise: ActiveExercise, setId: number, done: boolean) => {
-    if (done) {
-      reopenSet(db, setId);
-      void cancelCountdown();
-    } else {
-      completeSet(db, setId);
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      setRestOverride(null);
-      void scheduleCountdown(exercise.restDurationSeconds, exercise.name, 'rest');
+    if (!done) {
+      finishSet(exercise, setId);
+      return;
     }
+    reopenSet(db, setId);
+    void cancelCountdown();
     reload();
   };
 
@@ -207,21 +228,13 @@ export default function ActiveWorkoutScreen() {
     void scheduleCountdown(seconds, exercise.name, 'set');
   };
 
-  /**
-   * Zapisuje serię z czasem, który rzeczywiście upłynął — przy pełnym odliczeniu to czas
-   * zaplanowany, przy odpuszczeniu w połowie tyle, ile się wytrzymało. Dalej leci przerwa,
-   * tak samo jak po zwykłej serii.
-   */
+  /** Zapisanie serii z licznika — to samo, co zaznaczenie kropki przy tej serii. */
   const saveTimer = () => {
     if (!timed) return;
-    const exercise = session.exercises.find((e) => e.sets.some((set) => set.id === timed.setId));
-    completeSet(db, timed.setId, { durationSeconds: Math.max(1, timed.elapsedSeconds) });
-    clearTimedSet(db);
-    setTimedStore(null);
-    setRestOverride(null);
-    if (exercise) void scheduleCountdown(exercise.restDurationSeconds, exercise.name, 'rest');
-    else void cancelCountdown();
-    reload();
+    finishSet(
+      session.exercises.find((e) => e.sets.some((set) => set.id === timed.setId)),
+      timed.setId,
+    );
   };
 
   /** Odliczanie odpalone przez pomyłkę: seria zostaje nietknięta. */
@@ -230,6 +243,19 @@ export default function ActiveWorkoutScreen() {
     setTimedStore(null);
     void cancelCountdown();
   };
+
+  /**
+   * Start serii na czas siedzi na belce, a nie w wierszu serii: w trakcie planku telefon leży
+   * dalej niż na wyciągnięcie palca, a belka jest jedynym elementem widocznym z dystansu.
+   */
+  const startTimedButton = timedCurrent && (
+    <Pressable
+      accessibilityLabel={`Zacznij odliczanie: ${timedCurrent.exercise.name}, seria ${timedCurrent.set.setNumber}`}
+      onPress={() => startTimer(timedCurrent.exercise, timedCurrent.set)}
+      hitSlop={10}>
+      <Icon name="play_circle" size={52} color={theme.success} />
+    </Pressable>
+  );
 
   const confirmAbandon = () =>
     Alert.alert('Przerwać trening?', 'Wykonane serie zostaną zapisane, niewykonane przepadną.', [
@@ -321,6 +347,28 @@ export default function ActiveWorkoutScreen() {
                 Pomiń
               </ThemedText>
             </Pressable>
+            {startTimedButton}
+          </View>
+        )}
+
+        {/*
+          Nic nie odlicza, a kolejna seria jest na czas: belka stoi na zielono z samym „play”,
+          żeby zacząć plank jednym naciśnięciem i bez szukania właściwego wiersza.
+        */}
+        {!timed && !rest && timedCurrent && (
+          <View style={[styles.rest, { backgroundColor: theme.success + TINT, borderLeftColor: theme.success }]}>
+            <View style={styles.restText}>
+              <ThemedText type="smallBold" style={{ color: theme.success }} numberOfLines={1}>
+                SERIA {timedCurrent.set.setNumber} · {timedCurrent.exercise.name}
+              </ThemedText>
+              <ThemedText type="subtitle">
+                {timedCurrentSeconds ? formatClock(timedCurrentSeconds) : '—'}
+              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {timedCurrentSeconds ? 'naciśnij, aby odliczyć' : 'wpisz najpierw liczbę sekund'}
+              </ThemedText>
+            </View>
+            {startTimedButton}
           </View>
         )}
 
@@ -361,7 +409,6 @@ export default function ActiveWorkoutScreen() {
                     removeSet(db, set.id);
                     reload();
                   }}
-                  onStartTimer={() => startTimer(exercise, set)}
                 />
               ))}
 

@@ -26,7 +26,6 @@ type SetRowProps = {
   onEditEnd: () => void;
   onToggle: () => void;
   onRemove: () => void;
-  onStartTimer: () => void;
 };
 
 export function SetRow({
@@ -38,7 +37,6 @@ export function SetRow({
   onEditEnd,
   onToggle,
   onRemove,
-  onStartTimer,
 }: SetRowProps) {
   const theme = useTheme();
   const done = set.completedAt !== null;
@@ -76,22 +74,13 @@ export function SetRow({
         />
 
         {/*
-          Seria na czas odlicza się sama: zegar w aplikacji pika końcówkę, więc nie trzeba
-          patrzeć na telefon w trakcie planku ani pamiętać wyniku po jego zakończeniu.
-          Wpisanie czasu ręcznie nadal działa — nie każda seria zaczyna się od naciśnięcia.
+          Odliczanie serii na czas odpala duży „play” na belce u góry ekranu — w wierszu zostaje
+          sam znacznik, która seria właśnie leci. Wpisanie czasu ręcznie nadal działa.
         */}
-        {timed && !done && (
-          <Pressable
-            accessibilityLabel={isTiming ? 'Odliczanie trwa' : `Odlicz serię ${set.setNumber}`}
-            disabled={isTiming}
-            onPress={onStartTimer}
-            hitSlop={6}>
-            <Icon
-              name={isTiming ? 'hourglass_top' : 'play_circle'}
-              size={22}
-              color={isTiming ? theme.accent : theme.textSecondary}
-            />
-          </Pressable>
+        {timed && !done && isTiming && (
+          <View accessibilityLabel="Odliczanie trwa">
+            <Icon name="hourglass_top" size={22} color={theme.accent} />
+          </View>
         )}
 
         <Pressable accessibilityLabel="Usuń serię" onPress={onRemove} hitSlop={6}>
