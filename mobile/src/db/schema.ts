@@ -28,6 +28,13 @@ export type DifficultyLevel = (typeof difficultyLevels)[number];
 export const trackingTypes = ['REPS', 'TIME'] as const;
 export type TrackingType = (typeof trackingTypes)[number];
 
+/**
+ * Strona ciała w serii ćwiczenia jednostronnego. Null znaczy „obie naraz” — tak wygląda
+ * każda zwykła seria i wszystko, co zapisano przed wprowadzeniem stron.
+ */
+export const sides = ['RIGHT', 'LEFT'] as const;
+export type Side = (typeof sides)[number];
+
 export const exercises = sqliteTable(
   'exercises',
   {
@@ -43,6 +50,12 @@ export const exercises = sqliteTable(
     videoUrl: text('video_url'),
     difficultyLevel: text('difficulty_level', { enum: difficultyLevels }),
     trackingType: text('tracking_type', { enum: trackingTypes }).notNull().default('REPS'),
+    /**
+     * Ćwiczenie robione osobno prawą i lewą stroną (wiosłowanie jednorącz, przysiad bułgarski).
+     * Każda zaplanowana seria daje wtedy dwa wiersze — jeden na stronę — a przerwa między nimi
+     * jest krótka, bo to wciąż ta sama seria.
+     */
+    unilateral: integer('unilateral', { mode: 'boolean' }).notNull().default(false),
     isCustom: integer('is_custom', { mode: 'boolean' }).notNull().default(false),
     // Mapowanie na katalog ćwiczeń Garmin Training API (etap 9).
     garminCategory: text('garmin_category'),
@@ -274,6 +287,8 @@ export const loggedSets = sqliteTable(
       .notNull()
       .references(() => exercises.id),
     setNumber: integer('set_number').notNull(),
+    /** Strona ciała w ćwiczeniu jednostronnym; null w zwykłej serii. */
+    side: text('side', { enum: sides }),
     repsCompleted: integer('reps_completed'),
     weightKg: real('weight_kg'),
     durationSeconds: integer('duration_seconds'),

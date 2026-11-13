@@ -7,6 +7,7 @@ import {
   elapsedSeconds,
   findCurrentSet,
   formatClock,
+  restAfter,
   restStartedAt,
   restState,
   sessionTonnage,
@@ -20,6 +21,7 @@ let nextId = 1;
 const set = (o: Partial<ActiveSet> = {}): ActiveSet => ({
   id: nextId++,
   setNumber: 1,
+  side: null,
   repsCompleted: 10,
   weightKg: 50,
   durationSeconds: null,
@@ -33,6 +35,7 @@ const exercise = (o: Partial<ActiveExercise> = {}): ActiveExercise => ({
   exerciseId: 1,
   name: 'Przysiad',
   trackingType: 'REPS',
+  unilateral: false,
   targetSets: 3,
   targetReps: 10,
   targetWeight: 50,
@@ -162,5 +165,42 @@ describe('formatClock', () => {
     [4025, '1:07:05'],
   ])('%i s → %s', (seconds, expected) => {
     expect(formatClock(seconds)).toBe(expected);
+  });
+});
+
+describe('restAfter — ćwiczenie jednostronne', () => {
+  const pair = (completedRight: string | null, completedLeft: string | null) => {
+    const right = set({ setNumber: 1, side: 'RIGHT', completedAt: completedRight });
+    const left = set({ setNumber: 1, side: 'LEFT', completedAt: completedLeft });
+    const ex = exercise({ unilateral: true, restDurationSeconds: 150, sets: [right, left] });
+    return { ex, right, left };
+  };
+
+  it('po pierwszej stronie przerwa jest krótka', () => {
+    const { ex, right } = pair(at(0), null);
+    expect(restAfter(ex, right)).toBe(15);
+  });
+
+  it('po drugiej stronie idzie pełna przerwa ćwiczenia', () => {
+    const { ex, left } = pair(at(0), at(20));
+    expect(restAfter(ex, left)).toBe(150);
+  });
+
+  it('przerwa krótsza niż 15 s zostaje swoją długością', () => {
+    const right = set({ setNumber: 1, side: 'RIGHT', completedAt: at(0) });
+    const left = set({ setNumber: 1, side: 'LEFT', completedAt: null });
+    const ex = exercise({ unilateral: true, restDurationSeconds: 10, sets: [right, left] });
+    expect(restAfter(ex, right)).toBe(10);
+  });
+
+  it('zwykła seria dostaje przerwę ćwiczenia', () => {
+    const only = set({ setNumber: 1, completedAt: at(0) });
+    expect(restAfter(exercise({ restDurationSeconds: 150, sets: [only] }), only)).toBe(150);
+  });
+
+  it('odliczanie przerwy między stronami kończy się po 15 s', () => {
+    const { ex } = pair(at(0), null);
+    expect(restState([ex], ms(10))).toMatchObject({ remainingSeconds: 5, totalSeconds: 15 });
+    expect(restState([ex], ms(20))).toBeNull();
   });
 });

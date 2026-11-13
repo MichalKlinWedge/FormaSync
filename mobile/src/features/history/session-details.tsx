@@ -18,7 +18,15 @@ import { SessionHealth } from '@/features/health/session-health';
 import { MuscleOverview } from '@/features/muscles/muscle-overview';
 import { isEndurance } from '@/features/sports/sport';
 import { formatTarget } from '@/features/plans/draft';
-import { type ActiveExercise, type ActiveSet, countSets, formatClock, sessionTonnage } from '@/features/workout/logic';
+import {
+  type ActiveExercise,
+  type ActiveSet,
+  countSets,
+  formatClock,
+  sessionTonnage,
+  sideLabels,
+  sideNames,
+} from '@/features/workout/logic';
 import {
   activeSessionSport,
   addSet,
@@ -258,6 +266,14 @@ function HistorySetRow({
         <ThemedText type="smallBold" themeColor="textSecondary" style={styles.setNumber}>
           {set.setNumber}
         </ThemedText>
+        {set.side && (
+          <ThemedText
+            type="smallBold"
+            style={[styles.setSide, { color: theme.accent }]}
+            accessibilityLabel={sideNames[set.side]}>
+            {sideLabels[set.side]}
+          </ThemedText>
+        )}
         {exercise.trackingType === 'TIME' ? (
           <CompactNumberInput
             value={set.durationSeconds}
@@ -318,6 +334,7 @@ const styles = StyleSheet.create({
   card: { borderRadius: 16, padding: Spacing.three, gap: Spacing.one },
   setRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.one },
   setNumber: { width: 18, textAlign: 'center' },
+  setSide: { width: 14, textAlign: 'center' },
   setRpe: { paddingBottom: Spacing.one },
   addSet: {
     flexDirection: 'row',

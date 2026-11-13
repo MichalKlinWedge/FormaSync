@@ -94,12 +94,13 @@ export function startSession(db: SyncDb, options: StartSessionOptions, now = now
       insertSessionSegments(tx, sessionId, planId);
     } else if (planId !== null) {
       const planItems = tx
-        .select()
+        .select({ item: schema.planExercises, unilateral: schema.exercises.unilateral })
         .from(schema.planExercises)
+        .innerJoin(schema.exercises, eq(schema.planExercises.exerciseId, schema.exercises.id))
         .where(eq(schema.planExercises.planId, planId))
         .orderBy(asc(schema.planExercises.orderIndex))
         .all();
-      for (const item of planItems) {
+      for (const { item, unilateral } of planItems) {
         const sessionExerciseId = tx
           .insert(schema.sessionExercises)
           .values({
@@ -119,6 +120,7 @@ export function startSession(db: SyncDb, options: StartSessionOptions, now = now
           reps: item.targetReps,
           weight: item.targetWeight,
           duration: item.targetDurationSeconds,
+          unilateral,
         });
       }
     }
@@ -188,7 +190,13 @@ function insertSessionSegments(tx: SyncDb, sessionId: number, planId: number): v
   }
 }
 
-type SetDefaults = { reps: number | null; weight: number | null; duration: number | null };
+type SetDefaults = {
+  reps: number | null;
+  weight: number | null;
+  duration: number | null;
+  /** Ćwiczenie jednostronne: każda seria dostaje dwa wiersze — prawą i lewą stronę. */
+  unilateral?: boolean;
+};
 
 function insertPlannedSets(
   tx: SyncDb,
@@ -200,18 +208,24 @@ function insertPlannedSets(
   firstSetNumber = 1,
 ) {
   if (count <= 0) return;
+  const row = (setNumber: number, side: schema.Side | null) => ({
+    sessionId,
+    sessionExerciseId,
+    exerciseId,
+    setNumber,
+    side,
+    repsCompleted: defaults.reps,
+    weightKg: defaults.weight,
+    durationSeconds: defaults.duration,
+    completedAt: null,
+  });
+  // Prawa strona idzie pierwsza — w takiej kolejności wiersze czyta ekran treningu.
+  const sides: (schema.Side | null)[] = defaults.unilateral ? ['RIGHT', 'LEFT'] : [null];
   tx.insert(schema.loggedSets)
     .values(
-      Array.from({ length: count }, (_, i) => ({
-        sessionId,
-        sessionExerciseId,
-        exerciseId,
-        setNumber: firstSetNumber + i,
-        repsCompleted: defaults.reps,
-        weightKg: defaults.weight,
-        durationSeconds: defaults.duration,
-        completedAt: null,
-      })),
+      Array.from({ length: count }, (_, i) => firstSetNumber + i).flatMap((setNumber) =>
+        sides.map((side) => row(setNumber, side)),
+      ),
     )
     .run();
 }
@@ -252,6 +266,7 @@ export function loadSession(db: SyncDb, sessionId: number): ActiveSession | null
       exerciseId: exercise.id,
       name: exercise.name,
       trackingType: exercise.trackingType,
+      unilateral: exercise.unilateral,
       targetSets: se.targetSets,
       targetReps: se.targetReps,
       targetWeight: se.targetWeight,
@@ -262,6 +277,7 @@ export function loadSession(db: SyncDb, sessionId: number): ActiveSession | null
         .map((s) => ({
           id: s.id,
           setNumber: s.setNumber,
+          side: s.side,
           repsCompleted: s.repsCompleted,
           weightKg: s.weightKg,
           durationSeconds: s.durationSeconds,
@@ -313,21 +329,34 @@ export function addSet(db: SyncDb, sessionExerciseId: number): number {
       .orderBy(asc(schema.loggedSets.setNumber))
       .all()
       .at(-1);
+    const unilateral =
+      tx
+        .select({ unilateral: schema.exercises.unilateral })
+        .from(schema.exercises)
+        .where(eq(schema.exercises.id, exercise.exerciseId))
+        .get()?.unilateral ?? false;
 
-    return tx
-      .insert(schema.loggedSets)
-      .values({
-        sessionId: exercise.sessionId,
-        sessionExerciseId,
-        exerciseId: exercise.exerciseId,
-        setNumber: (last?.setNumber ?? 0) + 1,
-        repsCompleted: last?.repsCompleted ?? exercise.targetReps,
-        weightKg: last?.weightKg ?? exercise.targetWeight,
-        durationSeconds: last?.durationSeconds ?? exercise.targetDurationSeconds,
-        completedAt: null,
-      })
-      .returning({ id: schema.loggedSets.id })
-      .get().id;
+    // Dołożona seria ćwiczenia jednostronnego to też dwa wiersze; zwracamy id pierwszego.
+    const sides: (schema.Side | null)[] = unilateral ? ['RIGHT', 'LEFT'] : [null];
+    const ids = sides.map(
+      (side) =>
+        tx
+          .insert(schema.loggedSets)
+          .values({
+            sessionId: exercise.sessionId,
+            sessionExerciseId,
+            exerciseId: exercise.exerciseId,
+            setNumber: (last?.setNumber ?? 0) + 1,
+            side,
+            repsCompleted: last?.repsCompleted ?? exercise.targetReps,
+            weightKg: last?.weightKg ?? exercise.targetWeight,
+            durationSeconds: last?.durationSeconds ?? exercise.targetDurationSeconds,
+            completedAt: null,
+          })
+          .returning({ id: schema.loggedSets.id })
+          .get().id,
+    );
+    return ids[0];
   });
 }
 
@@ -379,7 +408,10 @@ export function addSessionExercise(db: SyncDb, sessionId: number, exerciseId: nu
       .returning({ id: schema.sessionExercises.id })
       .get().id;
 
-    insertPlannedSets(tx, sessionId, sessionExerciseId, exerciseId, sets, values);
+    insertPlannedSets(tx, sessionId, sessionExerciseId, exerciseId, sets, {
+      ...values,
+      unilateral: exercise.unilateral,
+    });
     return sessionExerciseId;
   });
 }

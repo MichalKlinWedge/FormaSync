@@ -52,6 +52,7 @@ export function suggestedTarget(
   const sets = db
     .select({
       sessionId: schema.loggedSets.sessionId,
+      side: schema.loggedSets.side,
       reps: schema.loggedSets.repsCompleted,
       weightKg: schema.loggedSets.weightKg,
       durationSeconds: schema.loggedSets.durationSeconds,
@@ -71,8 +72,9 @@ export function suggestedTarget(
   if (sets.length === 0) return null;
 
   const last = sets[0].sessionId;
+  // Jedna strona ćwiczenia jednostronnego wystarczy: cel liczymy w seriach, nie w wierszach.
   return nextTarget(
-    sets.filter((set) => set.sessionId === last),
+    sets.filter((set) => set.sessionId === last && set.side !== 'LEFT'),
     tracking,
   );
 }

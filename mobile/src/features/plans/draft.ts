@@ -40,8 +40,8 @@ export type TargetSource = (exercise: ExerciseRef) => NextTarget | null;
 export const DEFAULT_SETS = 3;
 export const DEFAULT_REPS = 10;
 export const DEFAULT_DURATION_SECONDS = 30;
-/** Dwie minuty — tyle zajmuje przerwa, po której następna seria idzie z tym samym ciężarem. */
-export const DEFAULT_REST_SECONDS = 120;
+/** Dwie i pół minuty — tyle zajmuje przerwa, po której następna seria idzie z tym samym ciężarem. */
+export const DEFAULT_REST_SECONDS = 150;
 
 let keyCounter = 0;
 export const newItemKey = () => `item-${Date.now().toString(36)}-${(keyCounter++).toString(36)}`;

@@ -13,6 +13,8 @@ export type ExerciseInput = {
   equipmentId: number | null;
   difficultyLevel: DifficultyLevel | null;
   trackingType: TrackingType;
+  /** Ćwiczenie robione osobno prawą i lewą stroną. */
+  unilateral: boolean;
   instructions: string | null;
   techniqueNotes: string | null;
   imageUrl: string | null;

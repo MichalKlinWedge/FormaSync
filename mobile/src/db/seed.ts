@@ -67,6 +67,7 @@ export function seedDatabase(db: SyncDb): boolean {
           equipmentId: requireId(equipmentIds, e.equipment),
           difficultyLevel: e.difficulty,
           trackingType: e.tracking ?? 'REPS',
+          unilateral: e.unilateral ?? false,
           instructions: e.instructions.map((step, i) => `${i + 1}. ${step}`).join('\n'),
           techniqueNotes: e.technique ?? null,
           garminCategory: e.garminCategory ?? null,

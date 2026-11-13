@@ -20,6 +20,7 @@ import {
   elapsedSeconds,
   findCurrentSet,
   formatClock,
+  restAfter,
   restStartedAt,
   restState,
   sessionTonnage,
@@ -158,7 +159,9 @@ export default function ActiveWorkoutScreen() {
     }
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setRestOverride(null);
-    if (exercise) void scheduleCountdown(exercise.restDurationSeconds, exercise.name, 'rest');
+    // Po pierwszej stronie ćwiczenia jednostronnego idzie krótka przerwa, nie pełna.
+    const set = exercise?.sets.find((s) => s.id === setId);
+    if (exercise && set) void scheduleCountdown(restAfter(exercise, set), exercise.name, 'rest');
     else void cancelCountdown();
     reload();
   };
@@ -385,6 +388,7 @@ export default function ActiveWorkoutScreen() {
                   />
                   <ThemedText type="small" themeColor="textSecondary">
                     cel: {formatTarget(exercise)} · przerwa {formatClock(exercise.restDurationSeconds)}
+                    {exercise.unilateral ? ' · prawa i lewa' : ''}
                   </ThemedText>
                 </View>
                 <Pressable

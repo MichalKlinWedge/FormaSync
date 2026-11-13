@@ -28,6 +28,7 @@ function setup() {
     equipmentId: null,
     difficultyLevel: 'BEGINNER',
     trackingType: 'REPS',
+    unilateral: false,
     instructions: '1. Krok',
     techniqueNotes: '   ',
     imageUrl: null,

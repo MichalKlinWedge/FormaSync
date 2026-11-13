@@ -26,6 +26,7 @@ const emptyInput: ExerciseInput = {
   equipmentId: null,
   difficultyLevel: 'BEGINNER',
   trackingType: 'REPS',
+  unilateral: false,
   instructions: null,
   techniqueNotes: null,
   imageUrl: null,
@@ -47,6 +48,7 @@ function loadInput(id: number): ExerciseInput {
     equipmentId: exercise.equipmentId,
     difficultyLevel: exercise.difficultyLevel,
     trackingType: exercise.trackingType,
+    unilateral: exercise.unilateral,
     instructions: exercise.instructions,
     techniqueNotes: exercise.techniqueNotes,
     imageUrl: exercise.imageUrl,
@@ -174,6 +176,21 @@ export default function ExerciseFormScreen() {
                   onPress={() => set('trackingType', t)}
                 />
               ))}
+            </ChipGroup>
+          </Field>
+
+          <Field label="Strony ciała">
+            <ChipGroup>
+              <Chip
+                label="Obie naraz"
+                selected={!input.unilateral}
+                onPress={() => set('unilateral', false)}
+              />
+              <Chip
+                label="Prawa i lewa osobno"
+                selected={input.unilateral}
+                onPress={() => set('unilateral', true)}
+              />
             </ChipGroup>
           </Field>
 

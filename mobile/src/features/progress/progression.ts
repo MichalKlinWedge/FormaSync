@@ -277,7 +277,9 @@ export function proposeProgression(
       targetReps: planItem.targetReps,
       targetWeight: planItem.targetWeight,
       sets: sets
-        .filter((set) => set.sessionExerciseId === se.id)
+        // Ćwiczenie jednostronne ma dwa wiersze na serię — liczy się jedna strona, inaczej
+        // komplet serii wyszedłby dwa razy za duży.
+        .filter((set) => set.sessionExerciseId === se.id && set.side !== 'LEFT')
         .map((set) => ({ reps: set.repsCompleted, weightKg: set.weightKg, rpe: set.rpe })),
     });
     if (suggestion) suggestions.push(suggestion);

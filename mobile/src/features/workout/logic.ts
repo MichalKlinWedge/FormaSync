@@ -1,4 +1,4 @@
-import type { TrackingType } from '@/db/schema';
+import type { Side, TrackingType } from '@/db/schema';
 
 // Czysta logika trwającej sesji. Wszystkie czasy liczymy ze znaczników czasu zapisanych w bazie,
 // nigdy z liczników w pamięci — timery JS nie działają, gdy Android uśpi aplikację (patrz R5 w planie).
@@ -6,6 +6,8 @@ import type { TrackingType } from '@/db/schema';
 export type ActiveSet = {
   id: number;
   setNumber: number;
+  /** Strona ciała w ćwiczeniu jednostronnym; null, gdy serię robi się obiema naraz. */
+  side: Side | null;
   repsCompleted: number | null;
   weightKg: number | null;
   durationSeconds: number | null;
@@ -20,6 +22,8 @@ export type ActiveExercise = {
   exerciseId: number;
   name: string;
   trackingType: TrackingType;
+  /** Ćwiczenie robione osobno prawą i lewą stroną — każda seria ma wtedy dwa wiersze. */
+  unilateral: boolean;
   targetSets: number;
   targetReps: number | null;
   targetWeight: number | null;
@@ -40,6 +44,36 @@ export type ActiveSession = {
 const ms = (iso: string) => Date.parse(iso);
 
 export const isCompleted = (set: ActiveSet) => set.completedAt !== null;
+
+/** Krótkie oznaczenie strony przy numerze serii i jego rozwinięcie dla czytnika ekranu. */
+export const sideLabels: Record<Side, string> = { RIGHT: 'P', LEFT: 'L' };
+export const sideNames: Record<Side, string> = { RIGHT: 'prawa strona', LEFT: 'lewa strona' };
+
+/**
+ * Przerwa między prawą a lewą stroną. Obie strony to wciąż jedna seria, więc między nimi
+ * wystarczy tyle, ile zajmuje przełożenie hantla — pełna przerwa idzie po drugiej z nich.
+ */
+export const SIDE_REST_SECONDS = 15;
+
+/** Druga strona tej samej serii; null, gdy ćwiczenie robi się obiema naraz. */
+function otherSide(exercise: ActiveExercise, set: ActiveSet): ActiveSet | null {
+  if (set.side === null) return null;
+  return (
+    exercise.sets.find((s) => s.setNumber === set.setNumber && s.side !== null && s.side !== set.side) ??
+    null
+  );
+}
+
+/**
+ * Ile trwa przerwa po tej serii: krótka, gdy druga strona dopiero przed nami, pełna po niej.
+ * Ćwiczenie z przerwą krótszą niż 15 s zostaje przy swojej — między stronami nie ma powodu
+ * odpoczywać dłużej niż między seriami.
+ */
+export function restAfter(exercise: ActiveExercise, set: ActiveSet): number {
+  const other = otherSide(exercise, set);
+  if (other === null || isCompleted(other)) return exercise.restDurationSeconds;
+  return Math.min(exercise.restDurationSeconds, SIDE_REST_SECONDS);
+}
 
 /** Sekundy od rozpoczęcia sesji (nigdy ujemne). */
 export function elapsedSeconds(startTime: string, now: number): number {
@@ -91,13 +125,13 @@ export type RestState = {
 /** Ostatnio ukończona seria — ta, po której trwa przerwa. */
 function lastCompleted(
   exercises: ActiveExercise[],
-): { exercise: ActiveExercise; completedAt: number } | null {
-  let latest: { exercise: ActiveExercise; completedAt: number } | null = null;
+): { exercise: ActiveExercise; set: ActiveSet; completedAt: number } | null {
+  let latest: { exercise: ActiveExercise; set: ActiveSet; completedAt: number } | null = null;
   for (const exercise of exercises) {
     for (const set of exercise.sets) {
       if (!set.completedAt) continue;
       const at = ms(set.completedAt);
-      if (!latest || at > latest.completedAt) latest = { exercise, completedAt: at };
+      if (!latest || at > latest.completedAt) latest = { exercise, set, completedAt: at };
     }
   }
   return latest;
@@ -127,9 +161,11 @@ export function restState(
   extraSeconds = 0,
 ): RestState | null {
   const latest = lastCompleted(exercises);
-  if (!latest || latest.exercise.restDurationSeconds <= 0) return null;
+  if (!latest) return null;
+  const restSeconds = restAfter(latest.exercise, latest.set);
+  if (restSeconds <= 0) return null;
 
-  const totalSeconds = latest.exercise.restDurationSeconds + extraSeconds;
+  const totalSeconds = restSeconds + extraSeconds;
   const endsAt = latest.completedAt + totalSeconds * 1000;
   if (now >= endsAt) return null;
   return {

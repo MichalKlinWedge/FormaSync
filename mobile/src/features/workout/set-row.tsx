@@ -7,7 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-import type { ActiveExercise, ActiveSet } from './logic';
+import { type ActiveExercise, type ActiveSet, sideLabels, sideNames } from './logic';
 
 type SetValues = {
   repsCompleted?: number | null;
@@ -48,6 +48,15 @@ export function SetRow({
         <ThemedText type="smallBold" themeColor="textSecondary" style={styles.number}>
           {set.setNumber}
         </ThemedText>
+        {/* Ćwiczenie jednostronne ma dwa wiersze na serię — ten znacznik mówi, który jest który. */}
+        {set.side && (
+          <ThemedText
+            type="smallBold"
+            style={[styles.side, { color: theme.accent }]}
+            accessibilityLabel={sideNames[set.side]}>
+            {sideLabels[set.side]}
+          </ThemedText>
+        )}
 
         {timed ? (
           <CompactNumberInput
@@ -126,4 +135,5 @@ const styles = StyleSheet.create({
   rowDone: { opacity: 0.55 },
   rpe: { paddingHorizontal: Spacing.one, paddingBottom: Spacing.one },
   number: { width: 18, textAlign: 'center' },
+  side: { width: 14, textAlign: 'center' },
 });

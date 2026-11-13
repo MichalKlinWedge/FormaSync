@@ -48,6 +48,8 @@ export type SeedExercise = {
   equipment: string;
   difficulty: DifficultyLevel;
   tracking?: TrackingType;
+  /** Ćwiczenie robione osobno prawą i lewą stroną. */
+  unilateral?: boolean;
   instructions: string[];
   technique?: string;
   garminCategory?: string;
@@ -199,6 +201,7 @@ export const seedExercises: SeedExercise[] = [
   },
   {
     name: 'Wiosłowanie hantlem jednorącz',
+    unilateral: true,
     category: 'Plecy',
     secondary: ['Biceps'],
     equipment: 'Hantle',
@@ -750,6 +753,7 @@ export const seedExercises: SeedExercise[] = [
   },
   {
     name: 'Przysiad bułgarski z hantlami',
+    unilateral: true,
     category: 'Czworogłowe uda',
     secondary: ['Pośladki', 'Dwugłowe uda'],
     equipment: 'Hantle',
@@ -780,6 +784,7 @@ export const seedExercises: SeedExercise[] = [
   },
   {
     name: 'Martwy ciąg rumuński jednonóż z hantlami',
+    unilateral: true,
     category: 'Dwugłowe uda',
     secondary: ['Pośladki', 'Brzuch i core'],
     equipment: 'Hantle',
@@ -886,6 +891,7 @@ export const seedExercises: SeedExercise[] = [
   },
   {
     name: 'Deska boczna',
+    unilateral: true,
     category: 'Brzuch i core',
     secondary: ['Pośladki'],
     equipment: 'Masa ciała',
@@ -984,6 +990,7 @@ export const seedExercises: SeedExercise[] = [
   },
   {
     name: 'Wejścia na skrzynię z hantlami',
+    unilateral: true,
     category: 'Czworogłowe uda',
     secondary: ['Pośladki'],
     equipment: 'Hantle',
@@ -1091,6 +1098,7 @@ export const seedExercises: SeedExercise[] = [
   },
   {
     name: 'Prostowanie biodra na wyciągu',
+    unilateral: true,
     category: 'Pośladki',
     secondary: ['Dwugłowe uda'],
     equipment: 'Wyciąg',
@@ -1241,6 +1249,7 @@ export const seedExercises: SeedExercise[] = [
   },
   {
     name: 'Unoszenie ramienia bokiem na wyciągu',
+    unilateral: true,
     category: 'Barki',
     equipment: 'Wyciąg',
     difficulty: 'INTERMEDIATE',

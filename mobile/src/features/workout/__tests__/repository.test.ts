@@ -388,3 +388,91 @@ describe('removeSessionExercise', () => {
     expect(after.sets[0].completedAt).not.toBeNull();
   });
 });
+
+describe('ćwiczenie jednostronne', () => {
+  function unilateralPlan() {
+    const db = createTestDb({ seed: true });
+    const row = db
+      .select()
+      .from(schema.exercises)
+      .where(eq(schema.exercises.name, 'Wiosłowanie hantlem jednorącz'))
+      .get()!;
+    const planId = savePlan(db, {
+      sport: 'STRENGTH',
+      title: 'Plecy',
+      description: '',
+      sourceTemplateId: null,
+      items: [
+        {
+          key: 'a',
+          exerciseId: row.id,
+          exerciseName: row.name,
+          trackingType: 'REPS',
+          targetSets: 3,
+          targetReps: 10,
+          targetWeight: 20,
+          targetDurationSeconds: null,
+          restDurationSeconds: 150,
+          notes: null,
+        },
+      ],
+    });
+    return { db, planId, row };
+  }
+
+  it('katalog zna ćwiczenia robione osobno każdą stroną', () => {
+    const { row } = unilateralPlan();
+    expect(row.unilateral).toBe(true);
+  });
+
+  it('każda zaplanowana seria daje wiersz prawej i lewej strony', () => {
+    const { db, planId } = unilateralPlan();
+    const session = loadSession(db, startSession(db, { kind: 'plan', planId }, T0))!;
+    const [exercise] = session.exercises;
+
+    expect(exercise.unilateral).toBe(true);
+    expect(exercise.sets.map((s) => [s.setNumber, s.side])).toEqual([
+      [1, 'RIGHT'],
+      [1, 'LEFT'],
+      [2, 'RIGHT'],
+      [2, 'LEFT'],
+      [3, 'RIGHT'],
+      [3, 'LEFT'],
+    ]);
+    expect(exercise.sets.every((s) => s.repsCompleted === 10 && s.weightKg === 20)).toBe(true);
+  });
+
+  it('seria dołożona w trakcie też ma obie strony', () => {
+    const { db, planId } = unilateralPlan();
+    const id = startSession(db, { kind: 'plan', planId }, T0);
+    addSet(db, loadSession(db, id)!.exercises[0].id);
+
+    const sets = loadSession(db, id)!.exercises[0].sets;
+    expect(sets).toHaveLength(8);
+    expect(sets.slice(-2).map((s) => [s.setNumber, s.side])).toEqual([
+      [4, 'RIGHT'],
+      [4, 'LEFT'],
+    ]);
+  });
+
+  it('ćwiczenie dołożone w trakcie treningu dostaje strony z katalogu', () => {
+    const { db, row } = unilateralPlan();
+    const id = startSession(db, { kind: 'empty' }, T0);
+    addSessionExercise(db, id, row.id);
+
+    const added = loadSession(db, id)!.exercises[0];
+    expect(added.sets.map((s) => s.side)).toEqual(['RIGHT', 'LEFT', 'RIGHT', 'LEFT', 'RIGHT', 'LEFT']);
+  });
+
+  it('przerwa między stronami jest krótka, a po drugiej stronie pełna', () => {
+    const { db, planId } = unilateralPlan();
+    const id = startSession(db, { kind: 'plan', planId }, T0);
+    const sets = loadSession(db, id)!.exercises[0].sets;
+
+    completeSet(db, sets[0].id, {}, at(0));
+    expect(restState(loadSession(db, id)!.exercises, ms(10))).toMatchObject({ totalSeconds: 15 });
+
+    completeSet(db, sets[1].id, {}, at(20));
+    expect(restState(loadSession(db, id)!.exercises, ms(30))).toMatchObject({ totalSeconds: 150 });
+  });
+});
