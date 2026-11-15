@@ -12,6 +12,7 @@ import { ExerciseLink } from '@/features/exercises/exercise-link';
 import {
   applyProgression,
   changesPlan,
+  formatPlanWeight,
   type ProgressionAdvice,
   proposeProgression,
   type Suggestion,
@@ -147,7 +148,7 @@ function SuggestionRow({
           {formatKg(suggestion.suggestedWeight)}
         </ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
-          {idle ? ADVICE_LABELS[suggestion.advice] : `z ${formatKg(suggestion.planWeight)}`}
+          {idle ? ADVICE_LABELS[suggestion.advice] : `z ${formatPlanWeight(suggestion.planWeight)}`}
         </ThemedText>
       </View>
     </Pressable>

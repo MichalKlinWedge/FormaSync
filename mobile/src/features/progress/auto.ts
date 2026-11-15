@@ -8,6 +8,7 @@ import { formatKg } from '@/lib/number';
 import {
   applyProgression,
   changesPlan,
+  formatPlanWeight,
   type ProgressionAdvice,
   proposeProgression,
 } from './progression';
@@ -38,7 +39,8 @@ export const setAutoProgression = (db: SyncDb, on: boolean): void =>
 export type AppliedChange = {
   exerciseName: string;
   advice: ProgressionAdvice;
-  from: number;
+  /** Ciężar, który stał w planie; null, gdy plan jeszcze żadnego nie miał. */
+  from: number | null;
   to: number;
 };
 
@@ -86,6 +88,6 @@ export function runAutoProgression(db: SyncDb, sessionId: number): AutoProgressi
 /** Co się zmieniło, jednym zdaniem na ćwiczenie — do okienka po treningu. */
 export function describeAutoProgression(result: AutoProgression): string {
   return result.changes
-    .map((change) => `${change.exerciseName}: ${formatKg(change.from)} → ${formatKg(change.to)}`)
+    .map((change) => `${change.exerciseName}: ${formatPlanWeight(change.from)} → ${formatKg(change.to)}`)
     .join('\n');
 }

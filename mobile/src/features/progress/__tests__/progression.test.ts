@@ -125,6 +125,22 @@ describe('suggestProgression', () => {
     });
   });
 
+  it('plan bez wpisanego ciężaru liczy progresję od ciężaru z sesji', () => {
+    // Tak wygląda każdy plan z szablonu: serie i powtórzenia są, ciężaru szablon nie zna.
+    const work = [done(8, null, 20), done(8, null, 20), done(8, null, 20)];
+    expect(suggestProgression(performance({ targetWeight: null, sets: work }))).toMatchObject({
+      advice: 'INCREASE',
+      planWeight: null,
+      currentWeight: 20,
+      suggestedWeight: 22.5,
+    });
+  });
+
+  it('ćwiczenie bez ciężaru gdziekolwiek zostaje bez sugestii', () => {
+    const bodyweight = [done(12, null, null), done(12, null, null), done(12, null, null)];
+    expect(suggestProgression(performance({ targetWeight: null, sets: bodyweight }))).toBeNull();
+  });
+
   it('pomija ćwiczenia, których nie da się ocenić', () => {
     expect(suggestProgression(performance({ targetWeight: null }))).toBeNull();
     expect(suggestProgression(performance({ targetReps: null, sets: [done(8)] }))).toBeNull();
@@ -235,6 +251,52 @@ describe('proposeProgression', () => {
     expect(loadPlanDraft(db, planId).items[0].targetWeight).toBe(105);
     // Ćwiczenie na czas pozostaje nietknięte.
     expect(loadPlanDraft(db, planId).items[1].targetDurationSeconds).toBe(45);
+  });
+
+  it('plan z szablonu dostaje ciężar po pierwszym treningu', () => {
+    const db = createTestDb({ seed: true });
+    const row = db
+      .select()
+      .from(schema.exercises)
+      .where(eq(schema.exercises.name, 'Przysiad ze sztangą'))
+      .get()!;
+    const planId = savePlan(db, {
+      sport: 'STRENGTH',
+      title: 'Z szablonu',
+      description: '',
+      sourceTemplateId: null,
+      items: [
+        {
+          key: 'a',
+          exerciseId: row.id,
+          exerciseName: row.name,
+          trackingType: 'REPS',
+          targetSets: 3,
+          targetReps: 8,
+          targetWeight: null,
+          targetDurationSeconds: null,
+          restDurationSeconds: 150,
+          notes: null,
+        },
+      ],
+    });
+
+    const session = startSession(db, { kind: 'plan', planId }, '2026-10-08T10:00:00.000Z');
+    loadSession(db, session)!.exercises[0].sets.forEach((set, index) =>
+      completeSet(db, set.id, { repsCompleted: 8, weightKg: 40, rpe: 7 }, `2026-10-08T10:0${index}:00.000Z`),
+    );
+    finishSession(db, session, {}, '2026-10-08T11:00:00.000Z');
+
+    const proposal = proposeProgression(db, planId)!;
+    expect(proposal.suggestions[0]).toMatchObject({
+      advice: 'INCREASE',
+      planWeight: null,
+      currentWeight: 40,
+      suggestedWeight: 42.5,
+    });
+
+    applyProgression(db, proposal.suggestions);
+    expect(loadPlanDraft(db, planId).items[0].targetWeight).toBe(42.5);
   });
 
   it('brak propozycji dla planu bez historii i dla szablonu', () => {

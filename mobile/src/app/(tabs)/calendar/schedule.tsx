@@ -24,6 +24,7 @@ import { usePlanList } from '@/features/plans/use-plans';
 import {
   applyProgression,
   changesPlan,
+  formatPlanWeight,
   proposeProgression,
   type Suggestion,
 } from '@/features/progress/progression';
@@ -385,7 +386,7 @@ function ProgressionNote({ planId, isTemplate }: { planId: number; isTemplate: b
 
 /** „Przysiad ze sztangą: 100 kg → 105 kg”. */
 const describeChange = (suggestion: Suggestion): string =>
-  `${suggestion.exerciseName}: ${formatKg(suggestion.planWeight)} → ${formatKg(suggestion.suggestedWeight)}`;
+  `${suggestion.exerciseName}: ${formatPlanWeight(suggestion.planWeight)} → ${formatKg(suggestion.suggestedWeight)}`;
 
 /** Co powiedzieć o kalendarzu Garmina po przesunięciu terminu. Milczymy tylko wtedy, gdy się udało. */
 function reportMove(outcome: MoveOutcome): void {

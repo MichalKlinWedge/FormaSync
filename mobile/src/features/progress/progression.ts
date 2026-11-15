@@ -32,8 +32,8 @@ export type Suggestion = {
   advice: ProgressionAdvice;
   /** Ciężar z ostatniej sesji, od którego policzona jest sugestia. */
   currentWeight: number;
-  /** Ciężar wpisany dziś w planie — ten zmieni się po zatwierdzeniu. */
-  planWeight: number;
+  /** Ciężar wpisany dziś w planie — ten zmieni się po zatwierdzeniu; null, gdy plan go nie ma. */
+  planWeight: number | null;
   suggestedWeight: number;
   reason: string;
 };
@@ -54,6 +54,10 @@ const average = (values: number[]): number | null =>
   values.length === 0 ? null : values.reduce((sum, v) => sum + v, 0) / values.length;
 
 const formatRpe = (rpe: number) => (Number.isInteger(rpe) ? String(rpe) : rpe.toFixed(1).replace('.', ','));
+
+/** Ciężar z planu do pokazania; plan bez wpisanego ciężaru pisze „—”. */
+export const formatPlanWeight = (weight: number | null): string =>
+  weight === null ? '—' : formatKg(weight);
 
 /** Cel i wykonanie — wszystko, czego potrzebuje sama reguła, bez wiedzy o planie. */
 export type WorkDone = {
@@ -119,15 +123,19 @@ function attemptedWeight(sets: SetOutcome[], targetSets: number): number | null 
  * dostaje 90, a nie 85. Inaczej sugestia wlokłaby się za tym, co zawodnik już dźwiga, a plan po
  * zatwierdzeniu cofałby ciężar. Gdy serie nie mają zapisanego ciężaru, zostaje cel z planu.
  *
- * Zwraca null dla ćwiczeń, których nie da się ocenić: bez ciężaru docelowego,
- * bez celu powtórzeń (ćwiczenia na czas) albo bez ani jednej wykonanej serii.
+ * Plan bez wpisanego ciężaru — a taki wychodzi z każdego szablonu, bo szablon ciężaru znać nie
+ * może — też się liczy: podstawą jest wtedy ciężar z sesji, a plan dostaje go przy zatwierdzeniu.
+ * Inaczej trening z szablonu nigdy nie dałby żadnej progresji.
+ *
+ * Zwraca null dla ćwiczeń, których nie da się ocenić: bez żadnego ciężaru (ani w planie, ani
+ * w seriach), bez celu powtórzeń (ćwiczenia na czas) albo bez ani jednej wykonanej serii.
  *
  * Reguła żyje osobno od planu, bo liczy ją też opis ćwiczenia — tam celem nie jest wpis z planu,
  * tylko to, co poszło ostatnim razem. Dwóch różnych reguł progresji w jednej aplikacji być nie może.
  */
 export function decideProgression(work: WorkDone): ProgressionCall | null {
   const { targetWeight, targetReps, targetSets, sets } = work;
-  if (targetWeight === null || targetWeight <= 0 || targetReps === null || targetReps <= 0) return null;
+  if (targetReps === null || targetReps <= 0) return null;
   if (sets.length === 0) return null;
 
   const completedReps = sets.map((set) => set.reps ?? 0);
@@ -138,6 +146,8 @@ export function decideProgression(work: WorkDone): ProgressionCall | null {
   const avgRpe = average(sets.map((set) => set.rpe).filter((rpe): rpe is number => rpe !== null));
   const base =
     heaviestComplete(sets, targetSets, targetReps) ?? attemptedWeight(sets, targetSets) ?? targetWeight;
+  // Ćwiczenie bez ciężaru w ogóle — pompki, podciąganie — nie ma czego podnosić.
+  if (base === null || base <= 0) return null;
   // Ciężar inny niż w planie trzeba nazwać wprost, bo samo „90 kg” przy planie na 80 wygląda
   // na usterkę, a nie na wniosek z ostatniego treningu.
   const onWeight = base === targetWeight ? '' : ` na ${formatKg(base)}`;
@@ -189,7 +199,7 @@ export function suggestProgression(performance: ExercisePerformance): Suggestion
     planExerciseId: performance.planExerciseId,
     exerciseId: performance.exerciseId,
     exerciseName: performance.exerciseName,
-    planWeight: performance.targetWeight as number,
+    planWeight: performance.targetWeight,
     ...call,
   };
 }
